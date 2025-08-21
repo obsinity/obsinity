@@ -1,0 +1,51 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.obsinity</groupId>
+  <artifactId>obsinity-bom</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>Obsinity :: BOM</name>
+
+  <properties>
+    <otel.api.version>1.53.0</otel.api.version>
+    <httpclient5.version>5.5</httpclient5.version>
+    <okhttp.version>5.1.0</okhttp.version>
+    <spring.framework.version>6.2.10</spring.framework.version>
+    <jackson.version>2.19.2</jackson.version>
+    <junit.jupiter.version>5.13.4</junit.jupiter.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- Internal artifacts -->
+      <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-api</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-core</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-transport-spi</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-transport-apache</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-transport-okhttp</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-transport-jdkhttp</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-transport-resttemplate</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-transport-webclient</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-logging-sink</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-testkit</artifactId><version>${project.version}</version></dependency>
+
+      <!-- Externals pinned here -->
+      <dependency><groupId>io.opentelemetry</groupId><artifactId>opentelemetry-api</artifactId><version>${otel.api.version}</version></dependency>
+      <dependency><groupId>org.apache.httpcomponents.client5</groupId><artifactId>httpclient5</artifactId><version>${httpclient5.version}</version></dependency>
+      <dependency><groupId>com.squareup.okhttp3</groupId><artifactId>okhttp</artifactId><version>${okhttp.version}</version></dependency>
+      <dependency><groupId>org.springframework</groupId><artifactId>spring-web</artifactId><version>${spring.framework.version}</version></dependency>
+      <dependency><groupId>org.springframework</groupId><artifactId>spring-webflux</artifactId><version>${spring.framework.version}</version></dependency>
+      <dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-databind</artifactId><version>${jackson.version}</version></dependency>
+
+      <!-- Test BOM -->
+      <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter</artifactId>
+        <version>${junit.jupiter.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+</project>
