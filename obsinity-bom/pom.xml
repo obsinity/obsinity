@@ -8,17 +8,29 @@
   <name>Obsinity :: BOM</name>
 
   <properties>
+    <!-- core libs -->
     <otel.api.version>1.53.0</otel.api.version>
+    <jackson.version>2.19.2</jackson.version>
+
+    <!-- http transports -->
     <httpclient5.version>5.3.1</httpclient5.version>
     <okhttp.version>4.12.0</okhttp.version>
+
+    <!-- spring framework -->
     <spring.framework.version>6.2.10</spring.framework.version>
-    <jackson.version>2.19.2</jackson.version>
+
+    <!-- storage stack -->
+    <hikari.version>5.1.0</hikari.version>
+    <flyway.version>10.17.3</flyway.version>
+    <postgres.version>42.7.4</postgres.version>
+
+    <!-- test -->
     <junit.jupiter.version>5.13.4</junit.jupiter.version>
   </properties>
 
   <dependencyManagement>
     <dependencies>
-      <!-- Internal artifacts -->
+      <!-- Internal artifacts (tie to reactor version) -->
       <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-api</artifactId><version>${project.version}</version></dependency>
       <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-core</artifactId><version>${project.version}</version></dependency>
       <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-transport-spi</artifactId><version>${project.version}</version></dependency>
@@ -30,13 +42,35 @@
       <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-logging-sink</artifactId><version>${project.version}</version></dependency>
       <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-testkit</artifactId><version>${project.version}</version></dependency>
 
+      <!-- NEW: server-side internal artifacts -->
+      <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-service-core</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-service-storage</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-controller-rest</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-controller-admin</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-controller-otlp</artifactId><version>${project.version}</version></dependency>
+      <!-- (reference app usually doesn’t need to be in BOM, but harmless if you add it)
+      <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-reference-service</artifactId><version>${project.version}</version></dependency>
+      -->
+
       <!-- Externals pinned here -->
       <dependency><groupId>io.opentelemetry</groupId><artifactId>opentelemetry-api</artifactId><version>${otel.api.version}</version></dependency>
+
+      <!-- HTTP clients -->
       <dependency><groupId>org.apache.httpcomponents.client5</groupId><artifactId>httpclient5</artifactId><version>${httpclient5.version}</version></dependency>
       <dependency><groupId>com.squareup.okhttp3</groupId><artifactId>okhttp</artifactId><version>${okhttp.version}</version></dependency>
+
+      <!-- Spring Framework (non-Boot) -->
       <dependency><groupId>org.springframework</groupId><artifactId>spring-web</artifactId><version>${spring.framework.version}</version></dependency>
       <dependency><groupId>org.springframework</groupId><artifactId>spring-webflux</artifactId><version>${spring.framework.version}</version></dependency>
+      <dependency><groupId>org.springframework</groupId><artifactId>spring-jdbc</artifactId><version>${spring.framework.version}</version></dependency>
+
+      <!-- Jackson -->
       <dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-databind</artifactId><version>${jackson.version}</version></dependency>
+
+      <!-- Storage stack -->
+      <dependency><groupId>com.zaxxer</groupId><artifactId>HikariCP</artifactId><version>${hikari.version}</version></dependency>
+      <dependency><groupId>org.flywaydb</groupId><artifactId>flyway-core</artifactId><version>${flyway.version}</version></dependency>
+      <dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId><version>${postgres.version}</version></dependency>
 
       <!-- Test BOM -->
       <dependency>
