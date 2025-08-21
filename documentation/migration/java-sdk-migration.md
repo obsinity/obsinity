@@ -1,15 +1,3 @@
-Great—your zip shows a clean split into a thin **client SDK** with transports, a tiny core, and demo/reference apps:
-
-* `obsinity-client-api` (annotations)
-* `obsinity-client-core` (context + client)
-* `obsinity-client-transport-spi` (+ concrete transports in separate modules)
-* `obsinity-client-logging-sink`
-* `obsinity-client-testkit`
-* `obsinity-reference-client(-spring)`
-* `obsinity-bom`
-
-Below is where the classes from the original `obsinity-*-sdk` tree should land. I’m grouping by role and naming representative classes you’ve used before (adjust names to your exact package):
-
 # Producer-side (client) — keep/move into this repo
 
 ### 1) Annotations (producer/emit side)
@@ -194,5 +182,3 @@ These belong in a **separate processing/receiver** repo (e.g., `obsinity-server`
 4. Put `StdoutEventSender` into logging-sink; `InMemoryEventSender` into testkit.
 5. Exclude all receiver/handler/dispatch classes from this repo; create/keep a separate **server** repo for them.
 6. (Optional) Add `obsinity-client-spring-boot-starter` if you want autoconfig/AOP for @Flow/@Step.
-
-If you paste a list of the exact original package names, I can produce a file-by-file move plan (old → new path) you can feed straight into a bulk-rename script.

@@ -1,5 +1,3 @@
-Short answer: don’t put **Chronograf** (server/ingest/aggregation) code into the **client** SDK modules from `obsinity.zip`. Create an **engine** area (either a new repo `obsinity-engine/` or sibling modules in the same multi‑module build). Then move Chronograf files into these modules:
-
 # Target module layout (add alongside your client modules)
 
 ```
@@ -157,5 +155,3 @@ Those are for **producer** (emit) only. Chronograf is **consumer/engine**.
 4. Convert raw SQL to Flyway in `-storage`.
 5. Split configs: AMQP → `-messaging`, MVC advice → `-web`, domain beans → `-service`.
 6. Wire `obsinity-engine-app` to depend on `web` and `messaging` (and transitively on `service`/`storage`/`api`).
-
-If you paste your Chronograf package tree (just the top-level packages under `net/theresnolimits/chronograf`), I’ll produce a **file-by-file move plan** (old path → new module/new package) you can run with `git mv` or an IDE refactor.
