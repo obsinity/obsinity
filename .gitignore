@@ -28,5 +28,10 @@ replay_pid*
 *.iml
 *.ipr
 *.iws
-*/out/
-*/target/
+
+# Build output (Maven/IDEs) — apply to all modules
+target/
+**/target/
+out/
+**/out/
+
