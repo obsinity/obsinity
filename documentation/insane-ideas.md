@@ -1,37 +1,43 @@
-# Obsinity Query Language (OB-SQL)
+# **Obsinity Query Language (OB-SQL)**
 
-**Developer + Implementer Guide (with OB-JQL + OB-Q Java API)**
-
----
-
-## 1) Overview
-
-OB-SQL is the query language for **Obsinity Engine** (events, counters, gauges, histograms, state transitions) operating on **pre-aggregated rollups** (`5s, 1m, 1h, 1d, 7d`).
-
-**Design points**
-
-* **Fixed rollups only** (no dynamic schema generation).
-* **WHERE = indexed only**; extra conditions go to `FILTER`.
-* **Tenancy**: `USE <schema>` per query. Roles grant schema access.
-* **Two modes**:
-
-  * Event search (raw rows).
-  * Aggregation (counters/gauges/histograms/state transitions).
-* **Security**: users/apps authenticate → roles → schema access.
+**Developer + Implementer Guide**
+*(with OB-JQL + OB-Q Java API)*
 
 ---
 
-## 2) Schemas, Roles & Authentication
+## 1. Overview
 
-**Schema = Tenant** → `USE schema_name;`
+OB-SQL is the query language for the **Obsinity Engine**, designed to query **pre-aggregated observability data** (events, counters, gauges, histograms, and state transitions).
 
-**Roles**
+### Key design goals
+
+* **Pre-calculated buckets**: OB-SQL queries work against pre-computed rollups (`5s, 1m, 1h, 1d, 7d`).
+* **Efficient filtering**: Only **indexed attributes** may appear in the `WHERE` clause. Additional filtering goes in `FILTER`.
+* **Tenant isolation**: Each tenant is a **schema**; queries must `USE schema`.
+* **Dual query modes**:
+
+  * **Event search** (`SELECT … FROM event`) → returns raw event records.
+  * **Aggregation** (`SELECT … FROM counter/gauge/histogram`) → returns bucketed values.
+* **Fixed rollups**: Queries may request any predefined rollup and the engine will aggregate upwards.
+* **Security model**: Users/apps authenticate via **SSL certs, API keys, or passwords**. Roles control schema access.
+
+---
+
+## 2. Schemas, Roles & Authentication
+
+* **Schema = Tenant** → `USE schema_name;`
+* **Roles** → grant schema access:
 
 ```sql
 GRANT USAGE ON SCHEMA finance TO role_analyst;
 ```
 
-**Users & Apps**
+* **Users** → belong to roles.
+
+  * Humans: username+password or API keys.
+  * Applications: SSL certificate (mTLS).
+
+**Example**
 
 ```sql
 CREATE ROLE analyst;
@@ -41,38 +47,199 @@ CREATE USER app_service WITH CERTIFICATE 'CN=app-service' IN ROLE analyst;
 
 ---
 
-## 3) Query Types (OB-SQL + OB-JQL)
+## 3. Query Types (OB-SQL + OB-JQL)
 
-For every OB-SQL example, an **OB-JQL** equivalent is shown.
+### 3.1 Event Search
 
-*(Examples omitted here for brevity — same as before, but now labelled OB-SQL instead of OBSQL. They map one-to-one with JSON as in the earlier draft.)*
+**OB-SQL**
+
+```sql
+USE finance;
+
+SELECT event_id, timestamp, user_id, status
+FROM ConsentStatusChange
+WHERE consent_id = 'abc123' AND status = 'ACTIVE'
+FILTER attributes->'region' = 'EU'
+OPTIONS (minMatch = 1, sortOrder = 'asc', limit = 50, daysBack = 7);
+```
+
+**OB-JQL**
+
+```json
+{
+  "use": "finance",
+  "select": ["event_id","timestamp","user_id","status"],
+  "from": "ConsentStatusChange",
+  "where": {
+    "and": [
+      { "field": "consent_id", "op": "eq", "value": "'abc123'", "indexed": true },
+      { "field": "status", "op": "eq", "value": "'ACTIVE'", "indexed": true }
+    ]
+  },
+  "filter": {
+    "and": [
+      { "path": ["attributes","region"], "op": "eq", "value": "'EU'" }
+    ]
+  },
+  "options": { "minMatch": 1, "sortOrder": "asc", "limit": 50, "daysBack": 7 }
+}
+```
 
 ---
 
-## 4) Interval vs Rollup
+### 3.2 Aggregation Queries
 
-* **USING ROLLUP** → one of `5s, 1m, 1h, 1d, 7d`.
-* **INTERVAL <duration>** → arbitrary size, **aggregations only**.
+#### Counters
+
+**OB-SQL**
+
+```sql
+USE finance;
+
+SELECT count(*)
+FROM api_request
+WHERE api_name IN ('create_project','create_transaction','get_account_balance')
+  AND http_status_code IN ('200','400','403','500')
+USING ROLLUP 30m
+BETWEEN '2025-04-04T00:00:00Z' AND '2025-07-20T23:59:59Z'
+TIMEZONE 'America/New_York'
+OPTIONS (offset = 0, limit = 100);
+```
+
+**OB-JQL**
+
+```json
+{
+  "use": "finance",
+  "select": [{ "agg": "count", "target": "*" }],
+  "from": "api_request",
+  "where": {
+    "and": [
+      { "field": "api_name", "op": "in", "value": ["'create_project'","'create_transaction'","'get_account_balance'"], "indexed": true },
+      { "field": "http_status_code", "op": "in", "value": ["'200'","'400'","'403'","'500'"], "indexed": true }
+    ]
+  },
+  "rollup": "30m",
+  "between": { "from": "2025-04-04T00:00:00Z", "to": "2025-07-20T23:59:59Z" },
+  "timezone": "America/New_York",
+  "options": { "offset": 0, "limit": 100 }
+}
+```
 
 ---
 
-## 5) Response Shapes
+#### Gauges
 
-* **HAL-style** (`data`, `_links`, pagination).
-* **Flat rows** (UI integration).
+**OB-SQL**
+
+```sql
+USE finance;
+
+SELECT gauge(balance)
+FROM account_balance
+WHERE account_id = 'xyz'
+USING ROLLUP 1h
+BETWEEN '2025-07-01T00:00:00Z' AND '2025-07-05T00:00:00Z';
+```
+
+**OB-JQL**
+
+```json
+{
+  "use": "finance",
+  "select": [{ "agg": "gauge", "target": "balance" }],
+  "from": "account_balance",
+  "where": { "and": [ { "field": "account_id", "op": "eq", "value": "'xyz'", "indexed": true } ] },
+  "rollup": "1h",
+  "between": { "from": "2025-07-01T00:00:00Z", "to": "2025-07-05T00:00:00Z" }
+}
+```
 
 ---
 
-## 6) Implementer Notes
+#### Histograms
 
-* Pre-created rollups only.
-* **WHERE** = indexed fields, enforced by planner.
-* **FILTER** = non-indexed, post-retrieval.
-* **Planner** selects minimal rollup and up-aggregates.
+**OB-SQL**
+
+```sql
+USE finance;
+
+SELECT histogram(duration_ms)
+FROM api_latency
+WHERE api_name = 'get_account_balance'
+INTERVAL 1h
+BETWEEN '2025-07-01T00:00:00Z' AND '2025-07-02T00:00:00Z';
+```
+
+**OB-JQL**
+
+```json
+{
+  "use": "finance",
+  "select": [{ "agg": "histogram", "target": "duration_ms" }],
+  "from": "api_latency",
+  "where": { "and": [ { "field": "api_name", "op": "eq", "value": "'get_account_balance'", "indexed": true } ] },
+  "interval": "1h",
+  "between": { "from": "2025-07-01T00:00:00Z", "to": "2025-07-02T00:00:00Z" }
+}
+```
 
 ---
 
-## 7) Grammar (Simplified)
+#### State Transitions
+
+**OB-SQL**
+
+```sql
+USE finance;
+
+SELECT state_transition(consent_status)
+FROM ConsentStatusChange
+WHERE consent_id = 'abc123'
+USING ROLLUP 1d
+BETWEEN '2025-07-01T00:00:00Z' AND '2025-07-05T00:00:00Z';
+```
+
+**OB-JQL**
+
+```json
+{
+  "use": "finance",
+  "select": [{ "agg": "state_transition", "target": "consent_status" }],
+  "from": "ConsentStatusChange",
+  "where": { "and": [ { "field": "consent_id", "op": "eq", "value": "'abc123'", "indexed": true } ] },
+  "rollup": "1d",
+  "between": { "from": "2025-07-01T00:00:00Z", "to": "2025-07-05T00:00:00Z" }
+}
+```
+
+---
+
+## 4. Interval vs Rollup
+
+* **ROLLUP** → fixed buckets (`5s, 1m, 1h, 1d, 7d`).
+* **INTERVAL** → arbitrary duration (aggregations only). Exact if aligned to rollups, otherwise approximate.
+
+---
+
+## 5. Response Shapes
+
+* Always wrapped in `data`.
+* HAL style `_links` for pagination.
+* Tabular rows for UI.
+
+---
+
+## 6. Security & Access
+
+* Tenancy by schema.
+* Roles grant schema usage.
+* Auth via password, API key, or mTLS.
+* Full audit logging.
+
+---
+
+## 7. Grammar (Simplified)
 
 ```ebnf
 select_stmt  ::= "SELECT" select_list
@@ -88,153 +255,124 @@ select_stmt  ::= "SELECT" select_list
 
 ---
 
-## 8) OB-JQL (Canonical JSON)
+## 8. OB-JQL (Canonical JSON)
 
-*(Same as before: canonical JSON form with keys: `use`, `select`, `from`, `where`, `filter`, `rollup`, `interval`, `between`, `timezone`, `options`).*
+### Top-level keys
 
----
+* `use` — schema
+* `select` — fields and/or aggregates
+* `from` — source
+* `where` — indexed-only predicates
+* `filter` — additional conditions
+* `rollup` / `interval` — one or the other for aggregations
+* `between` — time bounds
+* `timezone` — IANA zone
+* `options` — pagination, minMatch, etc.
 
-## 9) OB-Q (Criteria Creator, Java)
+### Boolean & Should
 
-### 9.1) Java Interfaces
-
-```java
-package com.obsinity.query;
-
-import java.util.*;
-
-public final class OBQ {
-    private String use;
-    private List<Select> select = new ArrayList<>();
-    private String from;
-    private Condition where;
-    private Condition filter;
-    private String rollup;
-    private String interval;
-    private Range between;
-    private String timezone;
-    private Options options;
-
-    // --- Nested types ---
-    public record Select(String agg, String target) {}  // e.g. ("count", "*") or ("histogram", "duration_ms")
-
-    public sealed interface Condition permits Predicate, Bool {}
-
-    public record Predicate(String field, String op, Object value, boolean indexed) implements Condition {}
-    public record PathPredicate(List<String> path, String op, Object value) implements Condition {}
-
-    public record Bool(String type, List<Condition> conditions) implements Condition {
-        // type = "and" | "or" | "not"
-    }
-
-    public record Range(String from, String to) {}
-    public record Options(Integer minMatch, String sortOrder, Integer limit, Integer offset, Integer daysBack) {}
-
-    // getters/setters/builder methods omitted for brevity
-}
-```
-
-### 9.2) Builders
-
-```java
-public final class OBQBuilder {
-    private final OBQ q = new OBQ();
-
-    public static OBQBuilder use(String schema) {
-        OBQBuilder b = new OBQBuilder();
-        b.q.setUse(schema);
-        return b;
-    }
-
-    public OBQBuilder select(String field) {
-        q.getSelect().add(new OBQ.Select(null, field));
-        return this;
-    }
-
-    public OBQBuilder selectAgg(String agg, String target) {
-        q.getSelect().add(new OBQ.Select(agg, target));
-        return this;
-    }
-
-    public OBQBuilder from(String src) {
-        q.setFrom(src);
-        return this;
-    }
-
-    public OBQBuilder where(OBQ.Condition c) {
-        q.setWhere(c);
-        return this;
-    }
-
-    public OBQBuilder filter(OBQ.Condition c) {
-        q.setFilter(c);
-        return this;
-    }
-
-    public OBQBuilder rollup(String r) {
-        q.setRollup(r);
-        return this;
-    }
-
-    public OBQBuilder interval(String i) {
-        q.setInterval(i);
-        return this;
-    }
-
-    public OBQBuilder between(String from, String to) {
-        q.setBetween(new OBQ.Range(from, to));
-        return this;
-    }
-
-    public OBQBuilder timezone(String tz) {
-        q.setTimezone(tz);
-        return this;
-    }
-
-    public OBQBuilder options(OBQ.Options opts) {
-        q.setOptions(opts);
-        return this;
-    }
-
-    public OBQ build() { return q; }
-}
-```
-
-### 9.3) Emitters
-
-* **To OB-SQL (string)**
-  Walk the `OBQ` object, render `SELECT … FROM …` with clauses.
-  Enforce:
-
-  * `where` predicates must have `indexed = true`.
-  * aggregations require `rollup` or `interval`.
-
-* **To OB-JQL (JSON)**
-  Serialize `OBQ` → JSON (Jackson/Gson/etc).
-
-```java
-public interface OBQEmitter {
-    String toOBSQL(OBQ query);
-    String toOBJQL(OBQ query); // JSON string
-}
+```json
+{ "and": [ ... ] }
+{ "or":  [ ... ] }
+{ "not": { ... } }
+{ "should": { "minMatch": 2, "conditions": [ ... ] } }
 ```
 
 ---
 
-## 10) Example (Java → OB-SQL & OB-JQL)
+## 9. OB-Q (Java Criteria Builder)
+
+The **Java DSL** ensures:
+
+* **Strings auto-quoted & escaped**.
+* **Numbers unquoted**.
+* **WHERE predicates always `indexed=true`**.
+* Builder prevents invalid combos (e.g., interval on raw event queries).
+
+**Key Helpers**
+
+* `eq`, `ne`, `gt/gte/lt/lte`, `in`, `nin`, `prefix`, `like`.
+* Boolean: `and`, `or`, `not`, `should(minMatch, ...)`.
+* Aggregates: `count()`, `gauge(field)`, `histogram(field, params)`, `stateTransition(field)`.
+
+---
+
+## 10. Examples with OR vs minMatch
+
+### Explicit OR
+
+**Java**
 
 ```java
 OBQ q = OBQBuilder.use("finance")
-    .select("event_id").select("timestamp").select("user_id").select("status")
-    .from("ConsentStatusChange")
-    .where(new OBQ.Bool("and", List.of(
-        new OBQ.Predicate("consent_id","eq","abc123",true),
-        new OBQ.Predicate("status","eq","ACTIVE",true)
-    )))
-    .filter(new OBQ.PathPredicate(List.of("attributes","region"),"eq","EU"))
-    .options(new OBQ.Options(1,"asc",50,null,7))
-    .build();
-
-String sql = emitter.toOBSQL(q);   // → OB-SQL string
-String jql = emitter.toOBJQL(q);   // → OB-JQL JSON
+  .select("event_id").select("timestamp")
+  .from("api_request")
+  .where(OBQBuilder.or(
+      OBQBuilder.eq("http_status_code", "500"),
+      OBQBuilder.eq("http_status_code", "503")
+  ))
+  .filter(OBQBuilder.filterEq(List.of("attributes","region"), "EU"))
+  .options(new OBQ.Options(null, "desc", 100, 0, 7))
+  .build();
 ```
+
+**OB-SQL**
+
+```sql
+USE finance;
+
+SELECT event_id, timestamp
+FROM api_request
+WHERE (http_status_code = '500' OR http_status_code = '503')
+FILTER attributes->'region' = 'EU'
+OPTIONS (sortOrder = 'desc', limit = 100, offset = 0, daysBack = 7);
+```
+
+---
+
+### SHOULD + minMatch
+
+**Java**
+
+```java
+OBQ q = OBQBuilder.use("finance")
+  .select("event_id").select("timestamp")
+  .from("api_request")
+  .where(OBQBuilder.and(
+      OBQBuilder.eq("api_name", "get_account_balance"),
+      OBQBuilder.should(2,
+          OBQBuilder.eq("http_status_code","200"),
+          OBQBuilder.eq("region_code","EU"),
+          OBQBuilder.prefix("user_id","svc-")
+      )
+  ))
+  .options(new OBQ.Options(2, "asc", 50, 0, 7))
+  .build();
+```
+
+**OB-SQL**
+
+```sql
+USE finance;
+
+SELECT event_id, timestamp
+FROM api_request
+WHERE api_name = 'get_account_balance'
+  AND (http_status_code = '200' OR region_code = 'EU' OR user_id LIKE 'svc-%')
+OPTIONS (minMatch = 2, sortOrder = 'asc', limit = 50, offset = 0, daysBack = 7);
+```
+
+---
+
+## 11. Implementer Notes
+
+* **Rollups** pre-created: `5s, 1m, 1h, 1d, 7d`.
+* **Planner** enforces indexed fields in WHERE.
+* **FILTER** executes post-retrieval.
+* **minMatch** applies across a set of should-conditions, not the same as OR.
+* **Emitters**:
+
+  * OB-SQL emitter just assembles tokens.
+  * Builder enforces quoting, escaping, validation.
+
+---
