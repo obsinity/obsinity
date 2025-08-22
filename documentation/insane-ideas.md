@@ -7,46 +7,121 @@
 
 ## 1) Overview
 
-OB‑SQL is the query language for **Obsinity Engine**, querying **pre‑aggregated observability data** (events, counters, gauges, histograms, state transitions).
+OB‑SQL queries **pre‑aggregated observability data** (events, counters, gauges, histograms, state transitions) on fixed rollups: `5s, 1m, 1h, 1d, 7d`.
 
-### Design goals
+**Principles**
 
-* **Fixed rollups**: `5s, 1m, 1h, 1d, 7d`.
-* **WHERE = indexed** fields only; extra conditions go to `FILTER`.
+* **WHERE**: only **indexed fields**.
+* **FILTER**: additional predicates on **attributes‑relative** paths (post‑index).
+* **Aggregation**: requires **`USING ROLLUP`** or **`INTERVAL`** (arbitrary duration).
 * **Tenancy**: `USE <schema>`; roles grant schema access.
-* **Modes**: raw event search vs. aggregation (counter/gauge/histogram/state transitions).
-* **Security**: password/API key/mTLS; roles → schema permissions.
-* **Consistency**: canonical JSON form (**OB‑JQL**) and a Java criteria builder (**OB‑Q**) that can render both.
+* **Safety**: Java **OB‑Q builder** quotes strings & validates; emitters are deterministic stringifiers.
 
 ---
 
-## 2) Schemas, Roles & Authentication
+## 2) OB‑SQL Essentials
 
-**Schema = Tenant**
+### 2.1 Clauses
 
-```sql
-USE finance;
+* `USE <schema>;`
+* `SELECT … FROM <source>`
+* `WHERE <indexed conditions>`
+* `FILTER <attributes‑relative conditions>`
+* `USING ROLLUP <5s|1m|1h|1d|7d>` **or** `INTERVAL <duration>` *(aggregations only)*
+* `BETWEEN '<from‑iso>' AND '<to‑iso>'`
+* `TIMEZONE '<IANA/Zone>'`
+* `OPTIONS (sortOrder = 'asc|desc', limit = N, offset = N, daysBack = N)`
+
+### 2.2 Predicates
+
+**Field predicates (WHERE):**
+
+```
+field = 'x' | <> | > | >= | < | <= | IN (...) | NOT IN (...) | LIKE 'pattern' | NOT LIKE 'pattern'
 ```
 
-**Grant schema usage**
+**Path predicates (FILTER, attributes‑relative):**
 
-```sql
-GRANT USAGE ON SCHEMA finance TO role_analyst;
+```
+attributes->'k1'->'k2' = 'x' | ... | IN (...) | LIKE 'pattern'
 ```
 
-**Users & apps**
+**MATCHES (NEW): at least N sub‑conditions must hold**
 
 ```sql
-CREATE ROLE analyst;
-CREATE USER alice WITH PASSWORD 's3cr3t' IN ROLE analyst;
-CREATE USER app_service WITH CERTIFICATE 'CN=app-service' IN ROLE analyst;
+MATCHES <N> OF (
+  <predicate-or-boolean>,
+  <predicate-or-boolean>,
+  ...
+)
 ```
+
+* Allowed in `WHERE` (sub‑conditions must be **indexed** field predicates / boolean compositions of them)
+  or in `FILTER` (sub‑conditions must be **attributes‑relative** path predicates / boolean comps).
 
 ---
 
-## 3) Query Types (OB‑SQL + OB‑JQL)
+## 3) OB‑JQL (Canonical JSON)
 
-### 3.1 Event Search
+### 3.1 Top‑level
+
+```json
+{
+  "use": "schema",
+  "select": [
+    "field",
+    { "agg": "count|gauge|histogram|state_transition", "target": "field|*", "params": {} }
+  ],
+  "from": "source",
+  "where": { /* Bool | FieldPredicate | Matches */ },
+  "filter": { /* Bool | PathPredicate | Matches */ },
+  "rollup": "5s|1m|1h|1d|7d",
+  "interval": "duration",
+  "between": { "from": "ISO-8601", "to": "ISO-8601" },
+  "timezone": "IANA/Zone",
+  "options": { "sortOrder": "asc|desc", "limit": 100, "offset": 0, "daysBack": 7 }
+}
+```
+
+### 3.2 Predicates
+
+**Field (WHERE):**
+
+```json
+{ "field": "api_name", "op": "eq|ne|gt|gte|lt|lte|in|nin|like|prefix", "value": "'…'", "indexed": true }
+```
+
+**Path (FILTER, attributes‑relative):**
+
+```json
+{ "path": ["region"], "op": "eq|ne|in|nin|like|prefix", "value": "'EU'" }
+```
+
+**Boolean:**
+
+```json
+{ "and": [ /* conditions */ ] }
+{ "or":  [ /* conditions */ ] }
+{ "not": { /* condition  */ ] }
+```
+
+**MATCHES:**
+
+```json
+{ "matches": { "require": 2, "conditions": [ /* conditions */ ] } }
+```
+
+**Rules**
+
+* `where` must contain **indexed** field predicates (including inside `matches`).
+* `filter` uses **path** predicates (attributes‑relative) and may include `matches`.
+* Aggregations: exactly one of `rollup` or `interval`.
+
+---
+
+## 4) OB‑SQL ⇄ OB‑JQL Examples
+
+### 4.1 Event search (basic)
 
 **OB‑SQL**
 
@@ -57,7 +132,7 @@ SELECT event_id, timestamp, user_id, status
 FROM ConsentStatusChange
 WHERE consent_id = 'abc123' AND status = 'ACTIVE'
 FILTER attributes->'region' = 'EU'
-OPTIONS (minMatch = 1, sortOrder = 'asc', limit = 50, daysBack = 7);
+OPTIONS (sortOrder = 'asc', limit = 50, daysBack = 7);
 ```
 
 **OB‑JQL**
@@ -73,20 +148,58 @@ OPTIONS (minMatch = 1, sortOrder = 'asc', limit = 50, daysBack = 7);
       { "field": "status", "op": "eq", "value": "'ACTIVE'", "indexed": true }
     ]
   },
-  "filter": {
-    "and": [
-      { "path": ["region"], "op": "eq", "value": "'EU'" }
-    ]
-  },
-  "options": { "minMatch": 1, "sortOrder": "asc", "limit": 50, "daysBack": 7 }
+  "filter": { "and": [ { "path": ["region"], "op": "eq", "value": "'EU'" } ] },
+  "options": { "sortOrder": "asc", "limit": 50, "daysBack": 7 }
 }
 ```
 
 ---
 
-### 3.2 Aggregations
+### 4.2 Event search with **MATCHES** (replaces OR+minMatch)
 
-#### Counters
+**OB‑SQL**
+
+```sql
+USE finance;
+
+SELECT event_id, timestamp
+FROM api_request
+WHERE api_name = 'get_account_balance'
+  AND MATCHES 2 OF (
+    http_status_code = '200',
+    region_code = 'EU',
+    user_id LIKE 'svc-%'
+  )
+OPTIONS (sortOrder = 'asc', limit = 50, offset = 0, daysBack = 7);
+```
+
+**OB‑JQL**
+
+```json
+{
+  "use": "finance",
+  "select": ["event_id","timestamp"],
+  "from": "api_request",
+  "where": {
+    "and": [
+      { "field": "api_name", "op": "eq", "value": "'get_account_balance'", "indexed": true },
+      { "matches": {
+        "require": 2,
+        "conditions": [
+          { "field": "http_status_code", "op": "eq", "value": "'200'", "indexed": true },
+          { "field": "region_code", "op": "eq", "value": "'EU'", "indexed": true },
+          { "field": "user_id", "op": "prefix", "value": "'svc-'", "indexed": true }
+        ]
+      }}
+    ]
+  },
+  "options": { "sortOrder": "asc", "limit": 50, "offset": 0, "daysBack": 7 }
+}
+```
+
+---
+
+### 4.3 Counters
 
 **OB‑SQL**
 
@@ -125,7 +238,7 @@ OPTIONS (offset = 0, limit = 100);
 
 ---
 
-#### Gauges
+### 4.4 Gauges
 
 **OB‑SQL**
 
@@ -154,7 +267,7 @@ BETWEEN '2025-07-01T00:00:00Z' AND '2025-07-05T00:00:00Z';
 
 ---
 
-#### Histograms
+### 4.5 Histograms (with params)
 
 **OB‑SQL**
 
@@ -164,7 +277,7 @@ USE finance;
 SELECT histogram(duration_ms)
 FROM api_latency
 WHERE api_name = 'get_account_balance'
-INTERVAL 1h
+USING ROLLUP 1h
 BETWEEN '2025-07-01T00:00:00Z' AND '2025-07-02T00:00:00Z';
 ```
 
@@ -173,17 +286,17 @@ BETWEEN '2025-07-01T00:00:00Z' AND '2025-07-02T00:00:00Z';
 ```json
 {
   "use": "finance",
-  "select": [{ "agg": "histogram", "target": "duration_ms" }],
+  "select": [{ "agg": "histogram", "target": "duration_ms", "params": { "buckets": [50,100,500] } }],
   "from": "api_latency",
   "where": { "and": [ { "field": "api_name", "op": "eq", "value": "'get_account_balance'", "indexed": true } ] },
-  "interval": "1h",
+  "rollup": "1h",
   "between": { "from": "2025-07-01T00:00:00Z", "to": "2025-07-02T00:00:00Z" }
 }
 ```
 
 ---
 
-#### State Transitions
+### 4.6 State transitions
 
 **OB‑SQL**
 
@@ -212,117 +325,107 @@ BETWEEN '2025-07-01T00:00:00Z' AND '2025-07-05T00:00:00Z';
 
 ---
 
-## 4) Interval vs Rollup
+### 4.7 INTERVAL (arbitrary aggregation)
 
-* **USING ROLLUP** → fixed buckets, fast path.
-* **INTERVAL** → arbitrary duration for aggregations only; exact if aligned to rollups, else approximated.
+**OB‑SQL**
 
----
+```sql
+USE finance;
 
-## 5) Response Shapes
+SELECT count(*)
+FROM api_request
+WHERE api_name = 'create_project'
+INTERVAL 37m
+BETWEEN '2025-07-01T00:00:00Z' AND '2025-07-01T12:00:00Z';
+```
 
-**HAL‑like**
-
-* `data`, `_links`, `offset/limit/total`.
-
-**Tabular**
+**OB‑JQL**
 
 ```json
 {
-  "data": {
-    "rows": [
-      ["2025-07-01T00:00:00Z","create_project","200",12]
-    ],
-    "columns": ["from","api_name","http_status_code","count"]
-  }
+  "use": "finance",
+  "select": [{ "agg": "count", "target": "*" }],
+  "from": "api_request",
+  "where": { "and": [ { "field": "api_name", "op": "eq", "value": "'create_project'", "indexed": true } ] },
+  "interval": "37m",
+  "between": { "from": "2025-07-01T00:00:00Z", "to": "2025-07-01T12:00:00Z" }
 }
 ```
 
 ---
 
-## 6) OB‑JQL (Canonical JSON)
+## 5) Grammar (simplified)
 
-### Top‑level
+```ebnf
+select_stmt  ::= "SELECT" select_list
+                 "FROM" source
+                 where_clause?
+                 filter_clause?
+                 rollup_clause?
+                 interval_clause?
+                 between_clause?
+                 timezone_clause?
+                 options_clause?
 
-```json
-{
-  "use": "schema",
-  "select": [
-    "fieldName",
-    { "agg": "count|gauge|histogram|state_transition", "target": "field|*", "params": { } }
-  ],
-  "from": "sourceName",
-  "where": { /* Bool / Predicates (indexed only) */ },
-  "filter": { /* Bool / PathPredicates (attributes-relative) */ },
-  "rollup": "5s|1m|1h|1d|7d",
-  "interval": "duration",
-  "between": { "from": "ISO-8601", "to": "ISO-8601" },
-  "timezone": "IANA/Zone",
-  "options": { "minMatch": 1, "sortOrder": "asc|desc", "limit": 100, "offset": 0, "daysBack": 7 }
-}
+where_clause   ::= "WHERE" condition
+filter_clause  ::= "FILTER" condition
+
+condition      ::= predicate
+                 | "(" condition ")"
+                 | condition "AND" condition
+                 | condition "OR"  condition
+                 | "NOT" condition
+                 | matches
+
+matches        ::= "MATCHES" integer "OF" "(" condition_list ")"
+condition_list ::= condition ("," condition)*
+
+predicate      ::= field_pred | path_pred
+
+field_pred     ::= field cmp value
+                 | field "IN" "(" value_list ")"
+                 | field "NOT" "IN" "(" value_list ")"
+                 | field "LIKE" value
+                 | field "NOT" "LIKE" value
+cmp            ::= "=" | "<>" | ">" | ">=" | "<" | "<="
+
+path_pred      ::= attributes_path cmp value
+                 | attributes_path "IN" "(" value_list ")"
+                 | attributes_path "NOT" "IN" "(" value_list ")"
+                 | attributes_path "LIKE" value
+
+attributes_path::= "attributes->'" key "'"
+                 | attributes_path "->'" key "'"
 ```
-
-### Predicates
-
-* **Field (WHERE)**
-
-```json
-{ "field": "api_name", "op": "in", "value": ["'create'","'get'"], "indexed": true }
-```
-
-* **Path (FILTER, attributes‑relative)**
-
-```json
-{ "path": ["region"], "op": "eq", "value": "'EU'" }
-{ "path": ["geo","country"], "op": "eq", "value": "'IE'" }
-```
-
-### Boolean + Should / minMatch
-
-```json
-{ "and": [ ... ] }
-{ "or":  [ ... ] }
-{ "not": { ... } }
-{ "should": { "minMatch": 2, "conditions": [ ... ] } }
-```
-
-**Semantics**
-
-* **OR**: normal boolean OR.
-* **should + minMatch**: at least **K** of the listed conditions must be true in the same row/bucket (not equivalent to plain OR).
 
 ---
 
-## 7) OB‑Q (Java Criteria Builder / DSL)
+## 6) OB‑Q (Java) — Model & Builder
 
-* Ensures **strings are quoted/escaped**, numbers unquoted.
-* **WHERE** predicates always `indexed=true`.
-* Enforces aggregation rules (rollup XOR interval).
-* FILTER **paths are attributes‑relative** (do **not** include `"attributes"`).
+> The builder **quotes/escapes strings**, leaves numbers unquoted, marks WHERE field predicates as `indexed=true`, and enforces aggregation rules.
 
-### Java Model + Builders (condensed for doc)
+### 6.1 Model
 
 ```java
 package com.obsinity.query;
 
 import java.util.*;
-import static java.util.Arrays.asList;
 
 public final class OBQ {
     private String use;
     private List<Select> select = new ArrayList<>();
     private String from;
     private Condition where;   // indexed only
-    private Condition filter;  // post-index, attributes-relative paths
+    private Condition filter;  // attributes-relative
     private String rollup;
     private String interval;
     private Range between;
     private String timezone;
     private Options options;
 
-    /* ----- Types ----- */
+    /* --- Types --- */
     public static final class Select {
-        public final String agg;     // null for field
+        public final String agg;     // null = plain field
         public final String target;  // field or "*"
         public final Map<String,Object> params;
         public Select(String agg, String target) { this(agg, target, Map.of()); }
@@ -331,9 +434,9 @@ public final class OBQ {
         }
     }
 
-    public sealed interface Condition permits Predicate, PathPredicate, Bool, ShouldGroup {}
+    public sealed interface Condition permits Predicate, PathPredicate, Bool, MatchesGroup {}
 
-    /** Field predicate (WHERE). */
+    /** WHERE field predicate (indexed) */
     public static final class Predicate implements Condition {
         public final String field, op; public final Object value; public final boolean indexed;
         public Predicate(String field, String op, Object value, boolean indexed) {
@@ -341,7 +444,7 @@ public final class OBQ {
         }
     }
 
-    /** Path predicate for FILTER; path is attributes-relative (e.g., ["region"], ["geo","country"]). */
+    /** FILTER path predicate (attributes-relative) */
     public static final class PathPredicate implements Condition {
         public final List<String> path; public final String op; public final Object value;
         public PathPredicate(List<String> path, String op, Object value) {
@@ -349,33 +452,42 @@ public final class OBQ {
         }
     }
 
-    /** AND/OR/NOT */
+    /** Boolean group */
     public static final class Bool implements Condition {
-        public final String type; public final List<Condition> conditions;
-        public Bool(String type, List<Condition> conditions) { this.type = type; this.conditions = conditions; }
-    }
-
-    /** SHOULD with minMatch */
-    public static final class ShouldGroup implements Condition {
-        public final int minMatch; public final List<Condition> conditions;
-        public ShouldGroup(int minMatch, List<Condition> conditions) { this.minMatch = minMatch; this.conditions = conditions; }
-    }
-
-    public static final class Range { public final String from,to; public Range(String f,String t){from=f;to=t;} }
-    public static final class Options {
-        public final Integer minMatch, limit, offset, daysBack; public final String sortOrder;
-        public Options(Integer minMatch, String sortOrder, Integer limit, Integer offset, Integer daysBack){
-            this.minMatch=minMatch; this.sortOrder=sortOrder; this.limit=limit; this.offset=offset; this.daysBack=daysBack;
+        public final String type; // "and"|"or"|"not"
+        public final List<Condition> conditions;
+        public Bool(String type, List<Condition> conditions) {
+            this.type = type; this.conditions = conditions;
         }
     }
 
+    /** MATCHES group */
+    public static final class MatchesGroup implements Condition {
+        public final int require; public final List<Condition> conditions;
+        public MatchesGroup(int require, List<Condition> conditions) {
+            this.require = require; this.conditions = conditions;
+        }
+    }
+
+    public record Range(String from, String to) {}
+    public record Options(String sortOrder, Integer limit, Integer offset, Integer daysBack) {}
+
     /* getters/setters omitted for brevity */
 }
+```
+
+### 6.2 Builder (helpers + quoting)
+
+```java
+package com.obsinity.query;
+
+import java.util.*;
+import static java.util.Arrays.asList;
 
 public final class OBQBuilder {
     private final OBQ q = new OBQ();
 
-    public static OBQBuilder use(String schema){ var b=new OBQBuilder(); b.q.setUse(schema); return b; }
+    public static OBQBuilder use(String schema){ var b = new OBQBuilder(); b.q.setUse(schema); return b; }
     public OBQBuilder from(String src){ q.setFrom(src); return this; }
     public OBQBuilder select(String field){ q.getSelect().add(new OBQ.Select(null, field)); return this; }
     public OBQBuilder count(){ q.getSelect().add(new OBQ.Select("count","*")); return this; }
@@ -387,16 +499,18 @@ public final class OBQBuilder {
     public OBQBuilder filter(OBQ.Condition c){ q.setFilter(c); return this; }
     public OBQBuilder rollup(String r){ q.setRollup(r); return this; }
     public OBQBuilder interval(String i){ q.setInterval(i); return this; }
-    public OBQBuilder between(String from, String to){ q.setBetween(new OBQ.Range(from,to)); return this; }
+    public OBQBuilder between(String from, String to){ q.setBetween(new OBQ.Range(from, to)); return this; }
     public OBQBuilder timezone(String tz){ q.setTimezone(tz); return this; }
-    public OBQBuilder options(OBQ.Options o){ q.setOptions(o); return this; }
+    public OBQBuilder options(String sortOrder, Integer limit, Integer offset, Integer daysBack){
+        q.setOptions(new OBQ.Options(sortOrder, limit, offset, daysBack)); return this;
+    }
     public OBQ build(){ return q; }
 
     /* Boolean helpers */
     public static OBQ.Condition and(OBQ.Condition... cs){ return new OBQ.Bool("and", asList(cs)); }
     public static OBQ.Condition or (OBQ.Condition... cs){ return new OBQ.Bool("or",  asList(cs)); }
     public static OBQ.Condition not(OBQ.Condition c){ return new OBQ.Bool("not", List.of(c)); }
-    public static OBQ.Condition should(int minMatch, OBQ.Condition... cs){ return new OBQ.ShouldGroup(minMatch, asList(cs)); }
+    public static OBQ.Condition matches(int require, OBQ.Condition... cs){ return new OBQ.MatchesGroup(require, asList(cs)); }
 
     /* WHERE (indexed) */
     public static OBQ.Predicate eq(String f, String v){ return new OBQ.Predicate(f,"eq",  quote(v), true); }
@@ -410,7 +524,7 @@ public final class OBQBuilder {
     public static OBQ.Predicate prefix(String f,String v){ return new OBQ.Predicate(f,"prefix", quote(v), true); }
     public static OBQ.Predicate like(String f,  String v){ return new OBQ.Predicate(f,"like",   quote(v), true); }
 
-    /* FILTER (attributes-relative paths) */
+    /* FILTER (attributes‑relative paths) */
     public static OBQ.PathPredicate filterEq (List<String> path, String v){ return new OBQ.PathPredicate(path,"eq",  quote(v)); }
     public static OBQ.PathPredicate filterNe (List<String> path, String v){ return new OBQ.PathPredicate(path,"ne",  quote(v)); }
     public static OBQ.PathPredicate filterIn (List<String> path, List<String> vs){ return new OBQ.PathPredicate(path,"in",  quoteAll(vs)); }
@@ -430,9 +544,9 @@ public final class OBQBuilder {
 
 ---
 
-## 8) Reference Emitters (OB‑SQL + OB‑JQL)
+## 7) Reference Emitters
 
-**Tweaked** to render FILTER paths as `attributes->'k1'->'k2'` with **attributes-relative** paths.
+### 7.1 OB‑SQL & OB‑JQL Emitter (full source)
 
 ```java
 package com.obsinity.query.emit;
@@ -447,6 +561,8 @@ import java.util.stream.Collectors;
 public final class OBQEmitter {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    /* ===== Public API ===== */
 
     public String toOBSQL(OBQ q) {
         validate(q);
@@ -521,19 +637,33 @@ public final class OBQEmitter {
                 throw new IllegalArgumentException("Raw event queries must not specify rollup or interval");
         }
 
-        if (q.getWhere() != null) assertIndexedOnly(q.getWhere());
+        if (q.getWhere() != null) assertWhereIndexed(q.getWhere());
+        if (q.getFilter() != null) assertFilterPaths(q.getFilter());
     }
 
-    private void assertIndexedOnly(OBQ.Condition c) {
+    private void assertWhereIndexed(OBQ.Condition c) {
         if (c instanceof OBQ.Predicate p) {
             if (!p.indexed) throw new IllegalArgumentException("WHERE contains non‑indexed field: " + p.field);
         } else if (c instanceof OBQ.PathPredicate) {
             throw new IllegalArgumentException("PathPredicate not allowed in WHERE (use FILTER)");
         } else if (c instanceof OBQ.Bool b) {
-            for (OBQ.Condition child : b.conditions) assertIndexedOnly(child);
-        } else if (c instanceof OBQ.ShouldGroup sg) {
-            for (OBQ.Condition child : sg.conditions) assertIndexedOnly(child);
-            if (sg.minMatch < 1) throw new IllegalArgumentException("ShouldGroup.minMatch must be >= 1");
+            for (OBQ.Condition child : b.conditions) assertWhereIndexed(child);
+        } else if (c instanceof OBQ.MatchesGroup mg) {
+            if (mg.require < 1) throw new IllegalArgumentException("MATCHES require must be >= 1");
+            for (OBQ.Condition child : mg.conditions) assertWhereIndexed(child);
+        }
+    }
+
+    private void assertFilterPaths(OBQ.Condition c) {
+        if (c instanceof OBQ.Predicate) {
+            throw new IllegalArgumentException("Field predicate not allowed in FILTER (use path)");
+        } else if (c instanceof OBQ.PathPredicate) {
+            // ok
+        } else if (c instanceof OBQ.Bool b) {
+            for (OBQ.Condition child : b.conditions) assertFilterPaths(child);
+        } else if (c instanceof OBQ.MatchesGroup mg) {
+            if (mg.require < 1) throw new IllegalArgumentException("MATCHES require must be >= 1");
+            for (OBQ.Condition child : mg.conditions) assertFilterPaths(child);
         }
     }
 
@@ -553,12 +683,12 @@ public final class OBQEmitter {
             return renderPathPredicate(pp); // attributes-relative
         } else if (c instanceof OBQ.Bool b) {
             return renderBool(b, inFilter);
-        } else if (c instanceof OBQ.ShouldGroup sg) {
-            String inner = sg.conditions.stream()
+        } else if (c instanceof OBQ.MatchesGroup mg) {
+            String inner = mg.conditions.stream()
                     .map(ch -> renderCondition(ch, inFilter))
                     .filter(this::nonEmpty)
-                    .collect(Collectors.joining(" OR "));
-            return sg.conditions.size() > 1 ? "(" + inner + ")" : inner;
+                    .collect(Collectors.joining(", "));
+            return "MATCHES " + mg.require + " OF (" + inner + ")";
         }
         throw new IllegalArgumentException("Unknown condition type: " + c.getClass());
     }
@@ -576,7 +706,7 @@ public final class OBQEmitter {
             case "nin" -> p.field + " NOT IN (" + listToSQL(p.value) + ")";
             case "prefix" -> p.field + " LIKE " + toPrefix(v);
             case "like" -> p.field + " LIKE " + v;
-            default -> throw new IllegalArgumentException("Unsupported op: " + p.op);
+            default -> throw new IllegalArgumentException("Unsupported WHERE op: " + p.op);
         };
     }
 
@@ -617,34 +747,14 @@ public final class OBQEmitter {
     }
 
     private String renderOptions(OBQ q) {
-        Integer minMatch = q.getOptions() != null ? q.getOptions().minMatch() : null;
-        Integer limit    = q.getOptions() != null ? q.getOptions().limit()    : null;
-        Integer offset   = q.getOptions() != null ? q.getOptions().offset()   : null;
-        Integer daysBack = q.getOptions() != null ? q.getOptions().daysBack() : null;
-        String sortOrder = q.getOptions() != null ? q.getOptions().sortOrder(): null;
-
-        if (minMatch == null) {
-            int inferred = Math.max(inferMinMatch(q.getWhere()), inferMinMatch(q.getFilter()));
-            if (inferred > 0) minMatch = inferred;
-        }
-
+        var o = q.getOptions();
+        if (o == null) return "";
         List<String> kv = new ArrayList<>();
-        if (minMatch != null) kv.add("minMatch = " + minMatch);
-        if (nonEmpty(sortOrder)) kv.add("sortOrder = '" + sortOrder + "'");
-        if (limit != null) kv.add("limit = " + limit);
-        if (offset != null) kv.add("offset = " + offset);
-        if (daysBack != null) kv.add("daysBack = " + daysBack);
-
+        if (nonEmpty(o.sortOrder())) kv.add("sortOrder = '" + o.sortOrder() + "'");
+        if (o.limit()    != null)    kv.add("limit = " + o.limit());
+        if (o.offset()   != null)    kv.add("offset = " + o.offset());
+        if (o.daysBack() != null)    kv.add("daysBack = " + o.daysBack());
         return kv.isEmpty() ? "" : "OPTIONS (" + String.join(", ", kv) + ");";
-    }
-
-    private int inferMinMatch(OBQ.Condition c) {
-        if (c == null) return 0;
-        if (c instanceof OBQ.ShouldGroup sg) return Math.max(1, sg.minMatch);
-        if (c instanceof OBQ.Bool b) {
-            int m = 0; for (OBQ.Condition ch : b.conditions) m = Math.max(m, inferMinMatch(ch)); return m;
-        }
-        return 0;
     }
 
     /* ===== Helpers ===== */
@@ -682,7 +792,7 @@ public final class OBQEmitter {
                 s.agg == null ? s.target : Map.of("agg", s.agg, "target", s.target, "params", s.params)
         ).toList());
         m.put("from", q.getFrom());
-        if (q.getWhere() != null)  m.put("where",  toJsonCondition(q.getWhere()));
+        if (q.getWhere()  != null) m.put("where",  toJsonCondition(q.getWhere()));
         if (q.getFilter() != null) m.put("filter", toJsonCondition(q.getFilter()));
         if (nonEmpty(q.getRollup()))   m.put("rollup", q.getRollup());
         if (nonEmpty(q.getInterval())) m.put("interval", q.getInterval());
@@ -690,11 +800,10 @@ public final class OBQEmitter {
         if (nonEmpty(q.getTimezone())) m.put("timezone", q.getTimezone());
         if (q.getOptions() != null) {
             Map<String, Object> opts = new LinkedHashMap<>();
-            if (q.getOptions().minMatch() != null) opts.put("minMatch", q.getOptions().minMatch());
             if (nonEmpty(q.getOptions().sortOrder())) opts.put("sortOrder", q.getOptions().sortOrder());
             if (q.getOptions().limit() != null)  opts.put("limit", q.getOptions().limit());
-            if (q.getOptions().offset() != null) opts.put("offset", q.getOptions().offset());
-            if (q.getOptions().daysBack() != null) opts.put("daysBack", q.getOptions().daysBack());
+            if (q.getOptions().offset()!= null)  opts.put("offset", q.getOptions().offset());
+            if (q.getOptions().daysBack()!=null) opts.put("daysBack", q.getOptions().daysBack());
             if (!opts.isEmpty()) m.put("options", opts);
         }
         return m;
@@ -708,9 +817,9 @@ public final class OBQEmitter {
         } else if (c instanceof OBQ.Bool b) {
             List<Object> arr = b.conditions.stream().map(this::toJsonCondition).toList();
             return Map.of(b.type, arr);
-        } else if (c instanceof OBQ.ShouldGroup sg) {
-            List<Object> arr = sg.conditions.stream().map(this::toJsonCondition).toList();
-            return Map.of("should", Map.of("minMatch", sg.minMatch, "conditions", arr));
+        } else if (c instanceof OBQ.MatchesGroup mg) {
+            List<Object> arr = mg.conditions.stream().map(this::toJsonCondition).toList();
+            return Map.of("matches", Map.of("require", mg.require, "conditions", arr));
         }
         throw new IllegalArgumentException("Unknown condition type: " + c.getClass());
     }
@@ -719,132 +828,60 @@ public final class OBQEmitter {
 
 ---
 
-## 9) End‑to‑End Examples (with tweaked FILTER)
-
-### A) Event Search with attributes‑relative FILTER
-
-**Java**
+## 8) End‑to‑End Java Example (builder → emitters)
 
 ```java
-var q = OBQBuilder.use("finance")
-  .select("event_id").select("timestamp").select("user_id").select("status")
-  .from("ConsentStatusChange")
-  .where(OBQBuilder.and(
-      OBQBuilder.eq("consent_id","abc123"),
-      OBQBuilder.eq("status","ACTIVE")
-  ))
-  .filter(OBQBuilder.filterEq(List.of("region"), "EU"))  // attributes-relative
-  .options(new OBQ.Options(1,"asc",50,0,7))
-  .build();
-```
+import com.obsinity.query.*;
+import com.obsinity.query.emit.OBQEmitter;
+import java.util.List;
+import java.util.Map;
 
-**OB‑SQL (generated)**
+public class Demo {
+  public static void main(String[] args) {
+    var q = OBQBuilder.use("finance")
+      .select("event_id").select("timestamp")
+      .from("api_request")
+      .where(OBQBuilder.and(
+          OBQBuilder.eq("api_name","get_account_balance"),
+          OBQBuilder.matches(2,
+              OBQBuilder.eq("http_status_code","200"),
+              OBQBuilder.eq("region_code","EU"),
+              OBQBuilder.prefix("user_id","svc-")
+          )
+      ))
+      .filter(OBQBuilder.filterEq(List.of("region"), "EU"))
+      .options("asc", 50, 0, 7)
+      .build();
 
-```sql
-USE finance;
-
-SELECT event_id, timestamp, user_id, status
-FROM ConsentStatusChange
-WHERE (consent_id = 'abc123' AND status = 'ACTIVE')
-FILTER attributes->'region' = 'EU'
-OPTIONS (minMatch = 1, sortOrder = 'asc', limit = 50, offset = 0, daysBack = 7);
-```
-
-**OB‑JQL (generated)**
-
-```json
-{
-  "use": "finance",
-  "select": ["event_id","timestamp","user_id","status"],
-  "from": "ConsentStatusChange",
-  "where": {
-    "and": [
-      { "field": "consent_id", "op": "eq", "value": "'abc123'", "indexed": true },
-      { "field": "status", "op": "eq", "value": "'ACTIVE'", "indexed": true }
-    ]
-  },
-  "filter": {
-    "and": [
-      { "path": ["region"], "op": "eq", "value": "'EU'" }
-    ]
-  },
-  "options": { "minMatch": 1, "sortOrder": "asc", "limit": 50, "offset": 0, "daysBack": 7 }
+    var emitter = new OBQEmitter();
+    System.out.println(emitter.toOBSQL(q));
+    System.out.println(emitter.toOBJQL(q));
+  }
 }
 ```
 
----
-
-### B) Explicit OR vs SHOULD + minMatch
-
-**OR (no minMatch)**
-
-**Java**
-
-```java
-var q = OBQBuilder.use("finance")
-  .select("event_id").select("timestamp")
-  .from("api_request")
-  .where(OBQBuilder.or(
-      OBQBuilder.eq("http_status_code","500"),
-      OBQBuilder.eq("http_status_code","503")
-  ))
-  .filter(OBQBuilder.filterEq(List.of("region"), "EU"))
-  .options(new OBQ.Options(null,"desc",100,0,7))
-  .build();
-```
-
-**OB‑SQL**
+**Produces OB‑SQL**
 
 ```sql
 USE finance;
 
 SELECT event_id, timestamp
 FROM api_request
-WHERE (http_status_code = '500' OR http_status_code = '503')
+WHERE (api_name = 'get_account_balance' AND MATCHES 2 OF (http_status_code = '200', region_code = 'EU', user_id LIKE 'svc-%'))
 FILTER attributes->'region' = 'EU'
-OPTIONS (sortOrder = 'desc', limit = 100, offset = 0, daysBack = 7);
+OPTIONS (sortOrder = 'asc', limit = 50, offset = 0, daysBack = 7);
 ```
 
-**SHOULD + minMatch**
-
-**Java**
-
-```java
-var q = OBQBuilder.use("finance")
-  .select("event_id").select("timestamp")
-  .from("api_request")
-  .where(OBQBuilder.and(
-      OBQBuilder.eq("api_name","get_account_balance"),
-      OBQBuilder.should(2,
-          OBQBuilder.eq("http_status_code","200"),
-          OBQBuilder.eq("region_code","EU"),
-          OBQBuilder.prefix("user_id","svc-")
-      )
-  ))
-  .options(new OBQ.Options(2,"asc",50,0,7))
-  .build();
-```
-
-**OB‑SQL**
-
-```sql
-USE finance;
-
-SELECT event_id, timestamp
-FROM api_request
-WHERE api_name = 'get_account_balance'
-  AND (http_status_code = '200' OR region_code = 'EU' OR user_id LIKE 'svc-%')
-OPTIONS (minMatch = 2, sortOrder = 'asc', limit = 50, offset = 0, daysBack = 7);
-```
+**Produces OB‑JQL** (pretty JSON, matching the example in §4.2)
 
 ---
 
-## 10) Implementer Notes
+## 9) Implementer Notes
 
-* **Rollups**: pre‑created (`5s, 1m, 1h, 1d, 7d`), no dynamic rollups.
-* **Planner**: rejects non‑indexed predicates in `WHERE`; `FILTER` evaluated post‑retrieval.
-* **minMatch**: applies to `should` groups; **not** equivalent to `OR`.
-* **Builder**: centralizes quoting & validation; emitters are deterministic stringifiers.
-* **FILTER path convention**: **attributes‑relative**; renderer outputs `attributes->'k1'->'k2'`.
+* **Rollups**: pre‑created (`5s, 1m, 1h, 1d, 7d`); planner picks minimal base and aggregates upward.
+* **Index discipline**: `WHERE` is strictly indexed; non‑indexed belong in `FILTER`.
+* **MATCHES** is evaluated within the **row/bucket** context; it can nest boolean groups.
+* **Builder** centralizes quoting & validation; emitters do formatting only.
+* **FILTER** uses attributes‑relative paths; emitter renders `attributes->'k1'->'k2'`.
 
 ---
