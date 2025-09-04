@@ -1,190 +1,178 @@
-# **Obsinity Engine: Event & Counter Processing Specification**
+# 📊 Obsinity Engine: Event & Counter Flow Spec
+
+> **Source of truth:** All telemetry flows through `TelemetryHolder` (OTEL-shaped container with Obsinity-native fields).
+> **Hard rules:**
+>
+> * ✅ **Idempotency:** duplicates are strict no-ops.
+> * 📦 **Raw first:** every accepted event is stored in full.
+> * ⏱️ **Max rollup horizon:** 7 days (no higher materialisation).
+> * 🗂️ **Indexes selective, raw is canonical.**
 
 ---
 
-## 1. Ingestion
+## 1️⃣ Telemetry Envelope (OTEL-like)
 
-**Inputs**
+**Core identity & timing**
 
-* **Event envelope** (OTEL-like):
+* `name` 🏷️ — span/operation name.
+* `timestamp` / `timeUnixNano` ⏰ — event start; must align.
+* `endTimestamp` ⏳ — optional event end.
 
-    * `event_id` (unique, client-supplied, idempotency key)
-    * `ts` (event timestamp, not server clock)
-    * `event_type` (logical schema)
-    * `tenant/schema` (multi-tenancy)
-      * OTEL uses resource node (resource.service)
-    * **attributes** (resource attributes + span attributes + optional outcome fields)
+**Trace context**
 
-**Process**
+* `traceId`, `spanId`, `parentSpanId` 🔗 — OTEL trace structure.
+* `kind` 🎭 — OTEL `SpanKind` (SERVER, CLIENT, PRODUCER, CONSUMER, INTERNAL).
 
-1. **Validation**
+**Service identity**
 
-    * Reject if `event_id` is missing or malformed.
-    * Reject if `ts` is invalid or outside allowed skew.
-    * Enforce schema: only declared event types are accepted; indexed fields must exist where required.
+* `serviceId` or `resource["service.id"]` 🛠️ — required; if both exist, must match.
 
-2. **Idempotency Gate**
+**Resource & attributes**
 
-    * First insert of a given `event_id` → **accepted**.
-    * Replay with same `event_id` → **duplicate** → complete no-op.
-    * Replay with same `event_id` but different payload → **conflict** → rejected, no side effects.
+* `resource` 🌍 — stable metadata (service, region, env, version).
+* `attributes` 📋 — arbitrary key/values; all stored raw, only declared ones indexed.
 
-3. **Routing**
+**Relationships & outcome**
 
-    * **Raw event** → always stored in full, time-partitioned.
-    * **Index materialisation** → only performed for newly accepted events.
-    * **Metric derivations** (counters, histograms, gauges, states) → only performed for newly accepted events.
+* `events` 🗒️ — child annotations/steps.
+* `links` 🔀 — cross-span references.
+* `status` ✅/❌ — success/error with message.
 
----
+**Operational flags**
 
-## 2. Raw Storage
+* `correlationId` 🔑 — business correlation.
+* `synthetic` 🧪 — synthetic/test marker.
 
-* Holds the **canonical record** of every accepted event.
-* Events are immutable once stored.
-* All attributes are preserved in raw storage, including non-indexed ones.
-* Retention is configurable; typically longer than index retention.
-* Raw storage is the **source of truth** for rebuilds, backfills, and audit.
+**Runtime only (non-serialized)**
+
+* `eventContext` 🧩 — flow scratchpad.
+* `throwable` 💥 — runtime error reference.
+* `step`, `startNanoTime`, `eventStack` 🔄 — step emulation metadata.
 
 ---
 
-## 3. Indexing
+## 2️⃣ Ingestion Flow
 
-* Only **declared indexed attributes** are materialised for search.
-* Index tables are **supplementary**; they never replace the raw store.
-* Used exclusively for **WHERE-clause pruning** in queries.
-* If an event is a duplicate, no index update occurs.
-* If index rebuild is needed, it is performed by replaying from raw storage.
+1. **Validation 🚦**
 
----
+    * Service ID present & consistent.
+    * Timestamp sane.
+    * Event type allowed.
+    * Attribute counts within guardrails.
 
-## 4. Counter Buffering (5-Second Layer)
+2. **Idempotency Gate 🔐**
 
-**Purpose**
+    * First `event_id` → accepted.
+    * Replay same payload → ignored (no raw, no index, no metrics).
+    * Replay different payload → conflict, rejected, no side effects.
 
-* Prevent high-frequency counters from overwhelming storage.
-* Collapse many increments into a single update per key per 5-second window.
+3. **Routing 📬**
 
-**Mechanism**
-
-* Each counter update is accumulated in memory, keyed by:
-
-    * Tenant/schema
-    * Counter name or event type
-    * Dimension set (declared indexed fields and their values)
-    * Bucket start time (aligned to 5 seconds)
-
-* Each accumulator stores:
-
-    * **Counters** → sum/count
-    * **Gauges** → average/min/max/last (policy-based)
-    * **Histograms** → bucket counts
-    * **States** → transition tallies
-
-**Flush Triggers**
-
-* Expiry of 5-second window.
-* Memory thresholds exceeded.
-* Service shutdown or rotation.
-
-**Flush Behavior**
-
-* Produce exactly one record per key per 5-second bucket.
-* Writes are idempotent: same `(counter, dimensions, bucket)` may be re-flushed safely.
-* Duplicated events never reach the buffer, so metrics are never recalculated.
+    * Store **raw event** (canonical).
+    * Populate **indexes** (declared paths only).
+    * Derive **metrics** (counters, histograms, gauges, states).
 
 ---
 
-## 5. Materialised Rollups
+## 3️⃣ Raw Storage 📦
 
-**Hierarchy**
-
-* **Always materialised**: `5s → 1m → 1h → 1d → 7d`.
-* **Maximum horizon**: 7 days. Nothing above 7d is pre-aggregated.
-
-**Process**
-
-* Rollup workers continuously aggregate new lower-level buckets into higher ones.
-* Aggregation functions:
-
-    * Counters → sum
-    * Gauges → policy (avg/min/max/last)
-    * Histograms → bucket merges
-    * States → rule-driven merges
-* Rollups are **idempotent** and can be recomputed from lower levels if needed.
+* Full event persisted exactly as received.
+* Immutable, partitioned, auditable.
+* Holds **all attributes**, even those not indexed.
+* Canonical source for rebuilds & backfills.
 
 ---
 
-## 6. Interval Queries
+## 4️⃣ Selective Indexing 🗂️
 
-**Query Types**
-
-* **USING ROLLUP** → select exact materialised level (`5s`, `1m`, `1h`, `1d`, `7d`).
-* **INTERVAL <duration>** → request arbitrary window size.
-
-**Execution**
-
-* Engine chooses the nearest available rollup ≤ requested interval.
-* Results are re-bucketed into the requested interval:
-
-    * Example: `INTERVAL 30s` → group six 5-second buckets.
-    * Example: `INTERVAL 3h` → group three 1-hour buckets.
-    * Example: `INTERVAL 9d` → composed from 1-day or 7-day buckets (policy).
-
-**Policies**
-
-* `max_materialised = 7d` (hard cap).
-* Queries beyond 7d are composed from available bases, not materialised.
-* Interval alignment and boundary handling are configurable:
-
-    * Allow or forbid partial first/last buckets.
-    * Pad incomplete windows with nulls or drop them.
+* Only declared paths are indexed (e.g., `service.id`, `region`, `http.status_code`).
+* Index used exclusively for `WHERE` pruning.
+* Raw always retained for `FILTER`.
+* Index entries created **only** for newly accepted events.
 
 ---
 
-## 7. Search Flow
+## 5️⃣ Metrics Derivation & 5-Second Buffers ⏱️
 
-1. **Index pruning**: apply `WHERE` on indexed attributes only.
-2. **Raw filtering**: apply additional `FILTER` predicates on raw JSON of matched events.
-3. **Rollup resolution**: select correct table or interval grouping based on query.
-4. **Aggregation**: performed only on materialised data.
-5. **Response formats**:
+* Metrics derived from event semantics:
 
-    * Row-oriented → one row per (time bucket × dimension tuple).
-    * Bucketed/series → compact, time-aligned arrays.
+    * 🔢 Counters → increment sums.
+    * 📈 Gauges → avg/min/max/last (policy).
+    * 📊 Histograms → merge bucket counts.
+    * 🔄 States → track transitions.
 
----
+* Keyed by `(tenant, metric, dimension tuple, 5s bucket)`.
 
-## 8. Idempotency Rules (Hard Contracts)
+**Flush triggers**
 
-* **Raw events**
+* End of 5-second window.
+* Memory thresholds.
+* Shutdown/rotation.
 
-    * First `event_id`: stored.
-    * Replay with same `event_id`: ignored.
-    * Replay with different payload: rejected.
+**Flush behavior**
 
-* **Indexes**
-
-    * Only updated on first acceptance.
-    * No updates for duplicates.
-
-* **Metrics**
-
-    * Only derived from newly accepted events.
-    * Duplicates never recalc metrics.
-
-* **Rollups**
-
-    * Only aggregate from 5-second layer, which already excludes duplicates.
-    * Safe to rebuild at any time.
+* Exactly one record per key per 5s bucket.
+* Idempotent writes.
+* Duplicates never reach buffer.
 
 ---
 
-## 9. Operational Guarantees
+## 6️⃣ Materialised Rollups 📐
 
-* **Freshness**: 5-second counters visible within one flush cycle; higher rollups lag by at most one worker sweep.
-* **Consistency**: queries always hit materialised data; no query-time recalculation of metrics.
-* **Scalability**: ingestion decoupled from rollup; rollups are incremental.
-* **Auditability**: raw is canonical; indexes and rollups are rebuildable.
-* **Determinism**: repeated queries over the same window and config produce identical results.
+* Fixed ladder: `5s → 1m → 1h → 1d → 7d`.
+* Continuous workers aggregate forward.
+* Functions:
+
+    * Sum (counters)
+    * Merge (histograms)
+    * Policy (gauges)
+    * Rules (states)
+* ✅ Idempotent, rebuildable, deterministic.
+* ❌ Nothing above 7d is materialised.
+
+---
+
+## 7️⃣ Querying 🔎
+
+* **OB-SQL / OB-JQL surface** — PostgreSQL hidden.
+* `WHERE` → indexed pruning.
+* `FILTER` → raw evaluation.
+* `USING ROLLUP` → pick exact level (≤7d).
+* `INTERVAL <duration>` → re-bucket from nearest rollup ≤ interval.
+
+**Examples**
+
+* `30s` → from 5s buckets.
+* `15m` → from 1m buckets.
+* `3h` → from 1h buckets.
+* `9d` → composed from 1d/7d (not materialised).
+
+**Response formats**
+
+* 🧾 Row-oriented: one row per (time bucket × dimension tuple).
+* 📊 Series/bucketed: compact arrays per tuple.
+
+---
+
+## 8️⃣ Guarantees & SLOs 📜
+
+* **Idempotency:** strict — duplicates = no effect.
+* **Freshness:** 5s metrics visible after one flush; rollups lag by one sweep.
+* **Determinism:** rollups associative/commutative; results stable.
+* **Consistency:** queries always on materialised data; no ad-hoc query-time recompute.
+* **Rebuildability:** indexes/rollups always reconstructable from raw.
+
+---
+
+## 9️⃣ Configurable Knobs ⚙️
+
+* `rollups.enabled` → `[5s,1m,1h,1d,7d]`
+* `rollups.maxMaterialised` → `7d`
+* `interval.crossBoundaryPolicy` → `includePartial | truncate | padWithNulls`
+* `interval.requireAligned` → `false | true`
+* `buffer.flush.thresholds` → memory/size triggers
+* `dimensions.maxCardinality` → per-metric guardrail
+* `index.declaredPaths` → explicit indexed attributes
+* `ingest.rejectOnConflict` → true/false
 
 ---
