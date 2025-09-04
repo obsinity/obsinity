@@ -1,0 +1,98 @@
+flowchart TB
+
+  %% ===== Top-level parents =====
+  subgraph OBS["obsinity schema"]
+    direction TB
+    E["events | PARTITION LIST(service_id) then RANGE(started_at)"]
+    A["attributes | PARTITION LIST(service_id) then RANGE(started_at)"]
+    CFG["event_config | PARTITION LIST(service_id)"]
+    EC["event_counts | PARTITION LIST(service_id) then LIST(bucket)"]
+  end
+
+  %% ===== Service: udm =====
+  subgraph S_UDM["service udm"]
+    direction TB
+    E_udm["events_srv_udm"]
+    A_udm["attributes_srv_udm"]
+    CFG_udm["event_config_srv_udm"]
+    EC_udm["event_counts_srv_udm"]
+
+    %% events: six monthly partitions
+    E_udm_01["events_udm_2025_01\n2025-01-01 to 2025-02-01"]
+    E_udm_02["events_udm_2025_02\n2025-02-01 to 2025-03-01"]
+    E_udm_03["events_udm_2025_03\n2025-03-01 to 2025-04-01"]
+    E_udm_04["events_udm_2025_04\n2025-04-01 to 2025-05-01"]
+    E_udm_05["events_udm_2025_05\n2025-05-01 to 2025-06-01"]
+    E_udm_06["events_udm_2025_06\n2025-06-01 to 2025-07-01"]
+
+    %% attributes: six monthly partitions
+    A_udm_01["attributes_udm_2025_01"]
+    A_udm_02["attributes_udm_2025_02"]
+    A_udm_03["attributes_udm_2025_03"]
+    A_udm_04["attributes_udm_2025_04"]
+    A_udm_05["attributes_udm_2025_05"]
+    A_udm_06["attributes_udm_2025_06"]
+
+    %% event_counts buckets under udm
+    EC_udm_5s["event_counts_udm_5s"]
+    EC_udm_1m["event_counts_udm_1m"]
+    EC_udm_1h["event_counts_udm_1h"]
+    EC_udm_1d["event_counts_udm_1d"]
+    EC_udm_7d["event_counts_udm_7d"]
+
+    %% links inside udm
+    E_udm --> E_udm_01 --> E_udm_02 --> E_udm_03 --> E_udm_04 --> E_udm_05 --> E_udm_06
+    A_udm --> A_udm_01 --> A_udm_02 --> A_udm_03 --> A_udm_04 --> A_udm_05 --> A_udm_06
+    EC_udm --> EC_udm_5s --> EC_udm_1m --> EC_udm_1h --> EC_udm_1d --> EC_udm_7d
+  end
+
+  %% ===== Service: pdm =====
+  subgraph S_PDM["service pdm"]
+    direction TB
+    E_pdm["events_srv_pdm"]
+    A_pdm["attributes_srv_pdm"]
+    CFG_pdm["event_config_srv_pdm"]
+    EC_pdm["event_counts_srv_pdm"]
+
+    %% events: six monthly partitions
+    E_pdm_01["events_pdm_2025_01\n2025-01-01 to 2025-02-01"]
+    E_pdm_02["events_pdm_2025_02\n2025-02-01 to 2025-03-01"]
+    E_pdm_03["events_pdm_2025_03\n2025-03-01 to 2025-04-01"]
+    E_pdm_04["events_pdm_2025_04\n2025-04-01 to 2025-05-01"]
+    E_pdm_05["events_pdm_2025_05\n2025-05-01 to 2025-06-01"]
+    E_pdm_06["events_pdm_2025_06\n2025-06-01 to 2025-07-01"]
+
+    %% attributes: six monthly partitions
+    A_pdm_01["attributes_pdm_2025_01"]
+    A_pdm_02["attributes_pdm_2025_02"]
+    A_pdm_03["attributes_pdm_2025_03"]
+    A_pdm_04["attributes_pdm_2025_04"]
+    A_pdm_05["attributes_pdm_2025_05"]
+    A_pdm_06["attributes_pdm_2025_06"]
+
+    %% event_counts buckets under pdm
+    EC_pdm_5s["event_counts_pdm_5s"]
+    EC_pdm_1m["event_counts_pdm_1m"]
+    EC_pdm_1h["event_counts_pdm_1h"]
+    EC_pdm_1d["event_counts_pdm_1d"]
+    EC_pdm_7d["event_counts_pdm_7d"]
+
+    %% links inside pdm
+    E_pdm --> E_pdm_01 --> E_pdm_02 --> E_pdm_03 --> E_pdm_04 --> E_pdm_05 --> E_pdm_06
+    A_pdm --> A_pdm_01 --> A_pdm_02 --> A_pdm_03 --> A_pdm_04 --> A_pdm_05 --> A_pdm_06
+    EC_pdm --> EC_pdm_5s --> EC_pdm_1m --> EC_pdm_1h --> EC_pdm_1d --> EC_pdm_7d
+  end
+
+  %% Hook parents to service branches
+  E --> E_udm
+  E --> E_pdm
+  A --> A_udm
+  A --> A_pdm
+  CFG --> CFG_udm
+  CFG --> CFG_pdm
+  EC --> EC_udm
+  EC --> EC_pdm
+
+  %% Optional FK cues (labels kept simple)
+  %% attributes reference events by event_id and started_at
+  %% event_counts reference event_config by event_config_id
