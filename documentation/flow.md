@@ -12,6 +12,7 @@
     * `ts` (event timestamp, not server clock)
     * `event_type` (logical schema)
     * `tenant/schema` (multi-tenancy)
+      * OTEL uses resource node (resource.service)
     * **attributes** (resource attributes + span attributes + optional outcome fields)
 
 **Process**
