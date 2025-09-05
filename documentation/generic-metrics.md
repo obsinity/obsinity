@@ -56,7 +56,7 @@ CREATE TABLE metric_rollup (
   metric_id      uuid        NOT NULL,   -- FK to metric definition
   dims_hash      bigint      NOT NULL,   -- hash of dimension tuple
   dims           jsonb       NOT NULL,   -- {"symbol":"AAPL","exchange":"NASDAQ"}
-  aggregates     jsonb       NOT NULL,   -- {"avg":189.23,"min":185.43,"max":190.32,"count":390}
+  aggregates     jsonb       NOT NULL,   -- {"avg":189.23,"min":185.43,"max":190.32,"sum":390}
   PRIMARY KEY (bucket_start, resolution, metric_id, dims_hash)
 );
 ```
@@ -65,9 +65,6 @@ CREATE TABLE metric_rollup (
 * Examples:
 
     * `{"avgClosingValue": 126.1, "min": 123.4, "max": 129.9, "count": 500}`
-    * `{"p95Latency": 231.2}`
-    * `{"stateCounts":{"Active":331,"Revoked":17}}`
-    * `{"transitionCounts":{"Active->Suspended":4}}`
 
 ---
 
