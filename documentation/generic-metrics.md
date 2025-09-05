@@ -8,7 +8,7 @@ In **Obsinity**, a *metric* is **not a primitive counter/gauge field** that the 
 * A **metric definition** specifies:
 
     1. **which field** to extract from the event (`path` into `attributes`),
-    2. **which aggregations** to compute (min, max, avg, median, sum, count, percentiles, histograms, states, transitions),
+    2. **which aggregations** to compute (min, max, avg, median, sum),
     3. **which rollup intervals** to maintain (5s, 1m, 1h, 1d, 7d),
     4. **which dimensions** to group by (e.g., `service.id`, `api_name`, `http_status_code`, `symbol`).
 
