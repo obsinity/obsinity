@@ -1,0 +1,21 @@
+name: Spotless
+
+on:
+  pull_request:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  spotless:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'   # 👈 use Java 17
+          cache: maven
+      - name: Spotless check
+        run: mvn -B -q -DskipTests spotless:check

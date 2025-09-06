@@ -1,4 +1,6 @@
-<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.obsinity</groupId>
@@ -31,11 +33,14 @@
     <module>obsinity-controller-admin</module>
     <module>obsinity-controller-otlp</module>
     <module>obsinity-reference-service</module>
-  <module>obsinity-core</module></modules>
+    <module>obsinity-core</module>
+  </modules>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+    <!-- Java 17 baseline -->
     <java.version>17</java.version>
     <maven.compiler.release>${java.version}</maven.compiler.release>
 
@@ -43,13 +48,16 @@
     <maven.surefire.plugin.version>3.5.3</maven.surefire.plugin.version>
     <maven.enforcer.plugin.version>3.6.1</maven.enforcer.plugin.version>
 
+    <!-- Spotless / Palantir -->
+    <spotless.maven.plugin.version>2.43.0</spotless.maven.plugin.version>
+    <palantir.java.format.version>2.70.0</palantir.java.format.version>
+
+    <!-- Library versions -->
     <spring-boot.version>3.5.5</spring-boot.version>
     <jackson.version>2.17.1</jackson.version>
     <lombok.version>1.18.32</lombok.version>
     <postgresql.version>42.7.3</postgresql.version>
     <caffeine.version>3.1.8</caffeine.version>
-
-    <spotless.version>2.70.0</spotless.version>
 
     <cucumber.version>7.14.0</cucumber.version>
     <surefire.version>3.2.5</surefire.version>
@@ -68,7 +76,6 @@
   </dependencyManagement>
 
   <dependencies>
-    
     <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
@@ -76,17 +83,17 @@
       <scope>provided</scope>
     </dependency>
 
-    
     <dependency>
       <groupId>com.palantir.javaformat</groupId>
       <artifactId>palantir-java-format-spi</artifactId>
-      <version>${spotless.version}</version>
+      <version>${palantir.java.format.version}</version>
     </dependency>
   </dependencies>
 
   <build>
     <pluginManagement>
       <plugins>
+        <!-- Compiler -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
@@ -96,6 +103,7 @@
           </configuration>
         </plugin>
 
+        <!-- Surefire -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
@@ -105,6 +113,7 @@
           </configuration>
         </plugin>
 
+        <!-- Enforcer -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-enforcer-plugin</artifactId>
@@ -116,14 +125,67 @@
               <configuration>
                 <rules>
                   <requireJavaVersion>
-                    <version>[21,)</version>
+                    <!-- Require Java 17 or newer -->
+                    <version>[17,)</version>
                   </requireJavaVersion>
                 </rules>
               </configuration>
             </execution>
           </executions>
         </plugin>
+
+        <!-- ✅ Pin Spring Boot plugin so children don't warn -->
+        <plugin>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-maven-plugin</artifactId>
+          <version>${spring-boot.version}</version>
+        </plugin>
+
+        <!-- Spotless version hint for any child overrides -->
+        <plugin>
+          <groupId>com.diffplug.spotless</groupId>
+          <artifactId>spotless-maven-plugin</artifactId>
+          <version>${spotless.maven.plugin.version}</version>
+        </plugin>
       </plugins>
     </pluginManagement>
+
+    <plugins>
+      <!-- Spotless across all modules -->
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>${spotless.maven.plugin.version}</version>
+        <configuration>
+          <lineEndings>UNIX</lineEndings>
+
+          <java>
+            <palantirJavaFormat version="${palantir.java.format.version}"/>
+            <removeUnusedImports/>
+            <formatAnnotations/>
+            <includes>
+              <include>**/*.java</include>
+            </includes>
+            <!-- Optional:
+            <excludes>
+              <exclude>**/generated/**</exclude>
+            </excludes>
+            -->
+          </java>
+
+          <!-- (your formats for md/xml/yml/etc stay as-is) -->
+        </configuration>
+        <executions>
+          <execution>
+            <id>spotless-on-validate</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>apply</goal>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
   </build>
 </project>
