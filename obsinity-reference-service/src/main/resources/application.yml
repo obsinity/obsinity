@@ -1,0 +1,4 @@
+spring:
+  application:
+    name: obsinity-reference-service
+# Runs all controllers on their own ports via dependencies

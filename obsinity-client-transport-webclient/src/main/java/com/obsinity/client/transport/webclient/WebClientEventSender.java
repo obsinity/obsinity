@@ -14,7 +14,8 @@ public class WebClientEventSender implements EventSender {
                 .uri(endpoint())
                 .header("Content-Type", "application/json")
                 .bodyValue(body)
-                .exchangeToMono(r -> r.toBodilessEntity().map(e -> r.statusCode().value()))
+                .exchangeToMono(
+                        r -> r.toBodilessEntity().map(e -> r.statusCode().value()))
                 .block();
         if (code == null || code >= 400) throw new IOException("HTTP " + code);
     }

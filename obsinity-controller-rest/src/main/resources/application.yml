@@ -1,0 +1,18 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: obsinity-controller-rest
+  datasource:
+    url: jdbc:postgresql://localhost:5432/obsinity
+    username: obsinity
+    password: obsinity
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
