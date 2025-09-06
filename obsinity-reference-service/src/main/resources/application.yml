@@ -1,4 +1,17 @@
+server:
+  port: 8086
+
 spring:
   application:
     name: obsinity-reference-service
-# Runs all controllers on their own ports via dependencies
+  datasource:
+    url: jdbc:postgresql://obsinity-db:5432/obsinity
+    username: obsinity
+    password: obsinity
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+  sql:
+    init:
+      mode: never

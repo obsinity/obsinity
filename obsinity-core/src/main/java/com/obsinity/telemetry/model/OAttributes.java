@@ -1,5 +1,8 @@
 package com.obsinity.telemetry.model;
 
+import com.fasterxml.jackson.annotation.JsonAnyGetter;
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import io.opentelemetry.api.common.AttributeKey;
@@ -22,6 +25,7 @@ public final class OAttributes {
         this.attributes = new LinkedHashMap<>();
     }
 
+    @JsonCreator
     public OAttributes(Map<String, Object> attributes) {
         if (attributes != null) {
             this.attributes = new LinkedHashMap<>(attributes);
@@ -30,11 +34,18 @@ public final class OAttributes {
         }
     }
 
+    public static OAttributes empty() {
+        return new OAttributes(new LinkedHashMap<>());
+    }
+
+    /** expose as plain JSON object: {"k":"v"} */
+    @JsonAnyGetter
     public Map<String, Object> map() {
         return attributes;
     }
 
-    /** Put a key/value (null keys are ignored). */
+    /** accept arbitrary keys on input */
+    @JsonAnySetter
     public void put(String key, Object value) {
         if (key != null) attributes.put(key, value);
     }

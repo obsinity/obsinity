@@ -9,9 +9,6 @@ RUN --mount=type=cache,target=/root/.m2 \
 FROM eclipse-temurin:21-jre
 WORKDIR /opt/app
 # ✅ deterministically copy the executable jar (exclude -plain)
-COPY --from=build /app/obsinity-reference-service/target/*-SNAPSHOT.jar /opt/app/
-RUN set -eux; \
-    ls -l /opt/app; \
-    mv "$(ls /opt/app/*.jar | grep -v -- '-plain\.jar' | head -n1)" /opt/app/app.jar
+COPY --from=build /app/obsinity-reference-service/target/*-SNAPSHOT.jar /opt/app/app.jar
 EXPOSE 8080
 ENTRYPOINT ["java","-XX:MaxRAMPercentage=75","-jar","/opt/app/app.jar"]

@@ -54,6 +54,7 @@
 
     <!-- Library versions -->
     <spring-boot.version>3.5.5</spring-boot.version>
+    <flyway.version>11.7.2</flyway.version>
     <jackson.version>2.17.1</jackson.version>
     <lombok.version>1.18.32</lombok.version>
     <postgresql.version>42.7.3</postgresql.version>

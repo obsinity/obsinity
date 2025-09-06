@@ -7,7 +7,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    # No host port mapping for Postgres
+    # no host port mapping for Postgres
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -23,6 +23,7 @@ services:
     container_name: obsinity-app
     restart: unless-stopped
     environment:
+      SERVER_PORT: 8086
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
@@ -30,7 +31,7 @@ services:
       SPRING_FLYWAY_ENABLED: ${FLYWAY_ENABLED}
       LOGGING_LEVEL_ROOT: ${SPRING_LOG_LEVEL}
     ports:
-      - "${APP_PORT_REFERENCE}:8080"   # app listens 8080 in-container, exposed as 8086 on host
+      - "${APP_PORT_REFERENCE:-8086}:8086"   # expose host 8086 -> container 8086
     depends_on:
       db:
         condition: service_healthy
