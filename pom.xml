@@ -1,5 +1,4 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.obsinity</groupId>
@@ -32,15 +31,28 @@
     <module>obsinity-controller-admin</module>
     <module>obsinity-controller-otlp</module>
     <module>obsinity-reference-service</module>
-  </modules>
+  <module>obsinity-core</module></modules>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.release>17</maven.compiler.release>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <java.version>17</java.version>
+    <maven.compiler.release>${java.version}</maven.compiler.release>
 
     <maven.compiler.plugin.version>3.14.0</maven.compiler.plugin.version>
     <maven.surefire.plugin.version>3.5.3</maven.surefire.plugin.version>
     <maven.enforcer.plugin.version>3.6.1</maven.enforcer.plugin.version>
+
+    <spring-boot.version>3.5.5</spring-boot.version>
+    <jackson.version>2.17.1</jackson.version>
+    <lombok.version>1.18.32</lombok.version>
+    <postgresql.version>42.7.3</postgresql.version>
+    <caffeine.version>3.1.8</caffeine.version>
+
+    <spotless.version>2.70.0</spotless.version>
+
+    <cucumber.version>7.14.0</cucumber.version>
+    <surefire.version>3.2.5</surefire.version>
   </properties>
 
   <dependencyManagement>
@@ -54,6 +66,23 @@
       </dependency>
     </dependencies>
   </dependencyManagement>
+
+  <dependencies>
+    
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <version>${lombok.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    
+    <dependency>
+      <groupId>com.palantir.javaformat</groupId>
+      <artifactId>palantir-java-format-spi</artifactId>
+      <version>${spotless.version}</version>
+    </dependency>
+  </dependencies>
 
   <build>
     <pluginManagement>
