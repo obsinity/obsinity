@@ -1,6 +1,7 @@
 package com.obsinity.service.core.spi;
 
-import com.obsinity.telemetry.model.EventEnvelope;
+import com.obsinity.service.core.model.EventEnvelope;
+
 import java.util.List;
 
 public interface EventIngestService {

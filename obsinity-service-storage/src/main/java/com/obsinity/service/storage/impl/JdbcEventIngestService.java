@@ -1,7 +1,7 @@
 package com.obsinity.service.storage.impl;
 
+import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.spi.EventIngestService;
-import com.obsinity.telemetry.model.EventEnvelope;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.sql.Types;
