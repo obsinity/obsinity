@@ -4,10 +4,9 @@ meta:
   id: wrk_68f2907246df440f96e2f024b4a89fee
   created: 1754511487081
   modified: 1754511487081
-  description: "Obsinity reference service (HTTP only) with publish_event (single/batch), JQL stubs."
+  description: "Obsinity reference service (HTTP only) with publish_event (single/homogeneous batch/mixed batch), JQL stubs."
 
 collection:
-  # ================ Runtime: Publish Event (OK) ================
   - url: "{{ base_url }}/events/{{ service_id }}/{{ event_name }}/publish"
     name: publish_event (OK)
     meta:
@@ -16,7 +15,6 @@ collection:
       modified: 1754511487081
       isPrivate: false
       description: "Publish a single event (camelCase, nested attributes, OTEL aware)."
-      sortKey: -180
     method: POST
     body:
       mimeType: application/json
@@ -26,50 +24,22 @@ collection:
           "timestamp": "{{ nowIso }}",
           "name": "getAccountHolders",
           "kind": "SERVER",
-          "trace": {
-            "traceId": "{{ trace_id }}",
-            "spanId": "{{ span_id }}"
-          },
-          "resource": {
-            "attributes": {
-              "service": {
-                "id": "{{ service_id }}",
-                "name": "obsinity-reference-service",
-                "version": "0.1.0"
-              },
-              "deployment": { "environment": "dev" }
-            }
-          },
+          "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id }}" },
           "attributes": {
-            "api":   { "name": "getAccountHolders", "version": "v2" },
-            "http":  { "status": 200, "method": "GET" },
-            "user":  { "id": "svc-42" },
-            "partnerId": "px-01",
-            "currency": "EUR",
+            "api": { "name": "getAccountHolders", "version": "v2" },
+            "http": { "status": 200, "method": "GET" },
             "latencyMs": 91.2
           },
-          "correlationId": "{{ correlation_id }}",
-          "synthetic": false
+          "correlationId": "{{ correlation_id }}"
         }
     headers:
       - name: Content-Type
         value: application/json
-    settings:
-      renderRequestBody: true
-      encodeUrl: true
-      followRedirects: global
-      cookies: { send: true, store: true }
-      rebuildPath: true
+    settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
 
-  # ================ Runtime: Publish Event (ERROR) ================
   - url: "{{ base_url }}/events/{{ service_id }}/{{ event_name }}/publish"
     name: publish_event (ERROR)
-    meta:
-      id: req_publish_event_err
-      created: 1754511487081
-      modified: 1754511487081
-      isPrivate: false
-      description: "Publish a failing event variant to exercise error paths and 500 filtering."
+    meta: { id: req_publish_event_err, created: 1754511487081, modified: 1754511487081, isPrivate: false, description: "Error variant." }
     method: POST
     body:
       mimeType: application/json
@@ -79,43 +49,22 @@ collection:
           "timestamp": "{{ nowIso }}",
           "name": "createTransaction",
           "kind": "SERVER",
-          "trace": {
-            "traceId": "{{ trace_id }}",
-            "spanId": "{{ span_id_error }}"
-          },
           "status": { "code": "ERROR", "message": "Simulated failure" },
           "attributes": {
-            "api":   { "name": "createTransaction", "version": "v2" },
-            "http":  { "status": 500, "method": "POST" },
-            "user":  { "id": "svc-42" },
-            "partnerId": "px-01",
-            "currency": "EUR",
-            "latencyMs": 240.4,
-            "error": { "type": "java.lang.IllegalStateException" }
+            "api": { "name": "createTransaction", "version": "v2" },
+            "http": { "status": 500, "method": "POST" }
           },
-          "correlationId": "{{ correlation_id }}",
-          "synthetic": false
+          "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id_error }}" },
+          "correlationId": "{{ correlation_id }}"
         }
     headers:
       - name: Content-Type
         value: application/json
-    settings:
-      renderRequestBody: true
-      encodeUrl: true
-      followRedirects: global
-      cookies: { send: true, store: true }
-      rebuildPath: true
+    settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
 
-  # ================ Runtime: Publish Event (BATCH) ================
   - url: "{{ base_url }}/events/{{ service_id }}/{{ event_name }}/publish/batch"
-    name: publish_event (BATCH)
-    meta:
-      id: req_publish_event_batch
-      created: 1754511487082
-      modified: 1754511487082
-      isPrivate: false
-      description: "Publish an array of events (same schema as single)."
-      sortKey: -170
+    name: publish_event (BATCH homogeneous)
+    meta: { id: req_publish_event_batch, created: 1754511487082, modified: 1754511487082, isPrivate: false, description: "Batch for a single event type from URI." }
     method: POST
     body:
       mimeType: application/json
@@ -126,46 +75,64 @@ collection:
             "timestamp": "{{ nowIso }}",
             "name": "lookupUser",
             "kind": "CLIENT",
-            "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id }}" },
-            "attributes": {
-              "api": { "name": "lookupUser" },
-              "http": { "status": 200, "method": "GET" },
-              "latencyMs": 45.1
-            },
-            "synthetic": false
+            "attributes": { "api": { "name": "lookupUser" }, "http": { "status": 200 } },
+            "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id }}" }
           },
           {
             "eventId": "{{ event_id_2 }}",
             "timestamp": "{{ nowIso }}",
             "name": "dbCall",
             "kind": "INTERNAL",
-            "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id_2 }}" },
-            "attributes": {
-              "db": { "system": "postgresql", "statement": "select 1" }
-            },
-            "synthetic": false
+            "attributes": { "db": { "system": "postgresql", "statement": "select 1" } },
+            "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id_2 }}" }
           }
         ]
     headers:
       - name: Content-Type
         value: application/json
-    settings:
-      renderRequestBody: true
-      encodeUrl: true
-      followRedirects: global
-      cookies: { send: true, store: true }
-      rebuildPath: true
+    settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
 
-  # ================ JQL: Select Events (stub) ================
+  - url: "{{ base_url }}/events/publish/batch"
+    name: publish_event (BATCH mixed)
+    meta: { id: req_publish_event_batch_mixed, created: 1754511487092, modified: 1754511487092, isPrivate: false, description: "Heterogeneous batch: each item carries serviceId & eventType." }
+    method: POST
+    body:
+      mimeType: application/json
+      text: |
+        [
+          {
+            "serviceId": "{{ service_id }}",
+            "eventType": "api_request",
+            "event": {
+              "eventId": "{{ event_id_1 }}",
+              "timestamp": "{{ nowIso }}",
+              "name": "lookupUser",
+              "kind": "CLIENT",
+              "attributes": { "api": { "name": "lookupUser" }, "http": { "status": 200 } },
+              "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id }}" }
+            }
+          },
+          {
+            "serviceId": "{{ service_id }}",
+            "eventType": "db_call",
+            "event": {
+              "eventId": "{{ event_id_2 }}",
+              "timestamp": "{{ nowIso }}",
+              "name": "dbCall",
+              "kind": "INTERNAL",
+              "attributes": { "db": { "system": "postgresql", "statement": "select 1" } },
+              "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id_2 }}" }
+            }
+          }
+        ]
+    headers:
+      - name: Content-Type
+        value: application/json
+    settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
+
   - url: "{{ base_url }}/jql"
     name: JQL - Select Events (ROWS)
-    meta:
-      id: req_jql_select_events
-      created: 1754511487090
-      modified: 1754511487090
-      isPrivate: false
-      description: "Structured JQL: event select with WHERE, rollup, limit."
-      sortKey: -120
+    meta: { id: req_jql_select_events, created: 1754511487090, modified: 1754511487090, isPrivate: false, description: "Structured JQL: event select." }
     method: POST
     body:
       mimeType: application/json
@@ -184,66 +151,14 @@ collection:
     headers:
       - name: Content-Type
         value: application/json
-    settings:
-      renderRequestBody: true
-      encodeUrl: true
-      followRedirects: global
-      cookies: { send: true, store: true }
-      rebuildPath: true
+    settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
 
-  # ================ JQL: Select Counter (stub) ================
-  - url: "{{ base_url }}/jql"
-    name: JQL - Select Counter (BUCKETED HAL)
-    meta:
-      id: req_jql_select_counter
-      created: 1754511487091
-      modified: 1754511487091
-      isPrivate: false
-      description: "Structured JQL: counter time-series example."
-      sortKey: -110
-    method: POST
-    body:
-      mimeType: application/json
-      text: |
-        {
-          "jql": "1.0",
-          "op": "select_counter",
-          "counter": "req_calls",
-          "where": { "partnerId": "px-01" },
-          "range": { "last": "7d" },
-          "interval": "1h",
-          "group_by": ["http.status"],
-          "bucketed": true,
-          "output": "HAL"
-        }
-    headers:
-      - name: Content-Type
-        value: application/json
-    settings:
-      renderRequestBody: true
-      encodeUrl: true
-      followRedirects: global
-      cookies: { send: true, store: true }
-      rebuildPath: true
-
-  # ================ Health (optional actuator) ================
   - url: "{{ base_url }}/actuator/health"
     name: Health
-    meta:
-      id: req_health
-      created: 1754511487084
-      modified: 1754511487084
-      isPrivate: false
-      description: "Spring Boot actuator health check (if enabled)."
-      sortKey: -50
+    meta: { id: req_health, created: 1754511487084, modified: 1754511487084, isPrivate: false, description: "Spring Boot actuator health." }
     method: GET
     body: { mimeType: application/json, text: "" }
-    settings:
-      renderRequestBody: true
-      encodeUrl: true
-      followRedirects: global
-      cookies: { send: true, store: true }
-      rebuildPath: true
+    settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
 
 cookieJar:
   name: Default Jar

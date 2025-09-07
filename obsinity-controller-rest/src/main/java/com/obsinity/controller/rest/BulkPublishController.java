@@ -3,6 +3,7 @@ package com.obsinity.controller.rest;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.obsinity.api.dto.PublishEventBatchItem;
 import com.obsinity.api.dto.PublishEventRequest;
 import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.spi.EventIngestService;
@@ -11,53 +12,35 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+/**
+ * Heterogeneous batch publish: allows mixing serviceId and eventType per item.
+ * Route: POST /events/publish/batch
+ */
 @RestController
-@RequestMapping("/events/{serviceId}/{eventType}")
-public class PublishController {
+@RequestMapping("/events")
+public class BulkPublishController {
 
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
     private final EventIngestService ingest;
     private final ObjectMapper mapper;
 
-    public PublishController(EventIngestService ingest, ObjectMapper mapper) {
+    public BulkPublishController(EventIngestService ingest, ObjectMapper mapper) {
         this.ingest = ingest;
         this.mapper = mapper;
     }
 
-    @PostMapping("/publish")
-    @ResponseStatus(HttpStatus.ACCEPTED)
-    public Map<String, Object> publishOne(
-            @PathVariable("serviceId") String serviceId,
-            @PathVariable("eventType") String eventType,
-            @Valid @RequestBody PublishEventRequest body) {
-        EventEnvelope env = toEnvelope(serviceId, eventType, body);
-        int stored = ingest.ingestOne(env);
-        return Map.of("status", stored == 1 ? "stored" : "duplicate", "eventId", env.getEventId());
-    }
-
-    /**
-     * Homogeneous batch: all events are for the same serviceId/eventType (from URI).
-     * If you want mixed batches, use BulkPublishController /events/publish/batch instead.
-     */
     @PostMapping("/publish/batch")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public Map<String, Object> publishBatch(
-            @PathVariable("serviceId") String serviceId,
-            @PathVariable("eventType") String eventType,
-            @Valid @RequestBody List<PublishEventRequest> bodies) {
-        List<EventEnvelope> envelopes =
-                bodies.stream().map(b -> toEnvelope(serviceId, eventType, b)).toList();
+    public Map<String, Object> publishBatch(@Valid @RequestBody List<PublishEventBatchItem> items) {
+
+        List<EventEnvelope> envelopes = items.stream()
+                .map(i -> toEnvelope(i.getServiceId(), i.getEventType(), i.getEvent()))
+                .toList();
 
         int stored = ingest.ingestBatch(envelopes);
-        int total = envelopes.size();
-        int duplicates = Math.max(0, total - stored);
+        int duplicates = Math.max(0, envelopes.size() - stored);
 
         return Map.of("stored", stored, "duplicates", duplicates);
     }
