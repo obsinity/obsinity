@@ -1,80 +1,113 @@
 package com.obsinity.service.core.model;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.obsinity.telemetry.model.OAttributes;
-import com.obsinity.telemetry.model.OEvent;
-import com.obsinity.telemetry.model.OLink;
-import com.obsinity.telemetry.model.OResource;
-import com.obsinity.telemetry.model.OStatus;
-import com.obsinity.telemetry.model.TelemetryHolder;
-import io.opentelemetry.api.trace.SpanKind;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
-@JsonInclude(Include.NON_NULL)
-public class EventEnvelope {
+/**
+ * Canonical, storage-level envelope for an ingested event.
+ * Uses Map<String,Object> for nested JSON payloads.
+ */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public final class EventEnvelope {
 
-    /* ── New: stable event id ─────────────────────────── */
-    private String eventId;
+    // -------- Routing / identity
+    private final String serviceId; // from URL
+    private final String eventType; // from URL
+    private final String eventId; // from body (ULID/UUIDv7 recommended)
 
-    /* ── OTEL-ish core (matches TelemetryHolder wire shape) ───────────────── */
-    private String name;
-    private Instant timestamp; // keep as canonical time (no "ts" field)
-    private Long timeUnixNano;
-    private Instant endTimestamp;
-    private String traceId;
-    private String spanId;
-    private String parentSpanId;
-    private SpanKind kind;
-    private OResource resource;
-    private OAttributes attributes;
-    private List<OEvent> events;
-    private List<OLink> links;
-    private OStatus status;
+    // -------- Timing
+    private final Instant timestamp; // start/occurredAt (body)
+    private final Instant endTimestamp; // optional end time for span-like events
+    private final Instant ingestedAt; // set by server at write time
 
-    /* ── Obsinity-native ─────────────────────────────────────────────────── */
-    private String serviceId; // tenantId == serviceId (see shim getter below)
-    private String correlationId;
-    private Boolean synthetic;
+    // -------- OTEL span surface (optional)
+    private final String name; // Span.name
+    private final String kind; // INTERNAL | SERVER | CLIENT | PRODUCER | CONSUMER
 
-    public EventEnvelope() {}
+    // Trace correlation (flattened)
+    private final String traceId;
+    private final String spanId;
+    private final String parentSpanId;
 
-    /* -------------------- Builder -------------------- */
+    // Status (optional)
+    private final Status status; // UNSET | OK | ERROR (+ message)
+
+    // Resource attributes (nested JSON object)
+    private final Map<String, Object> resourceAttributes;
+
+    // Business/telemetry attributes (nested JSON object)
+    private final Map<String, Object> attributes;
+
+    // Span events/links (optional)
+    private final List<OtelEvent> events;
+    private final List<OtelLink> links;
+
+    // Misc
+    private final String correlationId;
+    private final Boolean synthetic;
+
+    // ---------- Builder
+
+    private EventEnvelope(Builder b) {
+        this.serviceId = Objects.requireNonNull(b.serviceId, "serviceId");
+        this.eventType = Objects.requireNonNull(b.eventType, "eventType");
+        this.eventId = Objects.requireNonNull(b.eventId, "eventId");
+        this.timestamp = Objects.requireNonNull(b.timestamp, "timestamp");
+        this.endTimestamp = b.endTimestamp;
+        this.ingestedAt = Objects.requireNonNull(b.ingestedAt, "ingestedAt");
+        this.name = b.name;
+        this.kind = b.kind;
+        this.traceId = b.traceId;
+        this.spanId = b.spanId;
+        this.parentSpanId = b.parentSpanId;
+        this.status = b.status;
+        this.resourceAttributes = b.resourceAttributes;
+        this.attributes = Objects.requireNonNull(b.attributes, "attributes");
+        this.events = b.events;
+        this.links = b.links;
+        this.correlationId = b.correlationId;
+        this.synthetic = b.synthetic;
+    }
+
     public static Builder builder() {
         return new Builder();
     }
 
     public static final class Builder {
+        private String serviceId;
+        private String eventType;
         private String eventId;
-        private String name;
         private Instant timestamp;
-        private Long timeUnixNano;
         private Instant endTimestamp;
+        private Instant ingestedAt;
+        private String name;
+        private String kind;
         private String traceId;
         private String spanId;
         private String parentSpanId;
-        private SpanKind kind;
-        private OResource resource;
-        private OAttributes attributes = new OAttributes(new LinkedHashMap<>());
-        private List<OEvent> events = new ArrayList<>();
-        private List<OLink> links = new ArrayList<>();
-        private OStatus status;
-        private String serviceId;
+        private Status status;
+        private Map<String, Object> resourceAttributes;
+        private Map<String, Object> attributes;
+        private List<OtelEvent> events;
+        private List<OtelLink> links;
         private String correlationId;
         private Boolean synthetic;
 
-        private Builder() {}
-
-        public Builder eventId(String v) {
-            this.eventId = v;
+        public Builder serviceId(String v) {
+            this.serviceId = v;
             return this;
         }
 
-        public Builder name(String v) {
-            this.name = v;
+        public Builder eventType(String v) {
+            this.eventType = v;
+            return this;
+        }
+
+        public Builder eventId(String v) {
+            this.eventId = v;
             return this;
         }
 
@@ -83,13 +116,23 @@ public class EventEnvelope {
             return this;
         }
 
-        public Builder timeUnixNano(Long v) {
-            this.timeUnixNano = v;
+        public Builder endTimestamp(Instant v) {
+            this.endTimestamp = v;
             return this;
         }
 
-        public Builder endTimestamp(Instant v) {
-            this.endTimestamp = v;
+        public Builder ingestedAt(Instant v) {
+            this.ingestedAt = v;
+            return this;
+        }
+
+        public Builder name(String v) {
+            this.name = v;
+            return this;
+        }
+
+        public Builder kind(String v) {
+            this.kind = v;
             return this;
         }
 
@@ -108,54 +151,28 @@ public class EventEnvelope {
             return this;
         }
 
-        public Builder kind(SpanKind v) {
-            this.kind = v;
-            return this;
-        }
-
-        public Builder resource(OResource v) {
-            this.resource = v;
-            return this;
-        }
-
-        public Builder attributes(OAttributes v) {
-            this.attributes = v;
-            return this;
-        }
-
-        public Builder putAttribute(String k, Object val) {
-            if (this.attributes == null) this.attributes = new OAttributes(new LinkedHashMap<>());
-            this.attributes.put(k, val);
-            return this;
-        }
-
-        public Builder events(List<OEvent> v) {
-            this.events = v;
-            return this;
-        }
-
-        public Builder addEvent(OEvent v) {
-            this.events.add(v);
-            return this;
-        }
-
-        public Builder links(List<OLink> v) {
-            this.links = v;
-            return this;
-        }
-
-        public Builder addLink(OLink v) {
-            this.links.add(v);
-            return this;
-        }
-
-        public Builder status(OStatus v) {
+        public Builder status(Status v) {
             this.status = v;
             return this;
         }
 
-        public Builder serviceId(String v) {
-            this.serviceId = v;
+        public Builder resourceAttributes(Map<String, Object> v) {
+            this.resourceAttributes = v;
+            return this;
+        }
+
+        public Builder attributes(Map<String, Object> v) {
+            this.attributes = v;
+            return this;
+        }
+
+        public Builder events(List<OtelEvent> v) {
+            this.events = v;
+            return this;
+        }
+
+        public Builder links(List<OtelLink> v) {
+            this.links = v;
             return this;
         }
 
@@ -170,226 +187,181 @@ public class EventEnvelope {
         }
 
         public EventEnvelope build() {
-            EventEnvelope e = new EventEnvelope();
-            e.eventId = this.eventId;
-            e.name = this.name;
-            e.timestamp = this.timestamp;
-            e.timeUnixNano = this.timeUnixNano;
-            e.endTimestamp = this.endTimestamp;
-            e.traceId = this.traceId;
-            e.spanId = this.spanId;
-            e.parentSpanId = this.parentSpanId;
-            e.kind = this.kind;
-            e.resource = this.resource;
-            e.attributes = this.attributes != null ? this.attributes : new OAttributes(new LinkedHashMap<>());
-            e.events = this.events != null ? this.events : new ArrayList<>();
-            e.links = this.links != null ? this.links : new ArrayList<>();
-            e.status = this.status;
-            e.serviceId = this.serviceId;
-            e.correlationId = this.correlationId;
-            e.synthetic = this.synthetic;
-            return e;
+            return new EventEnvelope(this);
         }
     }
 
-    /* -------------------- Getters / Setters (Jackson) -------------------- */
+    // ---------- Nested types
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static final class Status {
+        private final String code; // UNSET | OK | ERROR
+        private final String message;
+
+        public Status(String code, String message) {
+            this.code = code;
+            this.message = message;
+        }
+
+        public String getCode() {
+            return code;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static final class OtelEvent {
+        private final String name;
+        private final Instant timestamp;
+        private final Map<String, Object> attributes;
+
+        public OtelEvent(String name, Instant timestamp, Map<String, Object> attributes) {
+            this.name = name;
+            this.timestamp = timestamp;
+            this.attributes = attributes;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public Instant getTimestamp() {
+            return timestamp;
+        }
+
+        public Map<String, Object> getAttributes() {
+            return attributes;
+        }
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static final class OtelLink {
+        private final String traceId;
+        private final String spanId;
+        private final Map<String, Object> attributes;
+
+        public OtelLink(String traceId, String spanId, Map<String, Object> attributes) {
+            this.traceId = traceId;
+            this.spanId = spanId;
+            this.attributes = attributes;
+        }
+
+        public String getTraceId() {
+            return traceId;
+        }
+
+        public String getSpanId() {
+            return spanId;
+        }
+
+        public Map<String, Object> getAttributes() {
+            return attributes;
+        }
+    }
+
+    // ---------- Getters
+
+    public String getServiceId() {
+        return serviceId;
+    }
+
+    public String getEventType() {
+        return eventType;
+    }
+
     public String getEventId() {
         return eventId;
-    }
-
-    public void setEventId(String eventId) {
-        this.eventId = eventId;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
     }
 
     public Instant getTimestamp() {
         return timestamp;
     }
 
-    public void setTimestamp(Instant timestamp) {
-        this.timestamp = timestamp;
-    }
-
-    public Long getTimeUnixNano() {
-        return timeUnixNano;
-    }
-
-    public void setTimeUnixNano(Long timeUnixNano) {
-        this.timeUnixNano = timeUnixNano;
-    }
-
     public Instant getEndTimestamp() {
         return endTimestamp;
     }
 
-    public void setEndTimestamp(Instant endTimestamp) {
-        this.endTimestamp = endTimestamp;
+    public Instant getIngestedAt() {
+        return ingestedAt;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getKind() {
+        return kind;
     }
 
     public String getTraceId() {
         return traceId;
     }
 
-    public void setTraceId(String traceId) {
-        this.traceId = traceId;
-    }
-
     public String getSpanId() {
         return spanId;
-    }
-
-    public void setSpanId(String spanId) {
-        this.spanId = spanId;
     }
 
     public String getParentSpanId() {
         return parentSpanId;
     }
 
-    public void setParentSpanId(String parentSpanId) {
-        this.parentSpanId = parentSpanId;
-    }
-
-    public SpanKind getKind() {
-        return kind;
-    }
-
-    public void setKind(SpanKind kind) {
-        this.kind = kind;
-    }
-
-    public OResource getResource() {
-        return resource;
-    }
-
-    public void setResource(OResource resource) {
-        this.resource = resource;
-    }
-
-    public OAttributes getAttributes() {
-        return attributes;
-    }
-
-    public void setAttributes(OAttributes attributes) {
-        this.attributes = attributes;
-    }
-
-    public List<OEvent> getEvents() {
-        return events;
-    }
-
-    public void setEvents(List<OEvent> events) {
-        this.events = events;
-    }
-
-    public List<OLink> getLinks() {
-        return links;
-    }
-
-    public void setLinks(List<OLink> links) {
-        this.links = links;
-    }
-
-    public OStatus getStatus() {
+    public Status getStatus() {
         return status;
     }
 
-    public void setStatus(OStatus status) {
-        this.status = status;
+    public Map<String, Object> getResourceAttributes() {
+        return resourceAttributes;
     }
 
-    public String getServiceId() {
-        return serviceId;
+    public Map<String, Object> getAttributes() {
+        return attributes;
     }
 
-    public void setServiceId(String serviceId) {
-        this.serviceId = serviceId;
+    public List<OtelEvent> getEvents() {
+        return events;
+    }
+
+    public List<OtelLink> getLinks() {
+        return links;
     }
 
     public String getCorrelationId() {
         return correlationId;
     }
 
-    public void setCorrelationId(String correlationId) {
-        this.correlationId = correlationId;
-    }
-
     public Boolean getSynthetic() {
         return synthetic;
     }
 
-    public void setSynthetic(Boolean synthetic) {
-        this.synthetic = synthetic;
+    // ---------- Equality & debug
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof EventEnvelope that)) return false;
+        return Objects.equals(serviceId, that.serviceId)
+                && Objects.equals(eventType, that.eventType)
+                && Objects.equals(eventId, that.eventId);
     }
 
-    /* -------------------- Convenience helpers -------------------- */
-    public void putResourceAttribute(String key, Object value) {
-        if (resource == null) resource = new OResource(new OAttributes(new LinkedHashMap<>()));
-        if (resource.attributes() == null) resource = new OResource(new OAttributes(new LinkedHashMap<>()));
-        resource.attributes().put(key, value);
+    @Override
+    public int hashCode() {
+        return Objects.hash(serviceId, eventType, eventId);
     }
 
-    public void putAttribute(String key, Object value) {
-        if (attributes == null) attributes = new OAttributes(new LinkedHashMap<>());
-        attributes.put(key, value);
-    }
-
-    /** Optional: ensure resource.attributes["service.id"] mirrors top-level serviceId. */
-    public void synchronizeServiceIdToResource() {
-        if (serviceId == null || serviceId.isBlank()) return;
-        putResourceAttribute(TelemetryHolder.SERVICE_ID_ATTR, serviceId);
-    }
-
-    /* -------------------- Mapping to/from TelemetryHolder -------------------- */
-    public static EventEnvelope fromHolder(TelemetryHolder h) {
-        if (h == null) return null;
-        EventEnvelope e = new EventEnvelope();
-        // choose spanId as default event id, if present
-        e.eventId = (h.spanId() != null && !h.spanId().isBlank()) ? h.spanId() : h.traceId();
-        e.name = h.name();
-        e.timestamp = h.timestamp();
-        e.timeUnixNano = h.timeUnixNano();
-        e.endTimestamp = h.endTimestamp();
-        e.traceId = h.traceId();
-        e.spanId = h.spanId();
-        e.parentSpanId = h.parentSpanId();
-        e.kind = h.kind();
-        e.resource = h.resource();
-        e.attributes = h.attributes();
-        e.events = h.events();
-        e.links = h.links();
-        e.status = h.status();
-        e.serviceId = h.serviceId();
-        e.correlationId = h.correlationId();
-        e.synthetic = h.synthetic();
-        return e;
-    }
-
-    public TelemetryHolder toHolder() {
-        // TelemetryHolder will validate service id consistency
-        return new TelemetryHolder(
-                name,
-                timestamp,
-                timeUnixNano,
-                endTimestamp,
-                traceId,
-                spanId,
-                parentSpanId,
-                kind,
-                resource,
-                attributes != null ? attributes : new OAttributes(new LinkedHashMap<>()),
-                events != null ? events : new ArrayList<>(),
-                links != null ? links : new ArrayList<>(),
-                status,
-                serviceId,
-                correlationId,
-                synthetic);
+    @Override
+    public String toString() {
+        return "EventEnvelope{" + "serviceId='"
+                + serviceId + '\'' + ", eventType='"
+                + eventType + '\'' + ", eventId='"
+                + eventId + '\'' + ", timestamp="
+                + timestamp + ", endTimestamp="
+                + endTimestamp + ", ingestedAt="
+                + ingestedAt + ", kind='"
+                + kind + '\'' + ", traceId='"
+                + traceId + '\'' + '}';
     }
 }

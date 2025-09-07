@@ -4,49 +4,50 @@ meta:
   id: wrk_68f2907246df440f96e2f024b4a89fee
   created: 1754511487081
   modified: 1754511487081
-  description: "Obsinity reference service (HTTP only) using EventEnvelope"
+  description: "Obsinity reference service (HTTP only) with publish_event (single/batch), JQL stubs."
 
 collection:
-  # ================ Ingest (single) ================
-  - url: "{{ base_url }}/api/ingest/event"
-    name: Ingest EventEnvelope (single, OK)
+  # ================ Runtime: Publish Event (OK) ================
+  - url: "{{ base_url }}/events/{{ service_id }}/{{ event_name }}/publish"
+    name: publish_event (OK)
     meta:
-      id: req_ingest_single
+      id: req_publish_event_ok
       created: 1754511487081
       modified: 1754511487081
       isPrivate: false
-      description: "Send a single EventEnvelope matching TelemetryHolder wire shape."
-      sortKey: -100
+      description: "Publish a single event (camelCase, nested attributes, OTEL aware)."
+      sortKey: -180
     method: POST
     body:
       mimeType: application/json
       text: |
         {
           "eventId": "{{ event_id }}",
-          "name": "api_request",
           "timestamp": "{{ nowIso }}",
-          "endTimestamp": "{{ nowIso }}",
-          "traceId": "{{ trace_id }}",
-          "spanId": "{{ span_id }}",
-          "parentSpanId": null,
+          "name": "getAccountHolders",
           "kind": "SERVER",
+          "trace": {
+            "traceId": "{{ trace_id }}",
+            "spanId": "{{ span_id }}"
+          },
           "resource": {
             "attributes": {
-              "service.id": "{{ service_id }}",
-              "service.name": "obsinity-reference-service",
-              "service.version": "0.1.0",
-              "deployment.environment": "dev"
+              "service": {
+                "id": "{{ service_id }}",
+                "name": "obsinity-reference-service",
+                "version": "0.1.0"
+              },
+              "deployment": { "environment": "dev" }
             }
           },
           "attributes": {
-            "api_name": "get_account_holders",
-            "http.method": "GET",
-            "http.status_code": 200
+            "api":   { "name": "getAccountHolders", "version": "v2" },
+            "http":  { "status": 200, "method": "GET" },
+            "user":  { "id": "svc-42" },
+            "partnerId": "px-01",
+            "currency": "EUR",
+            "latencyMs": 91.2
           },
-          "events": [],
-          "links": [],
-          "status": { "code": "OK", "message": "" },
-          "serviceId": "{{ service_id }}",
           "correlationId": "{{ correlation_id }}",
           "synthetic": false
         }
@@ -60,46 +61,38 @@ collection:
       cookies: { send: true, store: true }
       rebuildPath: true
 
-  - url: "{{ base_url }}/api/ingest/event"
-    name: Ingest EventEnvelope (single, ERROR)
+  # ================ Runtime: Publish Event (ERROR) ================
+  - url: "{{ base_url }}/events/{{ service_id }}/{{ event_name }}/publish"
+    name: publish_event (ERROR)
     meta:
-      id: req_ingest_single_error
+      id: req_publish_event_err
       created: 1754511487081
       modified: 1754511487081
       isPrivate: false
-      description: "Send a single EventEnvelope with error status."
-      sortKey: -95
+      description: "Publish a failing event variant to exercise error paths and 500 filtering."
     method: POST
     body:
       mimeType: application/json
       text: |
         {
           "eventId": "{{ event_id_error }}",
-          "name": "api_request",
           "timestamp": "{{ nowIso }}",
-          "endTimestamp": "{{ nowIso }}",
-          "traceId": "{{ trace_id }}",
-          "spanId": "{{ span_id_error }}",
-          "parentSpanId": null,
+          "name": "createTransaction",
           "kind": "SERVER",
-          "resource": {
-            "attributes": {
-              "service.id": "{{ service_id }}",
-              "service.name": "obsinity-reference-service",
-              "service.version": "0.1.0",
-              "deployment.environment": "dev"
-            }
+          "trace": {
+            "traceId": "{{ trace_id }}",
+            "spanId": "{{ span_id_error }}"
           },
-          "attributes": {
-            "api_name": "create_transaction",
-            "http.method": "POST",
-            "http.status_code": 500,
-            "error.type": "java.lang.IllegalStateException"
-          },
-          "events": [],
-          "links": [],
           "status": { "code": "ERROR", "message": "Simulated failure" },
-          "serviceId": "{{ service_id }}",
+          "attributes": {
+            "api":   { "name": "createTransaction", "version": "v2" },
+            "http":  { "status": 500, "method": "POST" },
+            "user":  { "id": "svc-42" },
+            "partnerId": "px-01",
+            "currency": "EUR",
+            "latencyMs": 240.4,
+            "error": { "type": "java.lang.IllegalStateException" }
+          },
           "correlationId": "{{ correlation_id }}",
           "synthetic": false
         }
@@ -113,16 +106,16 @@ collection:
       cookies: { send: true, store: true }
       rebuildPath: true
 
-  # ================ Ingest (batch) ================
-  - url: "{{ base_url }}/api/ingest/events"
-    name: Ingest EventEnvelope (batch)
+  # ================ Runtime: Publish Event (BATCH) ================
+  - url: "{{ base_url }}/events/{{ service_id }}/{{ event_name }}/publish/batch"
+    name: publish_event (BATCH)
     meta:
-      id: req_ingest_batch
-      created: 1754511487081
-      modified: 1754511487081
+      id: req_publish_event_batch
+      created: 1754511487082
+      modified: 1754511487082
       isPrivate: false
-      description: "Send an array of EventEnvelope."
-      sortKey: -90
+      description: "Publish an array of events (same schema as single)."
+      sortKey: -170
     method: POST
     body:
       mimeType: application/json
@@ -130,34 +123,26 @@ collection:
         [
           {
             "eventId": "{{ event_id_1 }}",
-            "name": "api_request",
             "timestamp": "{{ nowIso }}",
-            "endTimestamp": "{{ nowIso }}",
-            "traceId": "{{ trace_id }}",
-            "spanId": "{{ span_id }}",
+            "name": "lookupUser",
             "kind": "CLIENT",
-            "resource": { "attributes": { "service.id": "{{ service_id }}", "service.name": "obsinity-reference-client" } },
-            "attributes": { "api_name": "lookup_user", "http.method": "GET", "http.status_code": 200 },
-            "events": [],
-            "links": [],
-            "status": { "code": "OK" },
-            "serviceId": "{{ service_id }}",
+            "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id }}" },
+            "attributes": {
+              "api": { "name": "lookupUser" },
+              "http": { "status": 200, "method": "GET" },
+              "latencyMs": 45.1
+            },
             "synthetic": false
           },
           {
             "eventId": "{{ event_id_2 }}",
-            "name": "db_call",
             "timestamp": "{{ nowIso }}",
-            "endTimestamp": "{{ nowIso }}",
-            "traceId": "{{ trace_id }}",
-            "spanId": "{{ span_id_2 }}",
+            "name": "dbCall",
             "kind": "INTERNAL",
-            "resource": { "attributes": { "service.id": "{{ service_id }}", "service.name": "obsinity-reference-service" } },
-            "attributes": { "db.system": "postgresql", "db.statement": "select 1" },
-            "events": [],
-            "links": [],
-            "status": { "code": "OK" },
-            "serviceId": "{{ service_id }}",
+            "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id_2 }}" },
+            "attributes": {
+              "db": { "system": "postgresql", "statement": "select 1" }
+            },
             "synthetic": false
           }
         ]
@@ -171,44 +156,30 @@ collection:
       cookies: { send: true, store: true }
       rebuildPath: true
 
-  # ================= Catalog =================
-  - url: "{{ base_url }}/api/catalog/event-type"
-    name: Catalog - List Event Types
+  # ================ JQL: Select Events (stub) ================
+  - url: "{{ base_url }}/jql"
+    name: JQL - Select Events (ROWS)
     meta:
-      id: req_catalog_list_types
-      created: 1754511487082
-      modified: 1754511487082
+      id: req_jql_select_events
+      created: 1754511487090
+      modified: 1754511487090
       isPrivate: false
-      description: "GET list of registered event types."
-      sortKey: -80
-    method: GET
-    body: { mimeType: application/json, text: "" }
-    settings:
-      renderRequestBody: true
-      encodeUrl: true
-      followRedirects: global
-      cookies: { send: true, store: true }
-      rebuildPath: true
-
-  - url: "{{ base_url }}/api/catalog/event-type/{{ event_type }}"
-    name: Catalog - Register/Upsert Event Type
-    meta:
-      id: req_catalog_register_type
-      created: 1754511487083
-      modified: 1754511487083
-      isPrivate: false
-      description: "POST to register or update an event type with its attributes."
-      sortKey: -70
+      description: "Structured JQL: event select with WHERE, rollup, limit."
+      sortKey: -120
     method: POST
     body:
       mimeType: application/json
       text: |
         {
-          "attributes": [
-            "api_name",
-            "http.method",
-            "http.status_code"
-          ]
+          "jql": "1.0",
+          "op": "select_event",
+          "service": "{{ service_id }}",
+          "event": "{{ event_name }}",
+          "select": ["eventId", "timestamp", "http.status"],
+          "where": { "api.name": "getAccountHolders", "http.status": 200 },
+          "using_rollup": "1m",
+          "order_by": [{ "timestamp": "desc" }],
+          "limit": 100
         }
     headers:
       - name: Content-Type
@@ -220,24 +191,30 @@ collection:
       cookies: { send: true, store: true }
       rebuildPath: true
 
-  - url: "{{ base_url }}/api/catalog/event-type/{{ event_type }}/index"
-    name: Catalog - Add/Update Index
+  # ================ JQL: Select Counter (stub) ================
+  - url: "{{ base_url }}/jql"
+    name: JQL - Select Counter (BUCKETED HAL)
     meta:
-      id: req_catalog_index
-      created: 1754511487084
-      modified: 1754511487084
+      id: req_jql_select_counter
+      created: 1754511487091
+      modified: 1754511487091
       isPrivate: false
-      description: "POST to create or update an index for an event type."
-      sortKey: -60
+      description: "Structured JQL: counter time-series example."
+      sortKey: -110
     method: POST
     body:
       mimeType: application/json
       text: |
         {
-          "index": [
-            "api_name",
-            "http.status_code"
-          ]
+          "jql": "1.0",
+          "op": "select_counter",
+          "counter": "req_calls",
+          "where": { "partnerId": "px-01" },
+          "range": { "last": "7d" },
+          "interval": "1h",
+          "group_by": ["http.status"],
+          "bucketed": true,
+          "output": "HAL"
         }
     headers:
       - name: Content-Type
@@ -285,7 +262,7 @@ environments:
   data:
     base_url: http://localhost:8086
     service_id: obsinity-reference-service
-    event_type: api_request
+    event_name: api_request
     nowIso: "{% now 'iso-8601', 'utc' %}"
     correlation_id: "{% uuid 'v4' %}"
     trace_id: "{% uuid 'v4' %}"

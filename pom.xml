@@ -100,6 +100,9 @@
           <artifactId>maven-compiler-plugin</artifactId>
           <version>${maven.compiler.plugin.version}</version>
           <configuration>
+            <parameters>true</parameters> <!-- enables -parameters -->
+            <source>${java.version}</source>
+            <target>${java.version}</target>
             <release>${maven.compiler.release}</release>
           </configuration>
         </plugin>

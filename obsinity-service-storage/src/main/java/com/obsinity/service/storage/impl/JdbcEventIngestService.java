@@ -1,7 +1,7 @@
 package com.obsinity.service.storage.impl;
 
-import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.spi.EventIngestService;
+import com.obsinity.telemetry.model.EventEnvelope;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.sql.Types;
@@ -39,10 +39,7 @@ public class JdbcEventIngestService implements EventIngestService {
         final String serviceShort = serviceShortCache.computeIfAbsent(serviceKey, this::ensureServiceAndGetShortKey);
 
         // span-level attributes only (may be null)
-        final Map<String, Object> attrs =
-                (e.getAttributes() != null && e.getAttributes().map() != null)
-                        ? e.getAttributes().map()
-                        : Map.of();
+        final Map<String, Object> attrs = e.getAttributes();
 
         final String sql =
                 """
