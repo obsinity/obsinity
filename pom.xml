@@ -44,16 +44,17 @@
     <java.version>17</java.version>
     <maven.compiler.release>${java.version}</maven.compiler.release>
 
+    <!-- Plugin versions -->
     <maven.compiler.plugin.version>3.14.0</maven.compiler.plugin.version>
     <maven.surefire.plugin.version>3.5.3</maven.surefire.plugin.version>
     <maven.enforcer.plugin.version>3.6.1</maven.enforcer.plugin.version>
+    <spring-boot.version>3.5.5</spring-boot.version>
 
     <!-- Spotless / Palantir -->
     <spotless.maven.plugin.version>2.43.0</spotless.maven.plugin.version>
     <palantir.java.format.version>2.70.0</palantir.java.format.version>
 
     <!-- Library versions -->
-    <spring-boot.version>3.5.5</spring-boot.version>
     <flyway.version>11.7.2</flyway.version>
     <jackson.version>2.17.1</jackson.version>
     <lombok.version>1.18.32</lombok.version>
@@ -61,7 +62,6 @@
     <caffeine.version>3.1.8</caffeine.version>
 
     <cucumber.version>7.14.0</cucumber.version>
-    <surefire.version>3.2.5</surefire.version>
   </properties>
 
   <dependencyManagement>
@@ -83,12 +83,7 @@
       <version>${lombok.version}</version>
       <scope>provided</scope>
     </dependency>
-
-    <dependency>
-      <groupId>com.palantir.javaformat</groupId>
-      <artifactId>palantir-java-format-spi</artifactId>
-      <version>${palantir.java.format.version}</version>
-    </dependency>
+    <!-- No need for palantir-java-format-spi as a direct dep; Spotless pulls what it needs -->
   </dependencies>
 
   <build>
@@ -100,9 +95,7 @@
           <artifactId>maven-compiler-plugin</artifactId>
           <version>${maven.compiler.plugin.version}</version>
           <configuration>
-            <parameters>true</parameters> <!-- enables -parameters -->
-            <source>${java.version}</source>
-            <target>${java.version}</target>
+            <parameters>true</parameters>
             <release>${maven.compiler.release}</release>
           </configuration>
         </plugin>
@@ -129,7 +122,6 @@
               <configuration>
                 <rules>
                   <requireJavaVersion>
-                    <!-- Require Java 17 or newer -->
                     <version>[17,)</version>
                   </requireJavaVersion>
                 </rules>
@@ -138,14 +130,14 @@
           </executions>
         </plugin>
 
-        <!-- ✅ Pin Spring Boot plugin so children don't warn -->
+        <!-- Pin Spring Boot plugin so children don't warn -->
         <plugin>
           <groupId>org.springframework.boot</groupId>
           <artifactId>spring-boot-maven-plugin</artifactId>
           <version>${spring-boot.version}</version>
         </plugin>
 
-        <!-- Spotless version hint for any child overrides -->
+        <!-- Spotless (version managed here) -->
         <plugin>
           <groupId>com.diffplug.spotless</groupId>
           <artifactId>spotless-maven-plugin</artifactId>
@@ -159,10 +151,8 @@
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>
-        <version>${spotless.maven.plugin.version}</version>
         <configuration>
           <lineEndings>UNIX</lineEndings>
-
           <java>
             <palantirJavaFormat version="${palantir.java.format.version}"/>
             <removeUnusedImports/>
@@ -170,22 +160,23 @@
             <includes>
               <include>**/*.java</include>
             </includes>
-            <!-- Optional:
-            <excludes>
-              <exclude>**/generated/**</exclude>
-            </excludes>
-            -->
           </java>
-
-          <!-- (your formats for md/xml/yml/etc stay as-is) -->
         </configuration>
         <executions>
+          <!-- CI-safe: fail build if not formatted -->
           <execution>
-            <id>spotless-on-validate</id>
+            <id>spotless-check-on-verify</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+
+          <execution>
+            <id>spotless-apply-on-validate</id>
             <phase>validate</phase>
             <goals>
               <goal>apply</goal>
-              <goal>check</goal>
             </goals>
           </execution>
         </executions>
