@@ -26,18 +26,22 @@
 
     <!-- test -->
     <junit.jupiter.version>5.13.4</junit.jupiter.version>
+
+    <!-- plugin versions (only needed here if this module is built standalone) -->
+    <spotless.maven.plugin.version>2.43.0</spotless.maven.plugin.version>
   </properties>
 
   <dependencyManagement>
     <dependencies>
-            <dependency>
+      <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-dependencies</artifactId>
         <version>3.5.5</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
-<!-- Internal artifacts (tie to reactor version) -->
+
+      <!-- Internal artifacts (tie to reactor version) -->
       <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-api</artifactId><version>${project.version}</version></dependency>
       <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-core</artifactId><version>${project.version}</version></dependency>
       <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-transport-spi</artifactId><version>${project.version}</version></dependency>
@@ -87,12 +91,29 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+
       <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-core</artifactId><version>${project.version}</version></dependency>
-        <dependency>
+
+      <dependency>
         <groupId>io.opentelemetry</groupId>
         <artifactId>opentelemetry-sdk-trace</artifactId>
         <version>${otel.api.version}</version>
       </dependency>
-</dependencies>
+    </dependencies>
   </dependencyManagement>
+
+  <!-- Declare Spotless here so reactor runs don't fail on BOM -->
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>${spotless.maven.plugin.version}</version>
+        <configuration>
+          <!-- BOM has no sources to format; skip to satisfy reactor execution -->
+          <skip>true</skip>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 </project>
