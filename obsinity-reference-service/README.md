@@ -4,8 +4,6 @@ Usage:
 ```bash
 cd obsinity-reference-service
 ./build.sh
-./run.sh
-# or:
-./runclean.sh
+./run.sh [--clean]
 ./dbshell.sh
 ```
