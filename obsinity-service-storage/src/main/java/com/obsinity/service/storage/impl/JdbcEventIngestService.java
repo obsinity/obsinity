@@ -5,6 +5,7 @@ import com.obsinity.service.core.spi.EventIngestService;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.sql.Types;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
@@ -29,6 +30,7 @@ public class JdbcEventIngestService implements EventIngestService {
     public int ingestOne(EventEnvelope e) {
         final UUID eventId = UUID.fromString(e.getEventId());
         final OffsetDateTime tsZ = OffsetDateTime.ofInstant(e.getTimestamp(), ZoneOffset.UTC);
+        final OffsetDateTime now = OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC);
         final String type = e.getName();
 
         // Resolve service_key from envelope; you were using serviceId — keep that as the "full name"
@@ -44,17 +46,18 @@ public class JdbcEventIngestService implements EventIngestService {
         final String sql =
                 """
             insert into events_raw(
-              event_id, ts, type, service_short, trace_id, span_id, correlation_id, attributes
+                      event_id, occurred_at, received_at, event_type, service_short, trace_id, span_id, correlation_id, attributes
             ) values (
-              :event_id, :ts, :type, :service_short, :trace_id, :span_id, :correlation_id, cast(:attributes as jsonb)
+                      :event_id, :occurred_at, :received_at, :event_type, :service_short, :trace_id, :span_id, :correlation_id, cast(:attributes as jsonb)
             )
-            on conflict (service_short, ts, event_id) do nothing
+            on conflict (service_short, occurred_at, event_id) do nothing
             """;
 
         MapSqlParameterSource p = new MapSqlParameterSource()
                 .addValue("event_id", eventId)
-                .addValue("ts", tsZ, Types.TIMESTAMP_WITH_TIMEZONE)
-                .addValue("type", type)
+                .addValue("occurred_at", tsZ, Types.TIMESTAMP_WITH_TIMEZONE)
+                .addValue("received_at", now, Types.TIMESTAMP_WITH_TIMEZONE)
+                .addValue("event_type", type)
                 .addValue("service_short", serviceShort)
                 .addValue("trace_id", e.getTraceId())
                 .addValue("span_id", e.getSpanId())

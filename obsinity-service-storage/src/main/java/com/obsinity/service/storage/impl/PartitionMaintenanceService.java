@@ -61,7 +61,7 @@ public class PartitionMaintenanceService {
                 continue;
             }
 
-            ensureServiceRoot(shortKey); // Level 1: LIST child that is RANGE(ts)
+            ensureServiceRoot(shortKey); // Level 1: LIST child that is RANGE(occurred_at)
 
             for (LocalDate wk = start; wk.isBefore(end); wk = wk.plusWeeks(1)) {
                 ensureWeeklyPartition(shortKey, wk); // Level 2: weekly range child (wk is week-start)
@@ -69,14 +69,14 @@ public class PartitionMaintenanceService {
         }
     }
 
-    /** Level 1: create events_raw_<shortKey> as a LIST child that is further partitioned by RANGE(ts). */
+    /** Level 1: create events_raw_<shortKey> as a LIST child that is further partitioned by RANGE(occurred_at). */
     private void ensureServiceRoot(String shortKey) {
         String rootName = "events_raw_" + shortKey;
 
         String sql = String.format(
                 "CREATE TABLE IF NOT EXISTS %s "
                         + "PARTITION OF events_raw FOR VALUES IN ('%s') "
-                        + "PARTITION BY RANGE (ts)",
+                        + "PARTITION BY RANGE (occurred_at)",
                 rootName, shortKey);
 
         if (log.isDebugEnabled()) log.debug("Ensuring service root partition: {}", rootName);
@@ -107,9 +107,11 @@ public class PartitionMaintenanceService {
         }
         jdbc.execute(create);
 
-        // Per-child indexes (service_short fixed by parent; focus on ts and type)
-        jdbc.execute(String.format("CREATE INDEX IF NOT EXISTS %s_ts ON %s (ts)", partName, partName));
-        jdbc.execute(String.format("CREATE INDEX IF NOT EXISTS %s_type_ts ON %s (type, ts)", partName, partName));
+        // Per-child indexes (service_short fixed by parent; focus on occurred_at and type)
+        jdbc.execute(
+                String.format("CREATE INDEX IF NOT EXISTS %s_occurred_at ON %s (occurred_at)", partName, partName));
+        jdbc.execute(String.format(
+                "CREATE INDEX IF NOT EXISTS %s_type_occurred_at ON %s (event_type, occurred_at)", partName, partName));
     }
 
     /** Align any LocalDate to ISO week start (Monday). */
