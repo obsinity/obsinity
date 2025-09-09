@@ -13,5 +13,6 @@ This document set presents the Obsinity architecture in a narrative, reasoning-d
 8. [Security, Governance & Compliance](08_security_compliance.md)
 9. [Operations & Performance](09_operations_performance.md)
 10. [Roadmap Highlights](10_roadmap.md)
+11. [Deep Dive](deepdive.md)
 
 ---
