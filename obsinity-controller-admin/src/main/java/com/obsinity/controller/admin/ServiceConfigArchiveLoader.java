@@ -2,6 +2,7 @@ package com.obsinity.controller.admin;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -16,19 +17,24 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.MessageDigest;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
-import org.apache.commons.io.input.CloseShieldInputStream;
 import org.springframework.stereotype.Component;
 
 /**
  * Parses an archive shaped like:
- *   services/<service>/events/<event>/event.yaml
- *   services/<service>/events/<event>/metrics/{counters,histograms,gauges}/*.yaml
- *
+ * services/<service>/events/<event>/event.yaml
+ * services/<service>/events/<event>/metrics/{counters,histograms,gauges}/*.yaml
+ * <p>
  * Accepts both .tar.gz and plain .tar (magic-byte sniffed).
  */
 @Component
@@ -38,11 +44,13 @@ public class ServiceConfigArchiveLoader {
     private static final Pattern METRIC_YAML =
             Pattern.compile("^services/([^/]+)/events/([^/]+)/metrics/(counters|histograms|gauges)/([^/]+)\\.ya?ml$");
 
-    private final ObjectMapper yaml = new ObjectMapper(new YAMLFactory());
+    private final ObjectMapper yaml = new ObjectMapper(new YAMLFactory()).disable(JsonParser.Feature.AUTO_CLOSE_SOURCE);
     private final ObjectMapper canonicalMapper =
             new ObjectMapper().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
 
-    /** Backward-compatible entry point; now accepts gzip OR plain tar. */
+    /**
+     * Backward-compatible entry point; now accepts gzip OR plain tar.
+     */
     public ServiceConfig loadFromTarGz(byte[] archiveBytes) {
         // Defensive: never operate directly on the original array; we may re-wrap it multiple times.
         Objects.requireNonNull(archiveBytes, "archiveBytes");
@@ -205,7 +213,9 @@ public class ServiceConfigArchiveLoader {
 
     // ---------- helpers ----------
 
-    /** GZIP magic (1F 8B). */
+    /**
+     * GZIP magic (1F 8B).
+     */
     private static boolean isGzip(byte[] bytes) {
         return bytes != null && bytes.length >= 2 && (bytes[0] & 0xFF) == 0x1F && (bytes[1] & 0xFF) == 0x8B;
     }
@@ -248,9 +258,7 @@ public class ServiceConfigArchiveLoader {
     }
 
     private Map<String, Object> readYamlMap(InputStream in) throws IOException {
-        // IMPORTANT: never let Jackson close the TarArchiveInputStream
-        InputStream nonClosing = new CloseShieldInputStream(in);
-        return yaml.readValue(nonClosing, new TypeReference<Map<String, Object>>() {});
+        return yaml.readValue(in, new TypeReference<Map<String, Object>>() {});
     }
 
     @SuppressWarnings("unchecked")
