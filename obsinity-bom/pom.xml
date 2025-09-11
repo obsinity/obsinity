@@ -55,7 +55,6 @@
 
       <!-- NEW: server-side internal artifacts -->
       <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-service-core</artifactId><version>${project.version}</version></dependency>
-      <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-service-storage</artifactId><version>${project.version}</version></dependency>
       <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-controller-rest</artifactId><version>${project.version}</version></dependency>
       <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-controller-admin</artifactId><version>${project.version}</version></dependency>
       <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-controller-otlp</artifactId><version>${project.version}</version></dependency>

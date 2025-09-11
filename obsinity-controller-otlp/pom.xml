@@ -32,11 +32,6 @@
         <artifactId>obsinity-service-core</artifactId>
         <version>0.1.1-SNAPSHOT</version>
       </dependency>
-      <dependency>
-        <groupId>com.obsinity</groupId>
-        <artifactId>obsinity-service-storage</artifactId>
-        <version>0.1.1-SNAPSHOT</version>
-      </dependency>
     </dependencies>
     <build>
       <plugins>

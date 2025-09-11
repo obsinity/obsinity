@@ -28,7 +28,6 @@
     <module>obsinity-reference-client-spring</module>
 
     <module>obsinity-service-core</module>
-    <module>obsinity-service-storage</module>
     <module>obsinity-controller-rest</module>
     <module>obsinity-controller-admin</module>
     <module>obsinity-controller-otlp</module>
