@@ -1,0 +1,27 @@
+apiVersion: obsinity/v1
+kind: Event
+metadata:
+  service: payments
+  name: http_request
+  displayName: HTTP Request
+  labels:
+    category: http
+spec:
+  schema:
+    indexed:
+      - path: http.method
+        type: keyword
+      - path: http.route
+        type: keyword
+      - path: http.status_code
+        type: int
+      - path: client.ip
+        type: ip
+      - path: service.instance_id
+        type: keyword
+    allowAdditionalAttributes: true
+  correlation:
+    traceId: trace.id
+    spanId: span.id
+    parentSpanId: span.parent_id
+  timeField: occurred_at

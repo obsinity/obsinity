@@ -10,6 +10,7 @@ import com.obsinity.service.core.model.config.EventConfig;
 import com.obsinity.service.core.model.config.EventIndexConfig;
 import com.obsinity.service.core.model.config.MetricConfig;
 import com.obsinity.service.core.model.config.ServiceConfig;
+import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -20,13 +21,15 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
-import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
+import org.apache.commons.io.input.CloseShieldInputStream;
 import org.springframework.stereotype.Component;
 
 /**
- * Parses a .tar.gz shaped like:
+ * Parses an archive shaped like:
  *   services/<service>/events/<event>/event.yaml
  *   services/<service>/events/<event>/metrics/{counters,histograms,gauges}/*.yaml
+ *
+ * Accepts both .tar.gz and plain .tar (magic-byte sniffed).
  */
 @Component
 public class ServiceConfigArchiveLoader {
@@ -39,145 +42,174 @@ public class ServiceConfigArchiveLoader {
     private final ObjectMapper canonicalMapper =
             new ObjectMapper().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
 
-    public ServiceConfig loadFromTarGz(byte[] tarGzBytes) {
-        try (ByteArrayInputStream bin = new ByteArrayInputStream(tarGzBytes);
-                GzipCompressorInputStream gzin = new GzipCompressorInputStream(bin);
-                TarArchiveInputStream tin = new TarArchiveInputStream(gzin)) {
+    /** Backward-compatible entry point; now accepts gzip OR plain tar. */
+    public ServiceConfig loadFromTarGz(byte[] archiveBytes) {
+        // Defensive: never operate directly on the original array; we may re-wrap it multiple times.
+        Objects.requireNonNull(archiveBytes, "archiveBytes");
 
-            // service -> eventNorm -> accumulator
-            Map<String, Map<String, Acc>> services = new LinkedHashMap<>();
+        try (InputStream in = layeredUngzip(new ByteArrayInputStream(archiveBytes))) {
+            try (TarArchiveInputStream tin = new TarArchiveInputStream(in)) {
 
-            TarArchiveEntry e;
-            while ((e = tin.getNextTarEntry()) != null) {
-                if (e.isDirectory()) continue;
-                String path = normalize(e.getName());
-                if (path.isBlank()) continue;
+                // service -> eventNorm -> accumulator
+                Map<String, Map<String, Acc>> services = new LinkedHashMap<>();
 
-                Matcher em = EVENT_YAML.matcher(path);
-                Matcher mm = METRIC_YAML.matcher(path);
+                TarArchiveEntry e;
+                while ((e = tin.getNextTarEntry()) != null) {
+                    if (e.isDirectory()) continue;
+                    String path = normalize(e.getName());
+                    if (path.isBlank()) continue;
 
-                if (em.matches()) {
-                    String service = em.group(1);
-                    String eventFolder = em.group(2);
-                    Map<String, Object> doc = readYamlMap(tin);
+                    Matcher em = EVENT_YAML.matcher(path);
+                    Matcher mm = METRIC_YAML.matcher(path);
 
-                    String eventName = eventNameFromDoc(doc).orElse(kebabToSnake(eventFolder));
-                    String eventNorm = eventName.toLowerCase(Locale.ROOT);
+                    if (em.matches()) {
+                        String service = em.group(1);
+                        String eventFolder = em.group(2);
+                        Map<String, Object> doc = readYamlMap(tin);
 
-                    Acc acc = accFor(services, service, eventNorm);
-                    acc.eventName = eventName;
-                    acc.eventDoc = doc; // used to derive attribute indexes
-                } else if (mm.matches()) {
-                    String service = mm.group(1);
-                    String eventFolder = mm.group(2);
-                    String kindDir = mm.group(3); // counters|histograms|gauges
-                    String fileBase = mm.group(4); // without .yaml
-                    Map<String, Object> doc = readYamlMap(tin);
+                        String eventName = eventNameFromDoc(doc).orElse(kebabToSnake(eventFolder));
+                        String eventNorm = eventName.toLowerCase(Locale.ROOT);
 
-                    String eventName = kebabToSnake(eventFolder);
-                    String eventNorm = eventName.toLowerCase(Locale.ROOT);
-                    Acc acc = accFor(services, service, eventNorm);
+                        Acc acc = accFor(services, service, eventNorm);
+                        acc.eventName = eventName;
+                        acc.eventDoc = doc;
+                    } else if (mm.matches()) {
+                        String service = mm.group(1);
+                        String eventFolder = mm.group(2);
+                        String kindDir = mm.group(3);
+                        String fileBase = mm.group(4);
+                        Map<String, Object> doc = readYamlMap(tin);
 
-                    String metricType =
-                            switch (kindDir) {
-                                case "counters" -> "COUNTER";
-                                case "histograms" -> "HISTOGRAM";
-                                case "gauges" -> "GAUGE";
-                                default -> "COUNTER";
-                            };
+                        String eventName = kebabToSnake(eventFolder);
+                        String eventNorm = eventName.toLowerCase(Locale.ROOT);
+                        Acc acc = accFor(services, service, eventNorm);
 
-                    String metricName = metadataName(doc).orElse(fileBase);
+                        String metricType =
+                                switch (kindDir) {
+                                    case "counters" -> "COUNTER";
+                                    case "histograms" -> "HISTOGRAM";
+                                    case "gauges" -> "GAUGE";
+                                    default -> "COUNTER";
+                                };
 
-                    // keyed keys -> spec.key.dimensions (or key.dimensions)
-                    List<String> keyed = listOfStrings(mapAt(doc, "spec", "key"), "dimensions");
-                    if (keyed == null || keyed.isEmpty()) keyed = listOfStrings(mapAt(doc, "key"), "dimensions");
+                        String metricName = metadataName(doc).orElse(fileBase);
 
-                    // rollups -> spec.aggregation.windowing.granularities (or aggregation.granularities)
-                    List<String> rollups =
-                            listOfStrings(mapAt(doc, "spec", "aggregation", "windowing"), "granularities");
-                    if (rollups == null || rollups.isEmpty())
-                        rollups = listOfStrings(mapAt(doc, "aggregation"), "granularities");
+                        List<String> keyed = listOfStrings(mapAt(doc, "spec", "key"), "dimensions");
+                        if (keyed == null || keyed.isEmpty()) keyed = listOfStrings(mapAt(doc, "key"), "dimensions");
 
-                    // filters -> spec.filters (or filters)
-                    Map<String, Object> filters = mapAt(doc, "filters");
-                    if (filters == null) filters = mapAt(doc, "spec", "filters");
-                    if (filters == null) filters = Map.of();
+                        List<String> rollups =
+                                listOfStrings(mapAt(doc, "spec", "aggregation", "windowing"), "granularities");
+                        if (rollups == null || rollups.isEmpty())
+                            rollups = listOfStrings(mapAt(doc, "aggregation"), "granularities");
 
-                    // specJson (clean of control fields) – KEEP AS MAP
-                    Map<String, Object> spec = mapAt(doc, "spec");
-                    if (spec == null) spec = new LinkedHashMap<>();
-                    spec.remove("state");
-                    spec.remove("cutover_at");
-                    spec.remove("grace_until");
+                        Map<String, Object> filters = mapAt(doc, "filters");
+                        if (filters == null) filters = mapAt(doc, "spec", "filters");
+                        if (filters == null) filters = Map.of();
 
-                    // server-side stable hashes (use canonicalized JSON strings)
-                    String specHash = shortHash(canonicalize(spec));
+                        Map<String, Object> spec = mapAt(doc, "spec");
+                        if (spec == null) spec = new LinkedHashMap<>();
+                        spec.remove("state");
+                        spec.remove("cutover_at");
+                        spec.remove("grace_until");
 
-                    String bucketLayoutHash = null;
-                    if ("HISTOGRAM".equals(metricType)) {
-                        Map<String, Object> buckets = mapAt(spec, "buckets");
-                        if (buckets != null && !buckets.isEmpty()) {
-                            bucketLayoutHash = shortHash(canonicalize(buckets));
+                        String specHash = shortHash(canonicalize(spec));
+
+                        String bucketLayoutHash = null;
+                        if ("HISTOGRAM".equals(metricType)) {
+                            Map<String, Object> buckets = mapAt(spec, "buckets");
+                            if (buckets != null && !buckets.isEmpty()) {
+                                bucketLayoutHash = shortHash(canonicalize(buckets));
+                            }
                         }
+
+                        MetricConfig mc = new MetricConfig(
+                                null,
+                                metricName,
+                                metricType,
+                                spec,
+                                specHash,
+                                keyed == null ? List.of() : keyed,
+                                rollups == null ? List.of() : rollups,
+                                filters,
+                                bucketLayoutHash,
+                                null,
+                                null,
+                                null,
+                                "PENDING");
+                        acc.metrics.add(mc);
                     }
-
-                    MetricConfig mc = new MetricConfig(
-                            null, // uuid
-                            metricName,
-                            metricType, // type
-                            spec, // specJson (MAP, not String)
-                            specHash, // specHash (String)
-                            keyed == null ? List.of() : keyed,
-                            rollups == null ? List.of() : rollups,
-                            filters, // filtersJson (Map)  <-- order per record
-                            bucketLayoutHash, // bucketLayoutHash   <--
-                            null, // backfillWindow
-                            null, // cutoverAt
-                            null, // graceUntil
-                            "PENDING" // state
-                            );
-                    acc.metrics.add(mc);
                 }
-            }
 
-            // Build ServiceConfig from accumulated structure.
-            if (services.isEmpty()) {
-                throw new IllegalArgumentException("Archive contains no recognizable service/event files");
-            }
-            if (services.size() != 1) {
-                throw new IllegalArgumentException(
-                        "Archive must contain exactly one service; found: " + services.keySet());
-            }
-            String service = services.keySet().iterator().next();
-            List<EventConfig> evs = new ArrayList<>();
-            for (Acc acc : services.get(service).values()) {
-                EventIndexConfig idx = buildIndexConfig(acc.eventDoc);
-                evs.add(new EventConfig(
-                        null, // uuid
-                        acc.eventName, // eventName
-                        acc.eventName.toLowerCase(Locale.ROOT), // eventNorm
-                        acc.metrics, // metrics
-                        idx // attributeIndex
-                        ));
-            }
+                if (services.isEmpty()) {
+                    throw new IllegalArgumentException("Archive contains no recognizable service/event files");
+                }
+                if (services.size() != 1) {
+                    throw new IllegalArgumentException(
+                            "Archive must contain exactly one service; found: " + services.keySet());
+                }
 
-            // snapshot id (any deterministic/unique id you want)
-            String snapshotId = shortHash(service + "|" + Instant.now());
+                String service = services.keySet().iterator().next();
+                List<EventConfig> evs = new ArrayList<>();
+                for (Acc acc : services.get(service).values()) {
+                    EventIndexConfig idx = buildIndexConfig(acc.eventDoc);
+                    evs.add(new EventConfig(
+                            null, acc.eventName, acc.eventName.toLowerCase(Locale.ROOT), acc.metrics, idx));
+                }
 
-            // Use EMPTY_DEFAULTS or customize (e.g., rollups/backfillWindow at service-level if you add them later)
-            return new ServiceConfig(
-                    service,
-                    snapshotId,
-                    Instant.now(),
-                    ServiceConfig.EMPTY_DEFAULTS, // Defaults(List<String> rollups, String backfillWindow)
-                    evs);
+                String snapshotId = shortHash(service + "|" + Instant.now());
+                return new ServiceConfig(service, snapshotId, Instant.now(), ServiceConfig.EMPTY_DEFAULTS, evs);
+            }
+        } catch (IOException io) {
+            throw new RuntimeException("Failed to read config archive", io);
+        }
+    }
 
-        } catch (IOException ex) {
-            throw new RuntimeException("Failed to read config archive", ex);
+    /**
+     * Return an InputStream ready to be read by TarArchiveInputStream:
+     * - If bytes are gzipped (one or more layers), peel all gzip layers with JDK GZIPInputStream.
+     * - Otherwise, return the original stream (plain .tar).
+     */
+    private static InputStream layeredUngzip(InputStream in) throws IOException {
+        // We need mark/reset to peek magic without consuming. Wrap accordingly.
+        BufferedInputStream bin = new BufferedInputStream(in);
+        bin.mark(2);
+        int b0 = bin.read();
+        int b1 = bin.read();
+        bin.reset();
+
+        // GZIP magic 1F 8B?
+        if (b0 == 0x1F && b1 == 0x8B) {
+            // Peel gzip layers until it’s no longer gzip.
+            InputStream current = bin;
+            while (true) {
+                // Wrap current in GZIPInputStream
+                current = new java.util.zip.GZIPInputStream(current);
+                // Peek next two bytes after this layer to check if another gzip layer follows.
+                BufferedInputStream peek = new BufferedInputStream(current);
+                peek.mark(2);
+                int n0 = peek.read();
+                int n1 = peek.read();
+                peek.reset();
+                if (!(n0 == 0x1F && n1 == 0x8B)) {
+                    // Not another gzip; use this stream for TAR.
+                    return peek;
+                }
+                // Another layer detected; continue peeling using the peek stream
+                current = peek;
+            }
+        } else {
+            // Not gzip; return as-is (plain TAR)
+            return bin;
         }
     }
 
     // ---------- helpers ----------
+
+    /** GZIP magic (1F 8B). */
+    private static boolean isGzip(byte[] bytes) {
+        return bytes != null && bytes.length >= 2 && (bytes[0] & 0xFF) == 0x1F && (bytes[1] & 0xFF) == 0x8B;
+    }
+
     private static String normalize(String p) {
         return p.replace('\\', '/');
     }
@@ -216,7 +248,9 @@ public class ServiceConfigArchiveLoader {
     }
 
     private Map<String, Object> readYamlMap(InputStream in) throws IOException {
-        return yaml.readValue(in, new TypeReference<Map<String, Object>>() {});
+        // IMPORTANT: never let Jackson close the TarArchiveInputStream
+        InputStream nonClosing = new CloseShieldInputStream(in);
+        return yaml.readValue(nonClosing, new TypeReference<Map<String, Object>>() {});
     }
 
     @SuppressWarnings("unchecked")

@@ -1,0 +1,19 @@
+apiVersion: obsinity/v1
+kind: Event
+metadata:
+  service: payments
+  name: auth_decision
+  displayName: Auth Decision
+  labels:
+    category: security
+spec:
+  schema:
+    indexed:
+      - path: auth.user_id
+        type: keyword
+      - path: auth.subject
+        type: keyword
+      - path: auth.decision
+        type: keyword
+    allowAdditionalAttributes: true
+  timeField: occurred_at
