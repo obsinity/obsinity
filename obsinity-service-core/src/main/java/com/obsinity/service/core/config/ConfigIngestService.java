@@ -17,9 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Phase-1 ingest: create/update only, no deletes.
  * Applies a full ServiceConfig transactionally:
- *  - ensures (service,event_norm) exists in event_registry
- *  - upserts metric_config rows (by (event_id, metric_key))
- *  - upserts attribute_index rows (idempotent by (event_id, spec_hash))
+ *  - ensures (service,event_norm) exists in event_registry_cfg
+ *  - upserts metric_cfg rows (by (event_id, metric_key))
+ *  - upserts attribute_index_cfg rows (idempotent by (event_id, spec_hash))
  */
 @Service
 public class ConfigIngestService {

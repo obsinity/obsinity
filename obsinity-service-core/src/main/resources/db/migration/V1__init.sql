@@ -1,0 +1,155 @@
+-- =========================
+-- V1__init.sql (clean start, no triggers)
+-- =========================
+
+-- Extensions (UUID & hashing helpers)
+CREATE EXTENSION IF NOT EXISTS pgcrypto;   -- gen_random_uuid()
+
+-- ===========================================
+-- Canonical raw inbox aligned to EventEnvelope
+-- ===========================================
+CREATE TABLE IF NOT EXISTS events_raw (
+  event_id         UUID NOT NULL,
+  parent_event_id  UUID,
+
+  -- Core envelope
+  service_short    TEXT        NOT NULL,
+  event_type       TEXT        NOT NULL,
+  attributes       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  occurred_at      TIMESTAMPTZ NOT NULL,              -- producer time
+  received_at      TIMESTAMPTZ NOT NULL DEFAULT now(),-- ingest time
+
+  -- OTEL/correlation
+  trace_id         TEXT,
+  span_id          TEXT,
+  parent_span_id   TEXT,
+  correlation_id   TEXT,
+
+  PRIMARY KEY (service_short, occurred_at, event_id)
+)
+PARTITION BY LIST (service_short);
+
+CREATE TABLE IF NOT EXISTS events_raw_default
+  PARTITION OF events_raw DEFAULT;
+
+-- ================================================
+-- Services Catalog
+-- ================================================
+CREATE TABLE IF NOT EXISTS services (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  service_key TEXT NOT NULL UNIQUE,         -- e.g., "obsinity-reference-service"
+  short_key   TEXT NOT NULL UNIQUE,         -- 8-char sha256 hex substring
+  description TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+INSERT INTO services (service_key, short_key, description)
+VALUES (
+  'obsinity-reference-service',
+  SUBSTRING(ENCODE(DIGEST('obsinity-reference-service','sha256'),'hex') FOR 8),
+  'Obsinity Reference Service (demo HTTP ingest server)'
+)
+ON CONFLICT (service_key) DO NOTHING;
+
+-- ================================================
+-- Config-as-Source-of-Truth Registry (Phase-1)
+-- ================================================
+
+-- 1) Event registry
+CREATE TABLE IF NOT EXISTS event_registry_cfg (
+  id          UUID PRIMARY KEY,             -- app supplies UUIDv7 (dev: any UUID ok)
+  service     TEXT NOT NULL,
+  event_name  TEXT NOT NULL,                -- canonical (e.g., "HttpRequest")
+  event_norm  TEXT NOT NULL,                -- lowercase ("httprequest") for lookups
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (service, event_norm)
+);
+
+CREATE INDEX IF NOT EXISTS ix_event_registry_service_norm ON event_registry_cfg(service, event_norm);
+CREATE INDEX IF NOT EXISTS ix_event_registry_service       ON event_registry_cfg(service);
+CREATE INDEX IF NOT EXISTS ix_event_registry_norm          ON event_registry_cfg(event_norm);
+
+-- 2) Metric configs linked to event
+CREATE TABLE IF NOT EXISTS metric_cfg (
+  id                 UUID PRIMARY KEY,      -- app may supply UUIDv7; dev ok to use v4
+  event_id           UUID NOT NULL REFERENCES event_registry_cfg(id) ON DELETE CASCADE,
+  name               TEXT NOT NULL,         -- display label
+  type               TEXT NOT NULL,         -- COUNTER | HISTOGRAM | GAUGE | STATE_COUNTER
+
+  -- Deterministic identity from definition
+  metric_key         TEXT NOT NULL,         -- short SHA-256 hex (e.g., 32 chars)
+  UNIQUE (event_id, metric_key),
+
+  spec_json          JSONB NOT NULL,        -- normalized config (jsonified yaml)
+  spec_hash          TEXT  NOT NULL,        -- sha256 of spec_json (fast no-op check)
+
+  keyed_keys         TEXT[] NOT NULL DEFAULT '{}',
+  rollups            TEXT[] NOT NULL DEFAULT '{}',
+  bucket_layout_hash TEXT,                  -- histograms only
+  filters_json       JSONB NOT NULL DEFAULT '{}'::jsonb,
+
+  backfill_window    INTERVAL,              -- optional
+  state              TEXT NOT NULL DEFAULT 'PENDING',
+  cutover_at         TIMESTAMPTZ,
+  grace_until        TIMESTAMPTZ,
+
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ix_metric_cfg_event      ON metric_cfg(event_id);
+CREATE INDEX IF NOT EXISTS ix_metric_cfg_state      ON metric_cfg(state);
+CREATE INDEX IF NOT EXISTS ix_metric_cfg_cutover    ON metric_cfg(cutover_at);
+CREATE INDEX IF NOT EXISTS ix_metric_cfg_grace      ON metric_cfg(grace_until);
+
+-- Constraints (no IF NOT EXISTS support -> guarded DO blocks)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'chk_metric_type'
+      AND conrelid = 'metric_cfg'::regclass
+  ) THEN
+    ALTER TABLE metric_cfg
+      ADD CONSTRAINT chk_metric_type
+      CHECK (type IN ('COUNTER','HISTOGRAM','GAUGE','STATE_COUNTER'));
+  END IF;
+END$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'chk_spec_json_is_object'
+      AND conrelid = 'metric_cfg'::regclass
+  ) THEN
+    ALTER TABLE metric_cfg
+      ADD CONSTRAINT chk_spec_json_is_object
+      CHECK (jsonb_typeof(spec_json) = 'object');
+  END IF;
+END$$;
+
+-- 3) Attribute index definitions (optional)
+CREATE TABLE IF NOT EXISTS attribute_index_cfg (
+  id           UUID PRIMARY KEY,            -- app supplies UUIDv7; dev ok to use v4
+  event_id     UUID NOT NULL REFERENCES event_registry_cfg(id) ON DELETE CASCADE,
+  spec_json    JSONB NOT NULL,              -- e.g., {"indexed":["service","method","status_code"]}
+  spec_hash    TEXT  NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (event_id, spec_hash)
+);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'chk_attr_idx_json'
+      AND conrelid = 'attribute_index_cfg'::regclass
+  ) THEN
+    ALTER TABLE attribute_index_cfg
+      ADD CONSTRAINT chk_attr_idx_json
+      CHECK (jsonb_typeof(spec_json) = 'object');
+  END IF;
+END$$;
