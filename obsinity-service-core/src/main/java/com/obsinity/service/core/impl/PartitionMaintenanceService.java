@@ -1,12 +1,11 @@
-package com.obsinity.service.core.impl;
+package com.obsinity.service.storage.impl;
 
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.time.temporal.TemporalAdjusters;
+import java.time.*;
 import java.time.temporal.WeekFields;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -15,108 +14,206 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+/**
+ * Maintains partition trees for:
+ *  - events_raw                PARTITION BY LIST(service_short) -> RANGE(occurred_at weekly)
+ *  - event_attr_index          PARTITION BY LIST(service_short) -> RANGE(occurred_at weekly)
+ *
+ * Rolling window: create weekly partitions from N weeks back to M weeks ahead.
+ */
 @Service
 public class PartitionMaintenanceService {
 
     private static final Logger log = LoggerFactory.getLogger(PartitionMaintenanceService.class);
     private static final Pattern SHORT_KEY_RE = Pattern.compile("^[0-9a-f]{8}$");
 
-    private static final WeekFields ISO = WeekFields.ISO; // Monday start, ISO week-based-year
-
     private final JdbcTemplate jdbc;
+
+    // Tune your window here
+    private final int weeksBack = 52;
+    private final int weeksAhead = 26;
 
     public PartitionMaintenanceService(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
     }
 
-    /** Runs at application startup to pre-create partitions. */
     @EventListener(ApplicationReadyEvent.class)
     public void onStartup() {
         log.info("Ensuring partitions at startup...");
         ensurePartitions();
     }
 
-    /**
-     * Ensure partitions exist for 1 year back and 1 year forward
-     * for every registered service (by short_key).
-     * Runs daily at 01:00 UTC.
-     */
-    @Scheduled(cron = "0 0 1 * * *", zone = "UTC")
+    // e.g. run daily at 02:15
+    @Scheduled(cron = "0 15 2 * * *")
+    public void scheduled() {
+        log.info("Ensuring partitions on schedule...");
+        ensurePartitions();
+    }
+
     public void ensurePartitions() {
-        List<String> shortKeys = jdbc.query("select short_key from services", (rs, rowNum) -> rs.getString(1));
+        List<String> serviceShorts = fetchAllServiceShorts();
+        if (serviceShorts.isEmpty()) {
+            log.info("No services found yet; skipping partition creation.");
+            return;
+        }
 
-        // Use UTC "today" to be deterministic
-        LocalDate todayUtc = LocalDate.now(ZoneOffset.UTC);
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        WeekFields wf = WeekFields.of(Locale.UK); // ISO weeks; adapt if needed
+        LocalDate start = today.minusWeeks(weeksBack).with(wf.dayOfWeek(), 1); // Monday (or your week start)
+        LocalDate end   = today.plusWeeks(weeksAhead).with(wf.dayOfWeek(), 1);
 
-        // Window: ±365 days, then align to ISO week boundaries so we iterate without overlaps
-        LocalDate rawStart = todayUtc.minusDays(365);
-        LocalDate rawEnd = todayUtc.plusDays(365);
-
-        LocalDate start = alignToIsoWeekStart(rawStart); // Monday 00:00
-        LocalDate end = alignToIsoWeekStart(rawEnd); // iterate up to but excluding this
-
-        for (String shortKey : shortKeys) {
-            if (shortKey == null || !SHORT_KEY_RE.matcher(shortKey).matches()) {
-                log.warn("Skipping invalid service short_key: {}", shortKey);
+        for (String s : serviceShorts) {
+            if (!SHORT_KEY_RE.matcher(s).matches()) {
+                log.warn("Skipping non-shortkey service_short: {}", s);
                 continue;
             }
 
-            ensureServiceRoot(shortKey); // Level 1: LIST child that is RANGE(occurred_at)
+            // Ensure LIST partitions exist in both parents
+            ensureServiceListPartition("events_raw", s);
+            ensureServiceListPartition("event_attr_index", s);
 
-            for (LocalDate wk = start; wk.isBefore(end); wk = wk.plusWeeks(1)) {
-                ensureWeeklyPartition(shortKey, wk); // Level 2: weekly range child (wk is week-start)
+            // Then weekly RANGE partitions under each LIST child
+            LocalDate cursor = start;
+            while (!cursor.isAfter(end)) {
+                LocalDate next = cursor.plusWeeks(1);
+                ensureWeeklyRangePartition("events_raw", s, cursor, next);
+                ensureWeeklyRangePartition("event_attr_index", s, cursor, next);
+
+                // For the attr index, ensure helpful local indexes on each weekly child
+                ensureAttrIndexChildIndexes(s, weekName(cursor), "event_attr_index");
+                cursor = next;
             }
         }
     }
 
-    /** Level 1: create events_raw_<shortKey> as a LIST child that is further partitioned by RANGE(occurred_at). */
-    private void ensureServiceRoot(String shortKey) {
-        String rootName = "events_raw_" + shortKey;
-
-        String sql = String.format(
-                "CREATE TABLE IF NOT EXISTS %s "
-                        + "PARTITION OF events_raw FOR VALUES IN ('%s') "
-                        + "PARTITION BY RANGE (occurred_at)",
-                rootName, shortKey);
-
-        if (log.isDebugEnabled()) log.debug("Ensuring service root partition: {}", rootName);
-        jdbc.execute(sql);
+    private List<String> fetchAllServiceShorts() {
+        // Source of truth: the services table (whatever you already upsert)
+        return jdbc.queryForList("SELECT short_key FROM services", String.class);
     }
 
-    /** Level 2: create weekly partition under events_raw_<shortKey>. `weekStart` MUST be an ISO week start (Monday). */
-    private void ensureWeeklyPartition(String shortKey, LocalDate weekStart) {
-        String rootName = "events_raw_" + shortKey;
-
-        // ISO week and ISO week-based year for naming to match the actual range
-        int isoWeek = weekStart.get(ISO.weekOfWeekBasedYear());
-        int isoYear = weekStart.get(ISO.weekBasedYear());
-
-        LocalDate weekEnd = weekStart.plusWeeks(1); // TO is exclusive
-
-        String partName = String.format("%s_y%04d_w%02d", rootName, isoYear, isoWeek);
-
-        // Use explicit TIMESTAMPTZ literals in UTC at midnight; bounds are [FROM inclusive, TO exclusive]
-        String create = String.format(
-                "CREATE TABLE IF NOT EXISTS %s PARTITION OF %s "
-                        + "FOR VALUES FROM (TIMESTAMPTZ '%s 00:00:00+00') "
-                        + "TO   (TIMESTAMPTZ '%s 00:00:00+00')",
-                partName, rootName, weekStart, weekEnd);
-
-        if (log.isDebugEnabled()) {
-            log.debug("Ensuring weekly partition: {} (FROM {} TO {})", partName, weekStart, weekEnd);
-        }
-        jdbc.execute(create);
-
-        // Per-child indexes (service_short fixed by parent; focus on occurred_at and type)
-        jdbc.execute(
-                String.format("CREATE INDEX IF NOT EXISTS %s_occurred_at ON %s (occurred_at)", partName, partName));
-        jdbc.execute(String.format(
-                "CREATE INDEX IF NOT EXISTS %s_type_occurred_at ON %s (event_type, occurred_at)", partName, partName));
+    private void ensureServiceListPartition(String parentTable, String serviceShort) {
+        String childTable = parentTable + "_s_" + serviceShort;
+        jdbc.execute("""
+            DO $$
+            BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public' AND c.relname = %s
+              ) THEN
+                EXECUTE format(
+                  'CREATE TABLE %I PARTITION OF %I FOR VALUES IN (%L) PARTITION BY RANGE (occurred_at)',
+                  %s, %s, %s
+                );
+              END IF;
+            END
+            $$;
+            """.formatted(
+            quote(childTable),
+            // params for format: child, parent, 'service_short'
+            quote(childTable), parentTable, serviceShort
+        ));
     }
 
-    /** Align any LocalDate to ISO week start (Monday). */
-    private static LocalDate alignToIsoWeekStart(LocalDate date) {
-        // WeekFields.ISO uses Monday as first day of week
-        return date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+    private void ensureWeeklyRangePartition(String parentTable, String serviceShort, LocalDate fromIncl, LocalDate toExcl) {
+        String week = weekName(fromIncl);
+        String listChild = parentTable + "_s_" + serviceShort;
+        String rangeChild = listChild + "_w_" + week;
+
+        String fromTs = fromIncl.atStartOfDay().toString(); // UTC assumed for simplicity
+        String toTs   = toExcl.atStartOfDay().toString();
+
+        jdbc.execute("""
+            DO $$
+            BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public' AND c.relname = %s
+              ) THEN
+                EXECUTE format(
+                  'CREATE TABLE %I PARTITION OF %I FOR VALUES FROM (%L) TO (%L)',
+                  %s, %s, %s, %s
+                );
+              END IF;
+            END
+            $$;
+            """.formatted(
+            quote(rangeChild),
+            // format params: rangeChild, listChild, from, to
+            quote(rangeChild), listChild, fromTs, toTs
+        ));
+    }
+
+    private void ensureAttrIndexChildIndexes(String serviceShort, String week, String baseParent) {
+        String child = baseParent + "_s_" + serviceShort + "_w_" + week;
+
+        // attr_name + attr_value composite
+        jdbc.execute("""
+            DO $$
+            BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public' AND c.relname = %s
+              ) THEN
+                EXECUTE format('CREATE INDEX %I ON %I(attr_name, attr_value)', %s, %s);
+              END IF;
+            END
+            $$;
+            """.formatted(
+            quote("eai_attr_name_val_" + serviceShort + "_" + week),
+            quote("eai_attr_name_val_" + serviceShort + "_" + week),
+            quote(child)
+        ));
+
+        // occurred_at desc
+        jdbc.execute("""
+            DO $$
+            BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public' AND c.relname = %s
+              ) THEN
+                EXECUTE format('CREATE INDEX %I ON %I(occurred_at DESC)', %s, %s);
+              END IF;
+            END
+            $$;
+            """.formatted(
+            quote("eai_time_desc_" + serviceShort + "_" + week),
+            quote("eai_time_desc_" + serviceShort + "_" + week),
+            quote(child)
+        ));
+
+        // service_id + event_type_id (handy for resolving types quickly)
+        jdbc.execute("""
+            DO $$
+            BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public' AND c.relname = %s
+              ) THEN
+                EXECUTE format('CREATE INDEX %I ON %I(service_id, event_type_id)', %s, %s);
+              END IF;
+            END
+            $$;
+            """.formatted(
+            quote("eai_svc_evt_" + serviceShort + "_" + week),
+            quote("eai_svc_evt_" + serviceShort + "_" + week),
+            quote(child)
+        ));
+    }
+
+    private static String weekName(LocalDate date) {
+        WeekFields wf = WeekFields.of(Locale.UK);
+        int week = date.get(wf.weekOfWeekBasedYear());
+        return "%d_%02d".formatted(date.getYear(), week);
+    }
+
+    private static String quote(String ident) {
+        // minimal quote; better to pass via parameters but we're inside DO/EXECUTE format
+        return ident.replace("\"", "\"\"");
     }
 }

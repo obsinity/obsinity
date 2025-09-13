@@ -32,6 +32,31 @@ PARTITION BY LIST (service_short);
 CREATE TABLE IF NOT EXISTS events_raw_default
   PARTITION OF events_raw DEFAULT;
 
+-- ==============================================================
+-- DATA index (per-event attribute rows) — PARTITIONED TABLE
+-- Matches events_raw: LIST(service_short) -> RANGE(occurred_at weekly)
+-- ==============================================================
+
+CREATE TABLE IF NOT EXISTS event_attr_index (
+  -- Partitioning & time (must mirror events_raw)
+  service_short  TEXT        NOT NULL,
+  occurred_at    TIMESTAMPTZ NOT NULL,
+
+  -- Ids and attribute data
+  service_id     UUID        NOT NULL,
+  event_type_id  UUID        NOT NULL,
+  event_id       UUID        NOT NULL,
+  attr_name      TEXT        NOT NULL,
+  attr_value     TEXT        NOT NULL,
+
+  PRIMARY KEY (event_id, attr_name, attr_value)
+)
+PARTITION BY LIST (service_short);
+
+-- Optional default partition (catches new services until a LIST child is created)
+CREATE TABLE IF NOT EXISTS event_attr_index_default
+  PARTITION OF event_attr_index DEFAULT;
+
 -- ================================================
 -- Services Catalog
 -- ================================================
