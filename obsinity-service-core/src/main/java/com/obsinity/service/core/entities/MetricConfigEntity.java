@@ -5,7 +5,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "metric_cfg")
+@Table(name = "metric_registry")
 public class MetricConfigEntity {
 
     @Id

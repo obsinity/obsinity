@@ -7,10 +7,12 @@ import java.util.Map;
 
 /** Executes OB-JQL queries and returns row maps (column -> value). */
 public interface SearchService {
-	List<Map<String, Object>> query(String objql);
-	List<Map<String, Object>> query(OBJql ast);
+    List<Map<String, Object>> query(String objql);
 
-	// Paging-friendly overloads
-	List<Map<String, Object>> query(String objql, OBJqlPage page);
-	List<Map<String, Object>> query(OBJql ast, OBJqlPage page);
+    List<Map<String, Object>> query(OBJql ast);
+
+    // Paging-friendly overloads
+    List<Map<String, Object>> query(String objql, OBJqlPage page);
+
+    List<Map<String, Object>> query(OBJql ast, OBJqlPage page);
 }

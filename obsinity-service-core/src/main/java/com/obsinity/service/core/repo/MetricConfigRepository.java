@@ -16,7 +16,7 @@ public interface MetricConfigRepository extends JpaRepository<MetricConfigEntity
     @Query(
             value =
                     """
-        INSERT INTO metric_cfg (
+        INSERT INTO metric_registry (
           id, event_id, name, type, spec_json, spec_hash,
           keyed_keys, rollups, bucket_layout_hash, filters_json,
           backfill_window, cutover_at, grace_until, state,

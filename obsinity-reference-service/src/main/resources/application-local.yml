@@ -15,3 +15,8 @@ obsinity:
       enabled: true
       location: "classpath:/init-config/"
       cron: "0 * * * * *"   # every minute
+
+logging:
+  level:
+    root: DEBUG
+    com.obsinity: DEBUG

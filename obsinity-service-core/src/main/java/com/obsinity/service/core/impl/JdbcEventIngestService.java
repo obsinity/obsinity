@@ -26,8 +26,7 @@ public class JdbcEventIngestService implements EventIngestService {
     // tiny in-memory cache to avoid re-hashing/upserting each time
     private final Map<String, String> serviceShortCache = new ConcurrentHashMap<>();
 
-    public JdbcEventIngestService(NamedParameterJdbcTemplate jdbc,
-                                  AttributeIndexingService attributeIndexingService) {
+    public JdbcEventIngestService(NamedParameterJdbcTemplate jdbc, AttributeIndexingService attributeIndexingService) {
         this.jdbc = jdbc;
         this.attributeIndexingService = attributeIndexingService;
     }
@@ -54,42 +53,69 @@ public class JdbcEventIngestService implements EventIngestService {
         // span-level attributes (may be null)
         final Map<String, Object> attrs = e.getAttributes();
 
-        final String sql = """
+        // Resolve event type registry id; enforce linkage
+        final UUID eventTypeId = resolveEventTypeId(serviceKey, eventType);
+        if (eventTypeId == null) {
+            throw new IllegalStateException("Unknown event type '" + eventType + "' for service '" + serviceKey + "'");
+        }
+
+        final String sql =
+                """
             insert into events_raw(
-                  event_id, occurred_at, received_at, event_type, service_short, trace_id, span_id, correlation_id, attributes
+                  event_id, event_type_id, occurred_at, received_at, event_type, service_short, trace_id, span_id, correlation_id, attributes
             ) values (
-                  :event_id, :occurred_at, :received_at, :event_type, :service_short, :trace_id, :span_id, :correlation_id, cast(:attributes as jsonb)
+                  :event_id, :event_type_id, :occurred_at, :received_at, :event_type, :service_short, :trace_id, :span_id, :correlation_id, cast(:attributes as jsonb)
             )
             on conflict (service_short, occurred_at, event_id) do nothing
             """;
 
         MapSqlParameterSource p = new MapSqlParameterSource()
-            .addValue("event_id", eventId)
-            .addValue("occurred_at", occurredAt, Types.TIMESTAMP_WITH_TIMEZONE)
-            .addValue("received_at", receivedAt, Types.TIMESTAMP_WITH_TIMEZONE)
-            .addValue("event_type", eventType)
-            .addValue("service_short", serviceShort)
-            .addValue("trace_id", e.getTraceId())
-            .addValue("span_id", e.getSpanId())
-            .addValue("correlation_id", e.getCorrelationId())
-            .addValue("attributes", JsonUtil.toJson(attrs));
+                .addValue("event_id", eventId)
+                .addValue("event_type_id", eventTypeId)
+                .addValue("occurred_at", occurredAt, Types.TIMESTAMP_WITH_TIMEZONE)
+                .addValue("received_at", receivedAt, Types.TIMESTAMP_WITH_TIMEZONE)
+                .addValue("event_type", eventType)
+                .addValue("service_short", serviceShort)
+                .addValue("trace_id", e.getTraceId())
+                .addValue("span_id", e.getSpanId())
+                .addValue("correlation_id", e.getCorrelationId())
+                .addValue("attributes", JsonUtil.toJson(attrs));
 
         final int wrote = jdbc.update(sql, p);
 
         // Only index if this insert created a new row (idempotent on conflict)
         if (wrote == 1 && serviceId != null) {
-            // Resolve event_type_id from registry/config; skip indexing if unknown
-            final UUID eventTypeId = resolveEventTypeId(serviceKey, eventType);
-            if (eventTypeId != null) {
-                attributeIndexingService.indexEvent(new AttributeIndexingService.EventForIndex() {
-                    @Override public String serviceShort() { return serviceShort; }
-                    @Override public UUID serviceId() { return serviceId; }
-                    @Override public UUID eventTypeId() { return eventTypeId; }
-                    @Override public UUID eventId() { return eventId; }
-                    @Override public OffsetDateTime occurredAt() { return occurredAt; }
-                    @Override public Map<String, Object> attributes() { return attrs; }
-                });
-            }
+            attributeIndexingService.indexEvent(new AttributeIndexingService.EventForIndex() {
+                @Override
+                public String serviceShort() {
+                    return serviceShort;
+                }
+
+                @Override
+                public UUID serviceId() {
+                    return serviceId;
+                }
+
+                @Override
+                public UUID eventTypeId() {
+                    return eventTypeId;
+                }
+
+                @Override
+                public UUID eventId() {
+                    return eventId;
+                }
+
+                @Override
+                public OffsetDateTime occurredAt() {
+                    return occurredAt;
+                }
+
+                @Override
+                public Map<String, Object> attributes() {
+                    return attrs;
+                }
+            });
         }
 
         return wrote;
@@ -110,16 +136,15 @@ public class JdbcEventIngestService implements EventIngestService {
 
         try {
             jdbc.update(
-                """
-                insert into services (service_key, short_key, description)
+                    """
+                insert into service_registry (service_key, short_key, description)
                 values (:service_key, :short_key, :description)
                 on conflict (service_key) do nothing
                 """,
-                new MapSqlParameterSource()
-                    .addValue("service_key", serviceKey)
-                    .addValue("short_key", shortKey)
-                    .addValue("description", "auto-registered")
-            );
+                    new MapSqlParameterSource()
+                            .addValue("service_key", serviceKey)
+                            .addValue("short_key", shortKey)
+                            .addValue("description", "auto-registered"));
         } catch (DataAccessException ignore) {
             // harmless if races occur; uniqueness handles it
         }
@@ -130,36 +155,29 @@ public class JdbcEventIngestService implements EventIngestService {
     private UUID resolveServiceId(String serviceKey) {
         try {
             return jdbc.queryForObject(
-                "select id from services where service_key = :service_key",
-                new MapSqlParameterSource().addValue("service_key", serviceKey),
-                (rs, rowNum) -> (UUID) rs.getObject(1)
-            );
+                    "select id from service_registry where service_key = :service_key",
+                    new MapSqlParameterSource().addValue("service_key", serviceKey),
+                    (rs, rowNum) -> (UUID) rs.getObject(1));
         } catch (Exception ex) {
             return null; // not fatal; indexing will be skipped
         }
     }
 
-    /**
-     * Resolve the event_type_id (UUID) for (service_key, event_type).
-     * Adjust this to your actual config schema. Example assumes a config table:
-     *
-     *   event_registry_cfg(service_key text, event_type text, event_type_id uuid, ...)
-     */
     private UUID resolveEventTypeId(String serviceKey, String eventType) {
         try {
             return jdbc.queryForObject(
-                """
-                select event_type_id
-                from event_registry_cfg
-                where service_key = :service_key
-                  and event_type  = :event_type
+                    """
+                select er.id
+                from event_registry er
+                join service_registry s on s.id = er.service_id
+                where s.service_key = :service_key
+                  and er.event_name  = :event_type
                 limit 1
                 """,
-                new MapSqlParameterSource()
-                    .addValue("service_key", serviceKey)
-                    .addValue("event_type", eventType),
-                (rs, rowNum) -> (UUID) rs.getObject(1)
-            );
+                    new MapSqlParameterSource()
+                            .addValue("service_key", serviceKey)
+                            .addValue("event_type", eventType),
+                    (rs, rowNum) -> (UUID) rs.getObject(1));
         } catch (Exception ex) {
             return null; // skip indexing if not registered yet
         }

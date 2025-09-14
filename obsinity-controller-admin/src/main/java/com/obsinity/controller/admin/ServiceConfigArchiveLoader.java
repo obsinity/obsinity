@@ -161,7 +161,13 @@ public class ServiceConfigArchiveLoader {
                 for (Acc acc : services.get(service).values()) {
                     EventIndexConfig idx = buildIndexConfig(acc.eventDoc);
                     evs.add(new EventConfig(
-                            null, acc.eventName, acc.eventName.toLowerCase(Locale.ROOT), acc.metrics, idx));
+                            null,
+                            acc.eventName,
+                            acc.eventName.toLowerCase(Locale.ROOT),
+                            categoryFrom(acc.eventDoc),
+                            subCategoryFrom(acc.eventDoc),
+                            acc.metrics,
+                            idx));
                 }
 
                 String snapshotId = shortHash(service + "|" + Instant.now());
@@ -259,6 +265,34 @@ public class ServiceConfigArchiveLoader {
 
     private Map<String, Object> readYamlMap(InputStream in) throws IOException {
         return yaml.readValue(in, new TypeReference<Map<String, Object>>() {});
+    }
+
+    private static String categoryFrom(Map<String, Object> doc) {
+        Map<String, Object> meta = mapAt(doc, "metadata");
+        if (meta != null) {
+            Object v = meta.get("category");
+            if (v instanceof String s && !s.isBlank()) return s.trim();
+            Map<String, Object> labels = mapAt(meta, "labels");
+            if (labels != null) {
+                Object sc = labels.get("category");
+                if (sc instanceof String sx && !sx.isBlank()) return sx.trim();
+            }
+        }
+        return null;
+    }
+
+    private static String subCategoryFrom(Map<String, Object> doc) {
+        Map<String, Object> meta = mapAt(doc, "metadata");
+        if (meta != null) {
+            Object v = meta.get("subCategory");
+            if (v instanceof String s && !s.isBlank()) return s.trim();
+            Map<String, Object> labels = mapAt(meta, "labels");
+            if (labels != null) {
+                Object sc = labels.get("subCategory");
+                if (sc instanceof String sx && !sx.isBlank()) return sx.trim();
+            }
+        }
+        return null;
     }
 
     @SuppressWarnings("unchecked")

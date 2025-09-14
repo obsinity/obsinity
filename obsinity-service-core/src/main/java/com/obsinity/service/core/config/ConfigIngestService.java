@@ -8,9 +8,12 @@ import com.obsinity.service.core.model.config.ServiceConfigResponse;
 import com.obsinity.service.core.repo.AttributeIndexRepository;
 import com.obsinity.service.core.repo.EventRegistryRepository;
 import com.obsinity.service.core.repo.MetricConfigRepository;
+import com.obsinity.service.core.repo.ServicesCatalogRepository;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,20 +26,31 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class ConfigIngestService {
+    private static final Logger log = LoggerFactory.getLogger(ConfigIngestService.class);
 
     private final EventRegistryRepository eventRepo;
     private final MetricConfigRepository metricRepo;
     private final AttributeIndexRepository attrRepo;
+    private final ServicesCatalogRepository servicesRepo;
 
     public ConfigIngestService(
-            EventRegistryRepository eventRepo, MetricConfigRepository metricRepo, AttributeIndexRepository attrRepo) {
+            EventRegistryRepository eventRepo,
+            MetricConfigRepository metricRepo,
+            AttributeIndexRepository attrRepo,
+            ServicesCatalogRepository servicesRepo) {
         this.eventRepo = eventRepo;
         this.metricRepo = metricRepo;
         this.attrRepo = attrRepo;
+        this.servicesRepo = servicesRepo;
     }
 
     @Transactional
     public ServiceConfigResponse applyConfigUpdate(ServiceConfig req) {
+        log.debug(
+                "ConfigIngest: apply service={}, events={} (snapshotId={})",
+                req.service(),
+                req.events() == null ? 0 : req.events().size(),
+                req.snapshotId());
         int events = 0, metrics = 0, attrIdx = 0;
 
         if (req.events() == null || req.events().isEmpty()) {
@@ -48,6 +62,18 @@ public class ConfigIngestService {
             throw new IllegalArgumentException("ServiceConfig.service must be provided");
         }
 
+        // Ensure service exists in catalog (for partitioning and lookups)
+        String shortKey = hex(sha256(service.getBytes(StandardCharsets.UTF_8)), 4);
+        java.util.UUID serviceId = servicesRepo.findIdByServiceKey(service);
+        if (serviceId == null) {
+            try {
+                servicesRepo.upsertService(service, shortKey, "Loaded via init-config");
+            } catch (Exception ignore) {
+            }
+            serviceId = servicesRepo.findIdByServiceKey(service);
+            if (serviceId == null) throw new IllegalStateException("Failed to resolve service id for " + service);
+        }
+
         for (EventConfig eb : req.events()) {
             final String eventName = trimToNull(eb.eventName());
             if (eventName == null) {
@@ -57,7 +83,15 @@ public class ConfigIngestService {
                     ? eb.eventNorm().toLowerCase(Locale.ROOT).trim()
                     : eventName.toLowerCase(Locale.ROOT);
 
-            UUID eventId = ensureEvent(service, eventName, norm, eb.uuid());
+            String category = trimToNull(eb.category());
+            String subCategory = trimToNull(eb.subCategory());
+            UUID eventId = ensureEvent(serviceId, service, shortKey, category, subCategory, eventName, norm, eb.uuid());
+            log.debug(
+                    "ConfigIngest: ensured event service={}, name={}, norm={}, id={}",
+                    service,
+                    eventName,
+                    norm,
+                    eventId);
             events++;
 
             // Metrics
@@ -130,14 +164,25 @@ public class ConfigIngestService {
             }
         }
 
-        return new ServiceConfigResponse(req.snapshotId(), true, events, metrics, attrIdx);
+        ServiceConfigResponse resp = new ServiceConfigResponse(req.snapshotId(), true, events, metrics, attrIdx);
+        log.debug("ConfigIngest: result events={}, metrics={}, attrIdx={}", events, metrics, attrIdx);
+        return resp;
     }
 
-    private UUID ensureEvent(String service, String eventName, String eventNorm, UUID desiredId) {
+    private UUID ensureEvent(
+            UUID serviceId,
+            String service,
+            String serviceShort,
+            String category,
+            String subCategory,
+            String eventName,
+            String eventNorm,
+            UUID desiredId) {
         UUID idToUse = desiredId != null ? desiredId : UUID.randomUUID();
         // insertIfAbsent should be implemented with ON CONFLICT DO NOTHING to avoid races
-        eventRepo.insertIfAbsent(idToUse, service, eventName, eventNorm);
-        UUID existing = eventRepo.findIdByServiceAndEventNorm(service, eventNorm);
+        eventRepo.insertIfAbsent(
+                idToUse, serviceId, service, serviceShort, category, subCategory, eventName, eventNorm);
+        UUID existing = eventRepo.findIdByServiceIdAndEventNorm(serviceId, eventNorm);
         return existing != null ? existing : idToUse;
     }
 

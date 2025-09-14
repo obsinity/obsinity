@@ -18,40 +18,40 @@ import org.springframework.stereotype.Service;
 @Service
 public class JdbcSearchService implements SearchService {
 
-	private static final Logger log = LoggerFactory.getLogger(JdbcSearchService.class);
+    private static final Logger log = LoggerFactory.getLogger(JdbcSearchService.class);
 
-	private final NamedParameterJdbcTemplate jdbc;
-	private final OBJqlParser parser = new OBJqlParser();
-	private final OBJqlCteBuilder builder;
+    private final NamedParameterJdbcTemplate jdbc;
+    private final OBJqlParser parser = new OBJqlParser();
+    private final OBJqlCteBuilder builder;
 
-	public JdbcSearchService(NamedParameterJdbcTemplate jdbc) {
-		this.jdbc = jdbc;
-		// Adjust table names here if needed:
-		this.builder = new OBJqlCteBuilder("events_raw", "event_attr_index");
-	}
+    public JdbcSearchService(NamedParameterJdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+        // Adjust table names here if needed:
+        this.builder = new OBJqlCteBuilder("events_raw", "event_attr_index");
+    }
 
-	@Override
-	public List<Map<String, Object>> query(String objql) {
-		return query(objql, OBJqlPage.firstPage());
-	}
+    @Override
+    public List<Map<String, Object>> query(String objql) {
+        return query(objql, OBJqlPage.firstPage());
+    }
 
-	@Override
-	public List<Map<String, Object>> query(OBJql ast) {
-		return query(ast, OBJqlPage.firstPage());
-	}
+    @Override
+    public List<Map<String, Object>> query(OBJql ast) {
+        return query(ast, OBJqlPage.firstPage());
+    }
 
-	@Override
-	public List<Map<String, Object>> query(String objql, OBJqlPage page) {
-		OBJql ast = parser.parse(objql);
-		return query(ast, page);
-	}
+    @Override
+    public List<Map<String, Object>> query(String objql, OBJqlPage page) {
+        OBJql ast = parser.parse(objql);
+        return query(ast, page);
+    }
 
-	@Override
-	public List<Map<String, Object>> query(OBJql ast, OBJqlPage page) {
-		var built = builder.build(ast, page);
-		if (log.isDebugEnabled()) {
-			log.debug("OB-JQL (CTE) SQL:\n{}\nparams: {}", built.sql(), built.params());
-		}
-		return jdbc.queryForList(built.sql(), built.params());
-	}
+    @Override
+    public List<Map<String, Object>> query(OBJql ast, OBJqlPage page) {
+        var built = builder.build(ast, page);
+        if (log.isDebugEnabled()) {
+            log.debug("OB-JQL (CTE) SQL:\n{}\nparams: {}", built.sql(), built.params());
+        }
+        return jdbc.queryForList(built.sql(), built.params());
+    }
 }

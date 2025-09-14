@@ -5,7 +5,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "attribute_index_cfg")
+@Table(name = "attribute_index_registry")
 public class AttributeIndexEntity {
 
     @Id

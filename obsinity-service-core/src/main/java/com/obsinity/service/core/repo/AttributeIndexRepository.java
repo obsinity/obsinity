@@ -15,7 +15,7 @@ public interface AttributeIndexRepository extends JpaRepository<AttributeIndexEn
     @Query(
             value =
                     """
-        INSERT INTO attribute_index_cfg (id, event_id, spec_json, spec_hash)
+        INSERT INTO attribute_index_registry (id, event_id, spec_json, spec_hash)
         VALUES (:id, :eventId, cast(:specJson as jsonb), :specHash)
         ON CONFLICT (event_id, spec_hash) DO NOTHING
         """,

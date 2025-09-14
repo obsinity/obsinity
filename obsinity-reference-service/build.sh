@@ -4,9 +4,11 @@ set -euo pipefail
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$APP_DIR"/.. && pwd)"
 
+PROFILE="${PROFILE:-local}"
+
 function build_maven() {
-  echo "🔄 Cleaning and building the reference service..."
-  (cd "$REPO_ROOT" && mvn -U spotless:apply clean install -DskipTests -pl obsinity-reference-service -am)
+  echo "🔄 Cleaning and building the reference service (profile: ${PROFILE})..."
+  (cd "$REPO_ROOT" && mvn -U -P "${PROFILE}" spotless:apply clean install -DskipTests -pl obsinity-reference-service -am)
 }
 
 function stop_docker() {

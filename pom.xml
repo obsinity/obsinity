@@ -189,4 +189,23 @@
       </plugin>
     </plugins>
   </build>
+
+  <!-- Placeholder profiles for environment-specific tweaks -->
+  <profiles>
+    <profile>
+      <id>dev</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <properties>
+        <!-- Add dev-scoped properties here if needed -->
+      </properties>
+    </profile>
+    <profile>
+      <id>local</id>
+      <properties>
+        <!-- Intentionally identical to 'dev' for now -->
+      </properties>
+    </profile>
+  </profiles>
 </project>

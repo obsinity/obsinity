@@ -63,6 +63,7 @@ public class ConfigLoaderService {
                 .collect(Collectors.toMap(ServiceConfig::serviceShort, ServiceConfig::updatedAt));
 
         List<EventRegistryEntity> allEvents = findAllEventsLite();
+        log.info("ConfigLoader: event_registry_cfg rows observed = {}", allEvents.size());
         if (allEvents.isEmpty()) return;
 
         Map<String, List<EventRegistryEntity>> byService =
@@ -112,6 +113,11 @@ public class ConfigLoaderService {
                     .filter(Objects::nonNull)
                     .max(Comparator.naturalOrder())
                     .orElse(Instant.EPOCH);
+            log.info(
+                    "ConfigLoader: materializing service={}, events={}, maxUpdated={}",
+                    e.getKey(),
+                    e.getValue().size(),
+                    maxUpd);
             out.put(e.getKey(), loadSingleService(e.getKey(), e.getValue(), maxUpd));
         }
         return new RegistrySnapshot(Map.copyOf(out), Instant.now());

@@ -9,6 +9,13 @@ mkdir -p "$out_dir"
 rm -f "$zip_path"
 
 # Recursively zip current folder, excluding common build/IDE dirs
-zip -r "$zip_path" . -x "*/.git/*" "*/target/*" "*/.idea/*"
+zip -r "$zip_path" . \
+  -x '.git/*' '*/.git/*' \
+     'target/*' '*/target/*' \
+     '.idea/*' '*/.idea/*' \
+     '.gradle/*' '*/.gradle/*' \
+     'build/*' '*/build/*' \
+     'node_modules/*' '*/node_modules/*' \
+     '*.iml' '*/.DS_Store'
 
 echo "Created: $zip_path"

@@ -5,7 +5,6 @@ import java.time.temporal.WeekFields;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -60,7 +59,7 @@ public class PartitionMaintenanceService {
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
         WeekFields wf = WeekFields.of(Locale.UK); // ISO weeks; adapt if needed
         LocalDate start = today.minusWeeks(weeksBack).with(wf.dayOfWeek(), 1); // Monday (or your week start)
-        LocalDate end   = today.plusWeeks(weeksAhead).with(wf.dayOfWeek(), 1);
+        LocalDate end = today.plusWeeks(weeksAhead).with(wf.dayOfWeek(), 1);
 
         for (String s : serviceShorts) {
             if (!SHORT_KEY_RE.matcher(s).matches()) {
@@ -88,12 +87,13 @@ public class PartitionMaintenanceService {
 
     private List<String> fetchAllServiceShorts() {
         // Source of truth: the services table (whatever you already upsert)
-        return jdbc.queryForList("SELECT short_key FROM services", String.class);
+        return jdbc.queryForList("SELECT short_key FROM service_registry", String.class);
     }
 
     private void ensureServiceListPartition(String parentTable, String serviceShort) {
         String childTable = parentTable + "_s_" + serviceShort;
-        jdbc.execute("""
+        jdbc.execute(
+                """
             DO $$
             BEGIN
               IF NOT EXISTS (
@@ -102,28 +102,32 @@ public class PartitionMaintenanceService {
                 WHERE n.nspname = 'public' AND c.relname = %s
               ) THEN
                 EXECUTE format(
-                  'CREATE TABLE %I PARTITION OF %I FOR VALUES IN (%L) PARTITION BY RANGE (occurred_at)',
+                  'CREATE TABLE %%I PARTITION OF %%I FOR VALUES IN (%%L) PARTITION BY RANGE (occurred_at)',
                   %s, %s, %s
                 );
               END IF;
             END
             $$;
-            """.formatted(
-            quote(childTable),
-            // params for format: child, parent, 'service_short'
-            quote(childTable), parentTable, serviceShort
-        ));
+            """
+                        .formatted(
+                                literal(childTable),
+                                // params for format: child, parent, 'service_short'
+                                literal(childTable),
+                                literal(parentTable),
+                                literal(serviceShort)));
     }
 
-    private void ensureWeeklyRangePartition(String parentTable, String serviceShort, LocalDate fromIncl, LocalDate toExcl) {
+    private void ensureWeeklyRangePartition(
+            String parentTable, String serviceShort, LocalDate fromIncl, LocalDate toExcl) {
         String week = weekName(fromIncl);
         String listChild = parentTable + "_s_" + serviceShort;
         String rangeChild = listChild + "_w_" + week;
 
         String fromTs = fromIncl.atStartOfDay().toString(); // UTC assumed for simplicity
-        String toTs   = toExcl.atStartOfDay().toString();
+        String toTs = toExcl.atStartOfDay().toString();
 
-        jdbc.execute("""
+        jdbc.execute(
+                """
             DO $$
             BEGIN
               IF NOT EXISTS (
@@ -132,24 +136,28 @@ public class PartitionMaintenanceService {
                 WHERE n.nspname = 'public' AND c.relname = %s
               ) THEN
                 EXECUTE format(
-                  'CREATE TABLE %I PARTITION OF %I FOR VALUES FROM (%L) TO (%L)',
+                  'CREATE TABLE %%I PARTITION OF %%I FOR VALUES FROM (%%L) TO (%%L)',
                   %s, %s, %s, %s
                 );
               END IF;
             END
             $$;
-            """.formatted(
-            quote(rangeChild),
-            // format params: rangeChild, listChild, from, to
-            quote(rangeChild), listChild, fromTs, toTs
-        ));
+            """
+                        .formatted(
+                                literal(rangeChild),
+                                // format params: rangeChild, listChild, from, to
+                                literal(rangeChild),
+                                literal(listChild),
+                                literal(fromTs),
+                                literal(toTs)));
     }
 
     private void ensureAttrIndexChildIndexes(String serviceShort, String week, String baseParent) {
         String child = baseParent + "_s_" + serviceShort + "_w_" + week;
 
         // attr_name + attr_value composite
-        jdbc.execute("""
+        jdbc.execute(
+                """
             DO $$
             BEGIN
               IF NOT EXISTS (
@@ -157,18 +165,19 @@ public class PartitionMaintenanceService {
                 JOIN pg_namespace n ON n.oid = c.relnamespace
                 WHERE n.nspname = 'public' AND c.relname = %s
               ) THEN
-                EXECUTE format('CREATE INDEX %I ON %I(attr_name, attr_value)', %s, %s);
+                EXECUTE format('CREATE INDEX %%I ON %%I(attr_name, attr_value)', %s, %s);
               END IF;
             END
             $$;
-            """.formatted(
-            quote("eai_attr_name_val_" + serviceShort + "_" + week),
-            quote("eai_attr_name_val_" + serviceShort + "_" + week),
-            quote(child)
-        ));
+            """
+                        .formatted(
+                                literal("eai_attr_name_val_" + serviceShort + "_" + week),
+                                literal("eai_attr_name_val_" + serviceShort + "_" + week),
+                                literal(child)));
 
         // occurred_at desc
-        jdbc.execute("""
+        jdbc.execute(
+                """
             DO $$
             BEGIN
               IF NOT EXISTS (
@@ -176,18 +185,19 @@ public class PartitionMaintenanceService {
                 JOIN pg_namespace n ON n.oid = c.relnamespace
                 WHERE n.nspname = 'public' AND c.relname = %s
               ) THEN
-                EXECUTE format('CREATE INDEX %I ON %I(occurred_at DESC)', %s, %s);
+                EXECUTE format('CREATE INDEX %%I ON %%I(occurred_at DESC)', %s, %s);
               END IF;
             END
             $$;
-            """.formatted(
-            quote("eai_time_desc_" + serviceShort + "_" + week),
-            quote("eai_time_desc_" + serviceShort + "_" + week),
-            quote(child)
-        ));
+            """
+                        .formatted(
+                                literal("eai_time_desc_" + serviceShort + "_" + week),
+                                literal("eai_time_desc_" + serviceShort + "_" + week),
+                                literal(child)));
 
         // service_id + event_type_id (handy for resolving types quickly)
-        jdbc.execute("""
+        jdbc.execute(
+                """
             DO $$
             BEGIN
               IF NOT EXISTS (
@@ -195,15 +205,15 @@ public class PartitionMaintenanceService {
                 JOIN pg_namespace n ON n.oid = c.relnamespace
                 WHERE n.nspname = 'public' AND c.relname = %s
               ) THEN
-                EXECUTE format('CREATE INDEX %I ON %I(service_id, event_type_id)', %s, %s);
+                EXECUTE format('CREATE INDEX %%I ON %%I(service_id, event_type_id)', %s, %s);
               END IF;
             END
             $$;
-            """.formatted(
-            quote("eai_svc_evt_" + serviceShort + "_" + week),
-            quote("eai_svc_evt_" + serviceShort + "_" + week),
-            quote(child)
-        ));
+            """
+                        .formatted(
+                                literal("eai_svc_evt_" + serviceShort + "_" + week),
+                                literal("eai_svc_evt_" + serviceShort + "_" + week),
+                                literal(child)));
     }
 
     private static String weekName(LocalDate date) {
@@ -213,7 +223,13 @@ public class PartitionMaintenanceService {
     }
 
     private static String quote(String ident) {
-        // minimal quote; better to pass via parameters but we're inside DO/EXECUTE format
+        // minimal identifier sanitization for embedding into SQL string literals
         return ident.replace("\"", "\"\"");
+    }
+
+    private static String literal(String s) {
+        // single-quote and escape for safe SQL literal usage
+        if (s == null) return "NULL";
+        return "'" + s.replace("'", "''") + "'";
     }
 }
