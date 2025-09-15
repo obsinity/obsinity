@@ -1,0 +1,508 @@
+package com.obsinity.controller.rest;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.obsinity.service.core.objql.OBJql;
+import com.obsinity.service.core.objql.OBJqlPage;
+import com.obsinity.service.core.repo.ServicesCatalogRepository;
+import com.obsinity.service.core.search.SearchService;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/search")
+public class SearchController {
+
+    private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<Map<String, Object>>() {};
+
+    private final SearchService search;
+    private final ObjectMapper mapper;
+    private final ServicesCatalogRepository servicesRepo;
+    private final String embeddedKey;
+    private final String linksKey;
+
+    public SearchController(
+            SearchService search,
+            ObjectMapper mapper,
+            ServicesCatalogRepository servicesRepo,
+            @Value("${obsinity.api.hal.embedded:_embedded}") String embeddedKey,
+            @Value("${obsinity.api.hal.links:_links}") String linksKey) {
+        this.search = search;
+        this.mapper = mapper;
+        this.servicesRepo = servicesRepo;
+        this.embeddedKey = embeddedKey;
+        this.linksKey = linksKey;
+    }
+
+    /**
+     * JSON Search endpoint for events.
+     * Body structure examples are documented in obsinity-reference-service/insomnia.yaml
+     */
+    @PostMapping(
+            value = "/events",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> search(@RequestBody SearchBody body) {
+        validate(body);
+
+        OBJqlPage page = OBJqlPage.of(body.offset, body.limit);
+
+        // Build OB-JQL AST from JSON (match -> attribute predicates)
+        OBJql ast = toOBJql(body);
+
+        // Execute CTE-backed search (returns full events from events_raw)
+        List<Map<String, Object>> rows = search.query(ast, page);
+
+        // Post-filter full events using SQL-like ops on JSON paths
+        if (body.filter != null) {
+            List<FilterClause> filter = normalizeFilter(body.filter);
+            rows = rows.stream()
+                    .filter(row -> evalFilter(filter, hydrateEnvelope(row, body)))
+                    .toList();
+        }
+
+        // Normalize row output: ensure attributes is a plain JSON object, not a driver wrapper
+        List<Map<String, Object>> data = new ArrayList<>(rows.size());
+        for (Map<String, Object> row : rows) {
+            data.add(normalizeRow(row));
+        }
+
+        long total = extractTotal(rows, ast, page);
+        long count = data.size();
+        int limit = page.limit();
+        long offset = page.offset();
+
+        Map<String, Object> wrapper = new LinkedHashMap<>();
+        wrapper.put("count", count);
+        wrapper.put("total", total);
+        wrapper.put("limit", limit);
+        wrapper.put("offset", offset);
+        Map<String, Object> embedded = new LinkedHashMap<>();
+        embedded.put("events", data);
+        wrapper.put(embeddedKey, embedded);
+        wrapper.put(linksKey, buildLinks(body, offset, limit, count, total));
+        return wrapper;
+    }
+
+    // -------------------------------------------------------------------------------------
+    // DTOs
+    // -------------------------------------------------------------------------------------
+
+    public static class SearchBody {
+        public String service; // required
+        public String event; // optional
+        public Period period; // required (since or between)
+        public Object match; // single {attribute,op,value} or {and:[...]} or {or:[...]} or [ ... ]
+        public Object filter; // same shape as match but uses {path,op,value}
+        public List<Order> order; // optional
+        public Integer limit; // defaulted by service
+        public Long offset; // defaulted by service
+    }
+
+    public static class Period {
+        public String since; // e.g. -1h, -24h
+        public List<String> between; // [isoStart, isoEnd]
+    }
+
+    public static class Order {
+        public String field; // occurred_at | received_at
+        public String dir; // asc|desc
+    }
+
+    public static class MatchClause {
+        public String attribute; // indexed path (e.g., api.name, http.status)
+        public String op; // =, !=, like, ilike
+        public Object value;
+    }
+
+    public static class FilterClause {
+        public String path; // e.g., trace.correlation_id, attributes.api.name, event.subCategory
+        public String op; // =, !=, like, ilike
+        public Object value;
+        public List<FilterClause> and; // nested
+        public List<FilterClause> or; // nested
+    }
+
+    // -------------------------------------------------------------------------------------
+    // Validation and mapping
+    // -------------------------------------------------------------------------------------
+
+    private void validate(SearchBody b) {
+        if (b == null) throw new IllegalArgumentException("Body is required");
+        if (b.service == null || b.service.isBlank()) throw new IllegalArgumentException("'service' is required");
+        if (b.period == null || (b.period.since == null && (b.period.between == null || b.period.between.size() != 2)))
+            throw new IllegalArgumentException("'period' must have 'since' or 'between' [start,end]");
+    }
+
+    private OBJql toOBJql(SearchBody b) {
+        // Resolve service short key (partition key)
+        String svc = b.service;
+        if (svc != null && !svc.isBlank()) {
+            String shortKey = servicesRepo.findShortKeyByServiceKey(svc);
+            if (shortKey != null && !shortKey.isBlank()) svc = shortKey;
+        }
+
+        // Time range
+        Instant end = Instant.now();
+        Instant start;
+        if (b.period.since != null && !b.period.since.isBlank()) {
+            start = parseRelative(b.period.since, end);
+        } else {
+            start = parseInstant(b.period.between.get(0));
+            end = parseInstant(b.period.between.get(1));
+        }
+        OBJql.TimeRange tr = new OBJql.TimeRange(start, end);
+
+        // Predicates from match
+        List<OBJql.Predicate> preds = new ArrayList<>();
+        if (b.match != null) {
+            for (MatchClause mc : normalizeMatchOptimized(b.match)) {
+                if (mc == null || mc.attribute == null || mc.op == null) continue;
+                String lhs = "attr." + mc.attribute; // indexed attributes only
+                String op = mc.op.toLowerCase(Locale.ROOT);
+                switch (op) {
+                    case "=" -> preds.add(new OBJql.Eq(lhs, mc.value));
+                    case "!=" -> preds.add(new OBJql.Ne(lhs, mc.value));
+                    case "like" -> preds.add(new OBJql.Regex(lhs, likeToRegex(String.valueOf(mc.value), false)));
+                    case "ilike" -> preds.add(new OBJql.Regex(lhs, likeToRegex(String.valueOf(mc.value), true)));
+                    default -> throw new IllegalArgumentException("Unsupported match op: " + mc.op);
+                }
+            }
+        }
+
+        // Order
+        OBJql.Sort sort = null;
+        if (b.order != null && !b.order.isEmpty()) {
+            Order o = b.order.get(0);
+            boolean asc = o != null && "asc".equalsIgnoreCase(String.valueOf(o.dir));
+            String field = (o != null && o.field != null) ? o.field : "occurred_at";
+            sort = new OBJql.Sort(field, asc);
+        }
+
+        Integer limit = (b.limit != null && b.limit > 0) ? b.limit : null;
+
+        return OBJql.withDefaults(svc, b.event, tr, preds, sort, limit, null);
+    }
+
+    // -------------------------------------------------------------------------------------
+    // Filter evaluation (post-processing over full event row)
+    // -------------------------------------------------------------------------------------
+
+    private Map<String, Object> hydrateEnvelope(Map<String, Object> row, SearchBody body) {
+        Map<String, Object> env = new LinkedHashMap<>();
+
+        // trace.*
+        Map<String, Object> trace = new LinkedHashMap<>();
+        putIfPresent(trace, "correlation_id", row.get("correlation_id"));
+        putIfPresent(trace, "trace_id", row.get("trace_id"));
+        putIfPresent(trace, "span_id", row.get("span_id"));
+        env.put("trace", trace);
+
+        // event.* (limited)
+        Map<String, Object> event = new LinkedHashMap<>();
+        env.put("event", event);
+
+        // attributes JSONB -> Map
+        Object attrs = row.get("attributes");
+        Map<String, Object> attributes = parseAttributes(attrs);
+        env.put("attributes", attributes);
+
+        // envelope roots for convenience
+        env.put("occurred_at", row.get("occurred_at"));
+        env.put("received_at", row.get("received_at"));
+        env.put("service", row.get("service_short"));
+        env.put("event_type", row.get("event_type"));
+
+        return env;
+    }
+
+    private Map<String, Object> parseAttributes(Object v) {
+        if (v == null) return Map.of();
+        if (v instanceof Map<?, ?> m) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> mm = (Map<String, Object>) m;
+            return mm;
+        }
+        Map<String, Object> parsed;
+        try {
+            parsed = mapper.readValue(String.valueOf(v), MAP_TYPE);
+        } catch (Exception e) {
+            parsed = Map.of();
+        }
+        return parsed;
+    }
+
+    private Map<String, Object> normalizeRow(Map<String, Object> row) {
+        Map<String, Object> n = new LinkedHashMap<>(row.size());
+        n.putAll(row);
+        // attributes -> parsed Map
+        n.put("attributes", parseAttributes(row.get("attributes")));
+        // drop matched_count from rows; aggregate is exposed at wrapper.total
+        n.remove("matched_count");
+        return n;
+    }
+
+    private long extractTotal(List<Map<String, Object>> rows, OBJql ast, OBJqlPage page) {
+        if (rows != null && !rows.isEmpty()) {
+            Object mc = rows.get(0).get("matched_count");
+            if (mc instanceof Number num) return num.longValue();
+            try {
+                return Long.parseLong(String.valueOf(mc));
+            } catch (Exception ignore) {
+            }
+        }
+        // If this page returned no rows, attempt to fetch first page to read matched_count, else 0
+        try {
+            List<Map<String, Object>> first = search.query(ast, OBJqlPage.of(0L, 1));
+            if (first != null && !first.isEmpty()) {
+                Object mc = first.get(0).get("matched_count");
+                if (mc instanceof Number num) return num.longValue();
+                return Long.parseLong(String.valueOf(mc));
+            }
+        } catch (Exception ignore) {
+        }
+        return 0L;
+    }
+
+    private Map<String, Object> buildLinks(SearchBody body, long offset, int limit, long count, long total) {
+        Map<String, Object> links = new LinkedHashMap<>();
+        links.put("self", linkFor(offset, limit, body));
+        links.put("first", linkFor(0, limit, body));
+        long lastOffset = (total <= 0) ? 0 : Math.max(0, ((total - 1) / (long) limit) * (long) limit);
+        links.put("last", linkFor(lastOffset, limit, body));
+        long prevOffset = Math.max(0, offset - (long) limit);
+        if (offset > 0) links.put("prev", linkFor(prevOffset, limit, body));
+        long nextOffset = offset + (long) limit;
+        // Be robust if total is unknown (0): include next when page is full
+        if (total > 0) {
+            if (offset + count < total) links.put("next", linkFor(nextOffset, limit, body));
+        } else if (count >= limit) {
+            links.put("next", linkFor(nextOffset, limit, body));
+        }
+        return links;
+    }
+
+    private Map<String, Object> linkFor(long off, int lim, SearchBody body) {
+        Map<String, Object> link = new LinkedHashMap<>();
+        link.put("href", "/api/search/events");
+        link.put("method", "POST");
+        // Reuse the original body but with updated paging
+        Map<String, Object> b = mapper.convertValue(body, new TypeReference<Map<String, Object>>() {});
+        b.put("offset", off);
+        b.put("limit", lim);
+        link.put("body", b);
+        return link;
+    }
+
+    private boolean evalFilter(List<FilterClause> clauses, Map<String, Object> env) {
+        for (FilterClause fc : clauses) {
+            if (!evalClause(fc, env)) return false;
+        }
+        return true;
+    }
+
+    private boolean evalClause(FilterClause fc, Map<String, Object> env) {
+        if (fc.and != null && !fc.and.isEmpty()) {
+            for (FilterClause c : fc.and) if (!evalClause(c, env)) return false;
+            return true;
+        }
+        if (fc.or != null && !fc.or.isEmpty()) {
+            for (FilterClause c : fc.or) if (evalClause(c, env)) return true;
+            return false;
+        }
+        String op = fc.op == null ? "=" : fc.op.toLowerCase(Locale.ROOT);
+        Object actual = readPath(env, fc.path);
+        Object expected = fc.value;
+        if (op.equals("=")) return Objects.equals(stringify(actual), stringify(expected));
+        if (op.equals("!=")) return !Objects.equals(stringify(actual), stringify(expected));
+        if (op.equals("like")) return like(stringify(actual), String.valueOf(expected), false);
+        if (op.equals("ilike")) return like(stringify(actual), String.valueOf(expected), true);
+        throw new IllegalArgumentException("Unsupported filter op: " + fc.op);
+    }
+
+    private Object readPath(Map<String, Object> root, String path) {
+        if (path == null || path.isBlank()) return null;
+        String[] parts = path.split("\\.");
+        Object cur = root;
+        for (String p : parts) {
+            if (!(cur instanceof Map<?, ?> m)) return null;
+            cur = m.get(p);
+            if (cur == null) return null;
+        }
+        return cur;
+    }
+
+    private String stringify(Object v) {
+        if (v == null) return null;
+        if (v instanceof String s) return s;
+        return String.valueOf(v);
+    }
+
+    // -------------------------------------------------------------------------------------
+    // Normalization helpers
+    // -------------------------------------------------------------------------------------
+
+    private List<MatchClause> normalizeMatch(Object m) {
+        if (m == null) return List.of();
+        if (m instanceof Map<?, ?> mm) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> map = (Map<String, Object>) mm;
+            if (map.containsKey("and")) return toMatchList(map.get("and"));
+            if (map.containsKey("or")) {
+                return toMatchList(map.get("or"));
+            }
+            MatchClause one = mapper.convertValue(map, MatchClause.class);
+            return List.of(one);
+        } else if (m instanceof List<?> l) {
+            return toMatchList(l);
+        }
+        return List.of();
+    }
+
+    private List<MatchClause> toMatchList(Object v) {
+        if (v == null) return List.of();
+        List<MatchClause> out = new ArrayList<>();
+        if (v instanceof List<?> arr) {
+            for (Object o : arr) out.add(mapper.convertValue(o, MatchClause.class));
+        } else {
+            out.add(mapper.convertValue(v, MatchClause.class));
+        }
+        return out;
+    }
+
+    /**
+     * Optimize OR over identical attributes with '=' into a single regex alternation to preserve OR semantics in CTE.
+     */
+    private List<MatchClause> normalizeMatchOptimized(Object m) {
+        List<MatchClause> raw = normalizeMatch(m);
+        if (!(m instanceof Map<?, ?>) || !((Map<?, ?>) m).containsKey("or")) return raw; // no top-level OR
+
+        Map<String, List<MatchClause>> groups = new LinkedHashMap<>();
+        for (MatchClause mc : raw) {
+            if (mc == null) continue;
+            String key = (mc.attribute == null ? "" : mc.attribute) + "\u0000" + (mc.op == null ? "" : mc.op);
+            groups.computeIfAbsent(key, k -> new ArrayList<>()).add(mc);
+        }
+
+        List<MatchClause> optimized = new ArrayList<>();
+        for (Map.Entry<String, List<MatchClause>> e : groups.entrySet()) {
+            List<MatchClause> list = e.getValue();
+            if (list.isEmpty()) continue;
+            String attr = list.get(0).attribute;
+            String op = list.get(0).op == null ? "=" : list.get(0).op.toLowerCase(Locale.ROOT);
+            if ("=".equals(op)) {
+                List<String> vals = new ArrayList<>();
+                for (MatchClause mc : list) {
+                    if (mc.value == null) continue;
+                    String v = String.valueOf(mc.value);
+                    String esc = java.util.regex.Pattern.quote(v);
+                    vals.add("^" + esc + "$");
+                }
+                if (!vals.isEmpty()) {
+                    MatchClause rx = new MatchClause();
+                    rx.attribute = attr;
+                    rx.op = "like"; // will be treated as regex below via Regex predicate mapping
+                    rx.value = "(" + String.join("|", vals) + ")";
+                    optimized.add(rx);
+                    continue;
+                }
+            }
+            optimized.addAll(list);
+        }
+
+        return optimized;
+    }
+
+    private List<FilterClause> normalizeFilter(Object f) {
+        if (f == null) return List.of();
+        if (f instanceof Map<?, ?> mm) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> map = (Map<String, Object>) mm;
+            if (map.containsKey("and")) return List.of(group("and", map.get("and")));
+            if (map.containsKey("or")) return List.of(group("or", map.get("or")));
+            return List.of(mapper.convertValue(map, FilterClause.class));
+        } else if (f instanceof List<?> l) {
+            List<FilterClause> items = new ArrayList<>();
+            for (Object o : l) items.add(mapper.convertValue(o, FilterClause.class));
+            return items;
+        }
+        return List.of();
+    }
+
+    private FilterClause group(String op, Object items) {
+        FilterClause g = new FilterClause();
+        List<FilterClause> kids = new ArrayList<>();
+        if (items instanceof List<?> l) {
+            for (Object o : l) kids.add(mapper.convertValue(o, FilterClause.class));
+        } else {
+            kids.add(mapper.convertValue(items, FilterClause.class));
+        }
+        if ("and".equals(op)) g.and = kids;
+        else g.or = kids;
+        return g;
+    }
+
+    // -------------------------------------------------------------------------------------
+    // Time and pattern helpers
+    // -------------------------------------------------------------------------------------
+
+    private Instant parseInstant(String iso) {
+        return OffsetDateTime.parse(iso).toInstant();
+    }
+
+    private Instant parseRelative(String r, Instant base) {
+        String s = r.trim();
+        if (!s.startsWith("-")) throw new IllegalArgumentException("Relative time must start with '-'");
+        char unit = s.charAt(s.length() - 1);
+        long val = Long.parseLong(s.substring(1, s.length() - 1));
+        long seconds =
+                switch (unit) {
+                    case 's' -> val;
+                    case 'm' -> val * 60;
+                    case 'h' -> val * 3600;
+                    case 'd' -> val * 86400;
+                    case 'w' -> val * 7 * 86400;
+                    default -> throw new IllegalArgumentException("Unsupported relative unit: " + unit);
+                };
+        return base.minusSeconds(seconds);
+    }
+
+    private String likeToRegex(String like, boolean ci) {
+        StringBuilder rx = new StringBuilder(ci ? "(?i)" : "");
+        rx.append('^');
+        for (int i = 0; i < like.length(); i++) {
+            char c = like.charAt(i);
+            switch (c) {
+                case '%' -> rx.append(".*");
+                case '_' -> rx.append('.');
+                case '.', '(', ')', '[', ']', '{', '}', '+', '?', '^', '$', '|', '\\' -> rx.append('\\')
+                        .append(c);
+                default -> rx.append(c);
+            }
+        }
+        rx.append('$');
+        return rx.toString();
+    }
+
+    private boolean like(String actual, String pattern, boolean ci) {
+        if (actual == null) return false;
+        String regex = likeToRegex(pattern, ci);
+        return actual.matches(regex);
+    }
+
+    private void putIfPresent(Map<String, Object> m, String k, Object v) {
+        if (v != null) m.put(k, v);
+    }
+}

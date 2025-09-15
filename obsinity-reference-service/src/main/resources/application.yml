@@ -8,6 +8,10 @@ spring:
     url: jdbc:postgresql://obsinity-db:5432/obsinity
     username: obsinity
     password: obsinity
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      WRITE_NULL_MAP_VALUES: false
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -15,3 +19,9 @@ spring:
   sql:
     init:
       mode: never
+
+obsinity:
+  api:
+    hal:
+      embedded: data
+      links: links

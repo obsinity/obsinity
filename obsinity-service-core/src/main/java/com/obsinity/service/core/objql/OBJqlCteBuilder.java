@@ -46,14 +46,15 @@ public final class OBJqlCteBuilder {
         }
 
         sql.append("    AND e.occurred_at >= :ts_start AND e.occurred_at < :ts_end\n");
-        p.put("ts_start", q.time().start());
-        p.put("ts_end", q.time().end());
+        // Bind as SQL TIMESTAMP to avoid driver type inference issues for java.time.Instant
+        p.put("ts_start", java.sql.Timestamp.from(q.time().start()));
+        p.put("ts_end", java.sql.Timestamp.from(q.time().end()));
 
-        // Envelope predicates (non-attr.*)
+        // Envelope predicates (recognized set only)
         int pi = 0;
         for (OBJql.Predicate pred : q.predicates()) {
             String lhs = pred.lhs().toLowerCase(Locale.ROOT);
-            if (!lhs.startsWith("attr.")) {
+            if (isEnvelopeField(lhs)) {
                 String name = "p" + (pi++);
                 appendEnvelopePredicate(sql, p, name, pred);
             }
@@ -66,11 +67,11 @@ public final class OBJqlCteBuilder {
         int attrCount = countAttrPreds(q);
         for (OBJql.Predicate pred : q.predicates()) {
             String lhs = pred.lhs().toLowerCase(Locale.ROOT);
-            if (!lhs.startsWith("attr.")) continue;
+            if (isEnvelopeField(lhs)) continue;
 
             String cte = "a" + (ai++);
             attrCtes.add(cte);
-            String path = lhs.substring("attr.".length());
+            String path = lhs.startsWith("attr.") ? lhs.substring("attr.".length()) : lhs;
             appendAttrCte(sql, p, cte, path, pred);
             if (ai < attrCount) sql.append(",\n");
         }
@@ -154,56 +155,40 @@ public final class OBJqlCteBuilder {
         sql.append("  SELECT x.event_id\n");
         sql.append("  FROM ").append(attrIndexTable).append(" x\n");
         sql.append("  JOIN base b ON b.event_id = x.event_id\n");
-        sql.append("  WHERE x.path = :").append(cte).append("_path\n");
+        sql.append("  WHERE x.attr_name = :").append(cte).append("_path\n");
         p.put(cte + "_path", path);
 
         String pname = cte + "_v";
         if (pred instanceof OBJql.Eq eq) {
             Object rhs = eq.rhs();
-            sql.append("    AND (x.value_text = :")
-                    .append(pname)
-                    .append(" OR x.value_numeric = :")
-                    .append(pname)
-                    .append(" OR x.value_bool = :")
-                    .append(pname)
-                    .append(")\n");
-            p.put(pname, rhs);
+            sql.append("    AND x.attr_value = :").append(pname).append("\n");
+            p.put(pname, rhs == null ? null : String.valueOf(rhs));
         } else if (pred instanceof OBJql.Ne ne) {
             Object rhs = ne.rhs();
-            sql.append("    AND NOT (x.value_text = :")
-                    .append(pname)
-                    .append(" OR x.value_numeric = :")
-                    .append(pname)
-                    .append(" OR x.value_bool = :")
-                    .append(pname)
-                    .append(")\n");
-            p.put(pname, rhs);
+            sql.append("    AND x.attr_value <> :").append(pname).append("\n");
+            p.put(pname, rhs == null ? null : String.valueOf(rhs));
         } else if (pred instanceof OBJql.Regex re) {
-            sql.append("    AND x.value_text ~ :").append(pname).append("\n");
+            sql.append("    AND x.attr_value ~ :").append(pname).append("\n");
             p.put(pname, re.rhs());
-        } else if (pred instanceof OBJql.Gt gt) {
-            sql.append("    AND x.value_numeric > :").append(pname).append("\n");
-            p.put(pname, gt.rhs());
-        } else if (pred instanceof OBJql.Ge ge) {
-            sql.append("    AND x.value_numeric >= :").append(pname).append("\n");
-            p.put(pname, ge.rhs());
-        } else if (pred instanceof OBJql.Lt lt) {
-            sql.append("    AND x.value_numeric < :").append(pname).append("\n");
-            p.put(pname, lt.rhs());
-        } else if (pred instanceof OBJql.Le le) {
-            sql.append("    AND x.value_numeric <= :").append(pname).append("\n");
-            p.put(pname, le.rhs());
-        } else if (pred instanceof OBJql.Contains co) {
-            sql.append("    AND x.value_json @> :").append(pname).append("::jsonb\n");
-            p.put(pname, toJsonLiteral(co.rhs()));
-        } else if (pred instanceof OBJql.NotContains nc) {
-            sql.append("    AND NOT (x.value_json @> :").append(pname).append("::jsonb)\n");
-            p.put(pname, toJsonLiteral(nc.rhs()));
         } else {
-            throw new IllegalArgumentException(
-                    "Unsupported attr predicate: " + pred.getClass().getSimpleName());
+            throw new IllegalArgumentException("Only =, != and =~ are supported for attribute predicates at present");
         }
         sql.append(")\n");
+    }
+
+    private boolean isEnvelopeField(String lhs) {
+        return switch (lhs) {
+            case "service",
+                    "event",
+                    "event_id",
+                    "trace_id",
+                    "span_id",
+                    "correlation_id",
+                    "kind",
+                    "occurred_at",
+                    "received_at" -> true;
+            default -> false;
+        };
     }
 
     private void appendEnvelopePredicate(StringBuilder sql, Map<String, Object> p, String name, OBJql.Predicate pred) {

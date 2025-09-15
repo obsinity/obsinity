@@ -7,8 +7,8 @@ meta:
   description: "Obsinity reference service (HTTP only) with publish_event (single/homogeneous batch/mixed batch), JQL stubs."
 
 collection:
-  - url: "{{ base_url }}/events/{{ service_id }}/{{ event_name }}/publish"
-    name: publish_event (OK)
+  - url: "{{ base_url }}/events/publish"
+    name: publish_event (OK - body routed)
     meta:
       id: req_publish_event_ok
       created: 1754511487081
@@ -20,50 +20,44 @@ collection:
       mimeType: application/json
       text: |
         {
-          "eventId": "{{ event_id }}",
-          "timestamp": "{{ nowIso }}",
-          "name": "getAccountHolders",
-          "kind": "SERVER",
-          "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id }}" },
+          "event": { "name": "{{ event_name }}", "domain": "http", "kind": "SERVER" },
+          "resource": { "service": { "name": "{{ service_id }}" } },
+          "trace": { "correlation_id": "{{ correlation_id }}", "trace_id": "{{ trace_id }}", "span_id": "{{ span_id }}" },
           "attributes": {
             "api": { "name": "getAccountHolders", "version": "v2" },
-            "http": { "status": 200, "method": "GET" },
-            "latencyMs": 91.2
+            "http": { "status": 200, "method": "GET" }
           },
-          "correlationId": "{{ correlation_id }}"
+          "occurred_at": "{{ nowIso }}"
         }
     headers:
       - name: Content-Type
         value: application/json
     settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
 
-  - url: "{{ base_url }}/events/{{ service_id }}/{{ event_name }}/publish"
-    name: publish_event (ERROR)
+  - url: "{{ base_url }}/events/publish"
+    name: publish_event (ERROR - body routed)
     meta: { id: req_publish_event_err, created: 1754511487081, modified: 1754511487081, isPrivate: false, description: "Error variant." }
     method: POST
     body:
       mimeType: application/json
       text: |
         {
-          "eventId": "{{ event_id_error }}",
-          "timestamp": "{{ nowIso }}",
-          "name": "createTransaction",
-          "kind": "SERVER",
-          "status": { "code": "ERROR", "message": "Simulated failure" },
+          "event": { "name": "{{ event_name }}", "domain": "http", "kind": "SERVER" },
+          "resource": { "service": { "name": "{{ service_id }}" } },
+          "trace": { "correlation_id": "{{ correlation_id }}", "trace_id": "{{ trace_id }}", "span_id": "{{ span_id_error }}" },
           "attributes": {
             "api": { "name": "createTransaction", "version": "v2" },
             "http": { "status": 500, "method": "POST" }
           },
-          "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id_error }}" },
-          "correlationId": "{{ correlation_id }}"
+          "occurred_at": "{{ nowIso }}"
         }
     headers:
       - name: Content-Type
         value: application/json
     settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
 
-  - url: "{{ base_url }}/events/{{ service_id }}/{{ event_name }}/publish/batch"
-    name: publish_event (BATCH homogeneous)
+  - url: "{{ base_url }}/events/publish/batch"
+    name: publish_event (BATCH homogeneous - body routed)
     meta: { id: req_publish_event_batch, created: 1754511487082, modified: 1754511487082, isPrivate: false, description: "Batch for a single event type from URI." }
     method: POST
     body:
@@ -71,20 +65,18 @@ collection:
       text: |
         [
           {
-            "eventId": "{{ event_id_1 }}",
-            "timestamp": "{{ nowIso }}",
-            "name": "lookupUser",
-            "kind": "CLIENT",
+            "event": { "name": "{{ event_name }}", "domain": "http", "kind": "CLIENT" },
+            "resource": { "service": { "name": "{{ service_id }}" } },
+            "trace": { "correlation_id": "{{ correlation_id }}", "trace_id": "{{ trace_id }}", "span_id": "{{ span_id }}" },
             "attributes": { "api": { "name": "lookupUser" }, "http": { "status": 200 } },
-            "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id }}" }
+            "occurred_at": "{{ nowIso }}"
           },
           {
-            "eventId": "{{ event_id_2 }}",
-            "timestamp": "{{ nowIso }}",
-            "name": "dbCall",
-            "kind": "INTERNAL",
+            "event": { "name": "{{ event_name }}", "domain": "db", "kind": "INTERNAL" },
+            "resource": { "service": { "name": "{{ service_id }}" } },
+            "trace": { "correlation_id": "{{ correlation_id }}", "trace_id": "{{ trace_id }}", "span_id": "{{ span_id_2 }}" },
             "attributes": { "db": { "system": "postgresql", "statement": "select 1" } },
-            "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id_2 }}" }
+            "occurred_at": "{{ nowIso }}"
           }
         ]
     headers:
@@ -92,66 +84,286 @@ collection:
         value: application/json
     settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
 
-  - url: "{{ base_url }}/events/publish/batch"
-    name: publish_event (BATCH mixed)
-    meta: { id: req_publish_event_batch_mixed, created: 1754511487092, modified: 1754511487092, isPrivate: false, description: "Heterogeneous batch: each item carries serviceId & eventType." }
-    method: POST
-    body:
-      mimeType: application/json
-      text: |
-        [
-          {
-            "serviceId": "{{ service_id }}",
-            "eventType": "api_request",
-            "event": {
-              "eventId": "{{ event_id_1 }}",
-              "timestamp": "{{ nowIso }}",
-              "name": "lookupUser",
-              "kind": "CLIENT",
-              "attributes": { "api": { "name": "lookupUser" }, "http": { "status": 200 } },
-              "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id }}" }
-            }
-          },
-          {
-            "serviceId": "{{ service_id }}",
-            "eventType": "db_call",
-            "event": {
-              "eventId": "{{ event_id_2 }}",
-              "timestamp": "{{ nowIso }}",
-              "name": "dbCall",
-              "kind": "INTERNAL",
-              "attributes": { "db": { "system": "postgresql", "statement": "select 1" } },
-              "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id_2 }}" }
-            }
-          }
-        ]
-    headers:
-      - name: Content-Type
-        value: application/json
-    settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
+  # Mixed batch deprecated: body-routed batch accepts per-item service/event in body
 
-  - url: "{{ base_url }}/jql"
-    name: JQL - Select Events (ROWS)
-    meta: { id: req_jql_select_events, created: 1754511487090, modified: 1754511487090, isPrivate: false, description: "Structured JQL: event select." }
+  
+
+  # ===================== Search API (JSON) =====================
+  # Notes:
+  # - period: { since: "-1h" } or { between: ["ISO", "ISO"] }
+  # - match (indexed attributes only):
+  #     - Single condition: { attribute: "http.status", op: "=", value: 200 }
+  #     - Boolean groups: { and: [ ... ] } or { or: [ ... ] }
+  #       where each item is { attribute, op, value }
+  #     - Supported ops: =, !=, like, ilike
+  # - filter (full event, post-filtering):
+  #     - Single condition: { path: "trace.correlation_id", op: "=", value: "..." }
+  #     - Boolean groups: { and: [ ... ] } or { or: [ ... ] }
+  #       where each item is { path, op, value }
+  #     - Supported ops: =, !=, like, ilike (no regex)
+  # - order: [ { field: "occurred_at", dir: "desc" } ]
+  # - Results always return full events; select is not required.
+
+  - url: "{{ base_url }}/api/search/events"
+    name: Search - Exact match (AND)
+    meta: { id: req_search_exact_and, created: 1754511488090, modified: 1754511488090, isPrivate: false, description: "payments http_request where api.name and http.status match in last 1h" }
     method: POST
     body:
       mimeType: application/json
       text: |
         {
-          "jql": "1.0",
-          "op": "select_event",
           "service": "{{ service_id }}",
           "event": "{{ event_name }}",
-          "select": ["eventId", "timestamp", "http.status"],
-          "where": { "api.name": "getAccountHolders", "http.status": 200 },
-          "using_rollup": "1m",
-          "order_by": [{ "timestamp": "desc" }],
+          "period": { "since": "-1h" },
+          "match": {
+            "and": [
+              { "attribute": "api.name",    "op": "=",  "value": "getAccountHolders" },
+              { "attribute": "http.status", "op": "=",  "value": 200 }
+            ]
+          },
+          "order": [{ "field": "occurred_at", "dir": "desc" }],
+          "limit": 100,
+          "offset": 0
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
+
+  - url: "{{ base_url }}/api/search/events"
+    name: Search - ILIKE prefix (AND)
+    meta: { id: req_search_ilike_prefix, created: 1754511488091, modified: 1754511488091, isPrivate: false, description: "api.name ilike 'create%' in last 24h" }
+    method: POST
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "service": "{{ service_id }}",
+          "event": "{{ event_name }}",
+          "period": { "since": "-24h" },
+          "match": {
+            "and": [
+              { "attribute": "api.name",   "op": "ilike", "value": "create%" },
+              { "attribute": "http.method", "op": "=",     "value": "GET" }
+            ]
+          },
+          "order": [{ "field": "occurred_at", "dir": "desc" }],
+          "limit": 200
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
+
+  - url: "{{ base_url }}/api/search/events"
+    name: Search - LIKE substring + != (AND)
+    meta: { id: req_search_like_sub_ne, created: 1754511488092, modified: 1754511488092, isPrivate: false, description: "LIKE '%%account%%' and status != 500 between time window" }
+    method: POST
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "service": "{{ service_id }}",
+          "event": "{{ event_name }}",
+          "period": { "between": ["2025-09-15T00:00:00Z", "2025-09-15T06:00:00Z"] },
+          "match": {
+            "and": [
+              { "attribute": "api.name",    "op": "like", "value": "%account%" },
+              { "attribute": "http.status", "op": "!=",   "value": 500 }
+            ]
+          },
+          "order": [{ "field": "occurred_at", "dir": "desc" }],
           "limit": 100
         }
     headers:
       - name: Content-Type
         value: application/json
     settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
+
+  - url: "{{ base_url }}/api/search/events"
+    name: Search - Category filter (full-event)
+    meta: { id: req_search_category, created: 1754511488093, modified: 1754511488093, isPrivate: false, description: "Filter by registry metadata event.subCategory (not in attributes)" }
+    method: POST
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "service": "{{ service_id }}",
+          "event": "{{ event_name }}",
+          "period": { "since": "-1h" },
+          "filter": { "path": "event.subCategory", "op": "=", "value": "http.server" },
+          "order": [{ "field": "occurred_at", "dir": "desc" }],
+          "limit": 50
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
+
+  - url: "{{ base_url }}/api/search/events"
+    name: Search - CorrelationId (filter)
+    meta: { id: req_search_corr_id, created: 1754511488094, modified: 1754511488094, isPrivate: false, description: "Filter by correlation id via attribute path (envelope projection)" }
+    method: POST
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "service": "{{ service_id }}",
+          "event": "{{ event_name }}",
+          "period": { "since": "-15m" },
+          "filter": { "path": "trace.correlation_id", "op": "=", "value": "{{ correlation_id }}" },
+          "order": [{ "field": "occurred_at", "dir": "desc" }],
+          "limit": 25
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
+
+  - url: "{{ base_url }}/api/search/events"
+    name: Search - Pagination (page 2)
+    meta: { id: req_search_pagination, created: 1754511488095, modified: 1754511488095, isPrivate: false, description: "Second page using offset" }
+    method: POST
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "service": "{{ service_id }}",
+          "event": "{{ event_name }}",
+          "period": { "since": "-1h" },
+          "match": { "attribute": "http.status", "op": "=",  "value": 200 },
+          "order": [{ "field": "occurred_at", "dir": "desc" }],
+          "limit": 25,
+          "offset": 25
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
+
+  - url: "{{ base_url }}/api/search/events"
+    name: Search - Filter OR (full-event)
+    meta: { id: req_search_filter_or, created: 1754511488097, modified: 1754511488097, isPrivate: false, description: "Full-event OR filter with ilike patterns" }
+    method: POST
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "service": "{{ service_id }}",
+          "event": "{{ event_name }}",
+          "period": { "since": "-24h" },
+          "match": [
+            { "attribute": "http.method", "op": "=", "value": "GET" }
+          ],
+          "filter": {
+            "or": [
+              { "path": "attributes.api.name", "op": "ilike", "value": "create%" },
+              { "path": "attributes.api.name", "op": "ilike", "value": "update%" }
+            ]
+          },
+          "order": [{ "field": "occurred_at", "dir": "desc" }],
+          "limit": 100
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
+
+  - url: "{{ base_url }}/api/search/events"
+    name: Search - Match OR (indexed)
+    meta: { id: req_search_match_or, created: 1754511488099, modified: 1754511488099, isPrivate: false, description: "Indexed OR over match conditions" }
+    method: POST
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "service": "{{ service_id }}",
+          "event": "{{ event_name }}",
+          "period": { "since": "-6h" },
+          "match": {
+            "or": [
+              { "attribute": "http.status", "op": "=", "value": 200 },
+              { "attribute": "http.status", "op": "=", "value": 201 }
+            ]
+          },
+          "order": [{ "field": "occurred_at", "dir": "desc" }],
+          "limit": 100
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
+
+  - url: "{{ base_url }}/api/search/events"
+    name: Search - Filter Nested (AND/OR)
+    meta: { id: req_search_filter_nested, created: 1754511488098, modified: 1754511488098, isPrivate: false, description: "Nested AND with inner OR on full-event paths" }
+    method: POST
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "service": "{{ service_id }}",
+          "event": "{{ event_name }}",
+          "period": { "between": ["2025-09-15T00:00:00Z", "2025-09-15T06:00:00Z"] },
+          "match": [
+            { "attribute": "http.status", "op": "!=", "value": 500 }
+          ],
+          "filter": {
+            "and": [
+              { "path": "attributes.client.ip", "op": "!=", "value": "10.0.0.1" },
+              { "or": [
+                  { "path": "attributes.api.name", "op": "like",  "value": "%account%" },
+                  { "path": "attributes.api.name", "op": "ilike", "value": "create%" }
+                ]
+              }
+            ]
+          },
+          "order": [{ "field": "occurred_at", "dir": "desc" }],
+          "limit": 100
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
+
+  - url: "{{ base_url }}/api/search/events"
+    name: Search - Match AND with nested OR
+    meta: { id: req_search_match_and_or, created: 1754511488100, modified: 1754511488100, isPrivate: false, description: "Indexed AND with inner OR over equality conditions" }
+    method: POST
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "service": "{{ service_id }}",
+          "event": "{{ event_name }}",
+          "period": {
+            "since": "-1h"
+          },
+          "match": {
+            "and": [
+              {
+                "attribute": "api.name",
+                "op": "=",
+                "value": "getAccountHolders"
+              },
+              {
+                "or": [
+                  { "attribute": "http.status", "op": "=", "value": 200 },
+                  { "attribute": "http.status", "op": "=", "value": 201 }
+                ]
+              }
+            ]
+          },
+          "order": [ { "field": "occurred_at", "dir": "desc" } ],
+          "limit": 100,
+          "offset": 0
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
+
+  
 
   - url: "{{ base_url }}/actuator/health"
     name: Health
@@ -176,8 +388,8 @@ environments:
     isPrivate: false
   data:
     base_url: http://localhost:8086
-    service_id: obsinity-reference-service
-    event_name: api_request
+    service_id: payments
+    event_name: http_request
     nowIso: "{% now 'iso-8601', 'utc' %}"
     correlation_id: "{% uuid 'v4' %}"
     trace_id: "{% uuid 'v4' %}"

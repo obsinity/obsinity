@@ -1,0 +1,22 @@
+apiVersion: obsinity/v1
+kind: Event
+metadata:
+  service: payments
+  name: http_request
+  displayName: HTTP Request
+  labels:
+    category: http
+spec:
+  schema:
+    type: object
+    properties:
+      api:
+        type: object
+        properties:
+          name: { type: string, index: true }
+          version: { type: string, index: true }
+      http:
+        type: object
+        properties:
+          method: { type: string, index: true }
+          status: { type: integer, index: true }

@@ -59,29 +59,29 @@ public class ResourceConfigSource {
             }
 
             boolean parsedSomething = false;
-            // First: try ServiceConfig formats
-            try {
-                List<ServiceConfig> parsed = parseServiceConfigText(text, fname);
-                if (!parsed.isEmpty()) {
-                    log.info("Init-config: parsed {} ServiceConfig item(s) from {}", parsed.size(), fname);
-                    all.addAll(parsed);
-                    parsedSomething = true;
-                }
-            } catch (Exception ex) {
-                // Common for CRD files with apiVersion/kind; fallback handles it.
-                log.debug(
-                        "Init-config: ServiceConfig parse failed for {} ({}). Will try CRD fallback.",
-                        fname,
-                        ex.toString());
-            }
+            boolean looksLikeCrd = text.contains("apiVersion") && text.contains("kind");
 
-            // Fallback: CRD (apiVersion/kind)
-            if (!parsedSomething) {
+            if (looksLikeCrd) {
                 List<ServiceConfig> crd = parseCrdDocuments(text, fname);
                 if (!crd.isEmpty()) {
                     log.info("Init-config: parsed {} CRD-derived ServiceConfig item(s) from {}", crd.size(), fname);
                     all.addAll(crd);
                     parsedSomething = true;
+                }
+            }
+
+            if (!parsedSomething) {
+                try {
+                    List<ServiceConfig> parsed = parseServiceConfigText(text, fname);
+                    if (!parsed.isEmpty()) {
+                        log.info("Init-config: parsed {} ServiceConfig item(s) from {}", parsed.size(), fname);
+                        all.addAll(parsed);
+                        parsedSomething = true;
+                    }
+                } catch (Exception ex) {
+                    if (!looksLikeCrd) {
+                        log.debug("Init-config: ServiceConfig parse failed for {} ({}).", fname, ex.toString());
+                    }
                 }
             }
 

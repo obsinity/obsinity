@@ -70,14 +70,6 @@ CREATE TABLE IF NOT EXISTS service_registry (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-INSERT INTO service_registry (service_key, short_key, description)
-VALUES (
-  'obsinity-reference-service',
-  SUBSTRING(ENCODE(DIGEST('obsinity-reference-service','sha256'),'hex') FOR 8),
-  'Obsinity Reference Service (demo HTTP ingest server)'
-)
-ON CONFLICT (service_key) DO NOTHING;
-
 -- ================================================
 -- Config-as-Source-of-Truth Registry (Phase-1)
 -- ================================================
