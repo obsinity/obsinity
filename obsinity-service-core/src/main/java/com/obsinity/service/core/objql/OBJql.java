@@ -18,17 +18,18 @@ public record OBJql(
         String service, // required
         String event, // optional
         TimeRange time, // required or implied (since/ between)
-        List<Predicate> predicates, // zero or more
+        List<Predicate> predicates, // zero or more (envelope-only when attrExpr present)
         Sort sort, // default by occurred_at desc
         Integer limit, // default 100
-        List<String> selectFields // optional projection; null/empty -> default set
+        List<String> selectFields, // optional projection; null/empty -> default set
+        AttrExpr attrExpr // optional boolean expression over attribute predicates
         ) {
     public static record TimeRange(Instant start, Instant end) {}
 
     public static record Sort(String field, boolean asc) {}
 
     /** A predicate over envelope fields or attributes. */
-    public sealed interface Predicate permits Eq, Ne, Gt, Ge, Lt, Le, Regex, Contains, NotContains {
+    public sealed interface Predicate permits Eq, Ne, Gt, Ge, Lt, Le, Regex, Like, ILike, Contains, NotContains {
         String lhs(); // e.g. "attr.status_code" or "service" or "trace_id"
 
         Object rhs();
@@ -48,9 +49,22 @@ public record OBJql(
 
     public static record Regex(String lhs, String rhs) implements Predicate {}
 
+    public static record Like(String lhs, String rhs) implements Predicate {}
+
+    public static record ILike(String lhs, String rhs) implements Predicate {}
+
     public static record Contains(String lhs, Object rhs) implements Predicate {}
 
     public static record NotContains(String lhs, Object rhs) implements Predicate {}
+
+    /** Boolean expression over attribute predicates (lhs should be attr.*). */
+    public sealed interface AttrExpr {
+        record And(List<AttrExpr> items) implements AttrExpr {}
+
+        record Or(List<AttrExpr> items) implements AttrExpr {}
+
+        record Leaf(Predicate predicate) implements AttrExpr {}
+    }
 
     public static OBJql withDefaults(
             String service,
@@ -71,6 +85,32 @@ public record OBJql(
                 List.copyOf(predicates),
                 sort,
                 limit,
-                (selectFields == null || selectFields.isEmpty()) ? null : List.copyOf(selectFields));
+                (selectFields == null || selectFields.isEmpty()) ? null : List.copyOf(selectFields),
+                null);
+    }
+
+    /** Overload with attribute boolean expression. */
+    public static OBJql withDefaults(
+            String service,
+            String event,
+            TimeRange time,
+            List<Predicate> predicates,
+            Sort sort,
+            Integer limit,
+            List<String> selectFields,
+            AttrExpr attrExpr) {
+        if (service == null || service.isBlank()) throw new IllegalArgumentException("service is required");
+        if (time == null) throw new IllegalArgumentException("time range is required (since/between)");
+        if (limit == null || limit <= 0 || limit > 10_000) limit = 100; // cap safety
+        if (sort == null) sort = new Sort("occurred_at", false);
+        return new OBJql(
+                service,
+                event,
+                time,
+                List.copyOf(predicates),
+                sort,
+                limit,
+                (selectFields == null || selectFields.isEmpty()) ? null : List.copyOf(selectFields),
+                attrExpr);
     }
 }

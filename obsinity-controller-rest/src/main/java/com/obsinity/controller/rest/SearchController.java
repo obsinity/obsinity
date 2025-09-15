@@ -3,6 +3,7 @@ package com.obsinity.controller.rest;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.obsinity.service.core.objql.OBJql;
+import com.obsinity.service.core.objql.OBJql.AttrExpr;
 import com.obsinity.service.core.objql.OBJqlPage;
 import com.obsinity.service.core.repo.ServicesCatalogRepository;
 import com.obsinity.service.core.search.SearchService;
@@ -165,21 +166,11 @@ public class SearchController {
         }
         OBJql.TimeRange tr = new OBJql.TimeRange(start, end);
 
-        // Predicates from match
-        List<OBJql.Predicate> preds = new ArrayList<>();
+        // Predicates from match: build boolean expression over attribute index
+        List<OBJql.Predicate> preds = new ArrayList<>(); // keep for envelope if needed
+        AttrExpr attrExpr = null;
         if (b.match != null) {
-            for (MatchClause mc : normalizeMatchOptimized(b.match)) {
-                if (mc == null || mc.attribute == null || mc.op == null) continue;
-                String lhs = "attr." + mc.attribute; // indexed attributes only
-                String op = mc.op.toLowerCase(Locale.ROOT);
-                switch (op) {
-                    case "=" -> preds.add(new OBJql.Eq(lhs, mc.value));
-                    case "!=" -> preds.add(new OBJql.Ne(lhs, mc.value));
-                    case "like" -> preds.add(new OBJql.Regex(lhs, likeToRegex(String.valueOf(mc.value), false)));
-                    case "ilike" -> preds.add(new OBJql.Regex(lhs, likeToRegex(String.valueOf(mc.value), true)));
-                    default -> throw new IllegalArgumentException("Unsupported match op: " + mc.op);
-                }
-            }
+            attrExpr = buildAttrExpr(b.match);
         }
 
         // Order
@@ -193,7 +184,7 @@ public class SearchController {
 
         Integer limit = (b.limit != null && b.limit > 0) ? b.limit : null;
 
-        return OBJql.withDefaults(svc, b.event, tr, preds, sort, limit, null);
+        return OBJql.withDefaults(svc, b.event, tr, preds, sort, limit, null, attrExpr);
     }
 
     // -------------------------------------------------------------------------------------
@@ -354,75 +345,53 @@ public class SearchController {
     // Normalization helpers
     // -------------------------------------------------------------------------------------
 
-    private List<MatchClause> normalizeMatch(Object m) {
-        if (m == null) return List.of();
-        if (m instanceof Map<?, ?> mm) {
+    // Build attribute boolean expression from JSON shape
+    private AttrExpr buildAttrExpr(Object node) {
+        if (node instanceof Map<?, ?> mm) {
             @SuppressWarnings("unchecked")
             Map<String, Object> map = (Map<String, Object>) mm;
-            if (map.containsKey("and")) return toMatchList(map.get("and"));
-            if (map.containsKey("or")) {
-                return toMatchList(map.get("or"));
+            if (map.containsKey("and")) {
+                return new AttrExpr.And(buildList(map.get("and")));
             }
-            MatchClause one = mapper.convertValue(map, MatchClause.class);
-            return List.of(one);
-        } else if (m instanceof List<?> l) {
-            return toMatchList(l);
+            if (map.containsKey("or")) {
+                return new AttrExpr.Or(buildList(map.get("or")));
+            }
+            // leaf
+            MatchClause mc = mapper.convertValue(map, MatchClause.class);
+            return new AttrExpr.Leaf(toPredicate(mc));
+        } else if (node instanceof List<?> arr) {
+            // implicit AND for arrays
+            return new AttrExpr.And(buildList(arr));
         }
-        return List.of();
+        // assume leaf
+        MatchClause mc = mapper.convertValue(node, MatchClause.class);
+        return new AttrExpr.Leaf(toPredicate(mc));
     }
 
-    private List<MatchClause> toMatchList(Object v) {
-        if (v == null) return List.of();
-        List<MatchClause> out = new ArrayList<>();
-        if (v instanceof List<?> arr) {
-            for (Object o : arr) out.add(mapper.convertValue(o, MatchClause.class));
+    private List<AttrExpr> buildList(Object arr) {
+        List<AttrExpr> out = new ArrayList<>();
+        if (arr instanceof List<?> list) {
+            for (Object o : list) out.add(buildAttrExpr(o));
         } else {
-            out.add(mapper.convertValue(v, MatchClause.class));
+            out.add(buildAttrExpr(arr));
         }
         return out;
     }
 
-    /**
-     * Optimize OR over identical attributes with '=' into a single regex alternation to preserve OR semantics in CTE.
-     */
-    private List<MatchClause> normalizeMatchOptimized(Object m) {
-        List<MatchClause> raw = normalizeMatch(m);
-        if (!(m instanceof Map<?, ?>) || !((Map<?, ?>) m).containsKey("or")) return raw; // no top-level OR
-
-        Map<String, List<MatchClause>> groups = new LinkedHashMap<>();
-        for (MatchClause mc : raw) {
-            if (mc == null) continue;
-            String key = (mc.attribute == null ? "" : mc.attribute) + "\u0000" + (mc.op == null ? "" : mc.op);
-            groups.computeIfAbsent(key, k -> new ArrayList<>()).add(mc);
+    private OBJql.Predicate toPredicate(MatchClause mc) {
+        if (mc == null || mc.attribute == null || mc.op == null) {
+            throw new IllegalArgumentException("Invalid match leaf: attribute/op required");
         }
-
-        List<MatchClause> optimized = new ArrayList<>();
-        for (Map.Entry<String, List<MatchClause>> e : groups.entrySet()) {
-            List<MatchClause> list = e.getValue();
-            if (list.isEmpty()) continue;
-            String attr = list.get(0).attribute;
-            String op = list.get(0).op == null ? "=" : list.get(0).op.toLowerCase(Locale.ROOT);
-            if ("=".equals(op)) {
-                List<String> vals = new ArrayList<>();
-                for (MatchClause mc : list) {
-                    if (mc.value == null) continue;
-                    String v = String.valueOf(mc.value);
-                    String esc = java.util.regex.Pattern.quote(v);
-                    vals.add("^" + esc + "$");
-                }
-                if (!vals.isEmpty()) {
-                    MatchClause rx = new MatchClause();
-                    rx.attribute = attr;
-                    rx.op = "like"; // will be treated as regex below via Regex predicate mapping
-                    rx.value = "(" + String.join("|", vals) + ")";
-                    optimized.add(rx);
-                    continue;
-                }
-            }
-            optimized.addAll(list);
-        }
-
-        return optimized;
+        String lhs = "attr." + mc.attribute;
+        String op = mc.op.toLowerCase(Locale.ROOT);
+        return switch (op) {
+            case "=" -> new OBJql.Eq(lhs, mc.value);
+            case "!" -> new OBJql.Ne(lhs, mc.value);
+            case "!=" -> new OBJql.Ne(lhs, mc.value);
+            case "like" -> new OBJql.Like(lhs, String.valueOf(mc.value));
+            case "ilike" -> new OBJql.ILike(lhs, String.valueOf(mc.value));
+            default -> throw new IllegalArgumentException("Unsupported match op: " + mc.op);
+        };
     }
 
     private List<FilterClause> normalizeFilter(Object f) {
@@ -479,27 +448,37 @@ public class SearchController {
         return base.minusSeconds(seconds);
     }
 
-    private String likeToRegex(String like, boolean ci) {
-        StringBuilder rx = new StringBuilder(ci ? "(?i)" : "");
-        rx.append('^');
-        for (int i = 0; i < like.length(); i++) {
-            char c = like.charAt(i);
-            switch (c) {
-                case '%' -> rx.append(".*");
-                case '_' -> rx.append('.');
-                case '.', '(', ')', '[', ']', '{', '}', '+', '?', '^', '$', '|', '\\' -> rx.append('\\')
-                        .append(c);
-                default -> rx.append(c);
-            }
-        }
-        rx.append('$');
-        return rx.toString();
-    }
-
     private boolean like(String actual, String pattern, boolean ci) {
         if (actual == null) return false;
-        String regex = likeToRegex(pattern, ci);
-        return actual.matches(regex);
+        return likeMatch(actual, pattern, ci);
+    }
+
+    private boolean likeMatch(String s, String p, boolean ci) {
+        if (s == null || p == null) return false;
+        if (ci) {
+            s = s.toLowerCase(Locale.ROOT);
+            p = p.toLowerCase(Locale.ROOT);
+        }
+        int i = 0, j = 0;
+        int starIdx = -1, match = 0;
+        while (i < s.length()) {
+            if (j < p.length() && (p.charAt(j) == '_' || p.charAt(j) == s.charAt(i))) {
+                i++;
+                j++;
+            } else if (j < p.length() && p.charAt(j) == '%') {
+                starIdx = j;
+                match = i;
+                j++;
+            } else if (starIdx != -1) {
+                j = starIdx + 1;
+                match++;
+                i = match;
+            } else {
+                return false;
+            }
+        }
+        while (j < p.length() && p.charAt(j) == '%') j++;
+        return j == p.length();
     }
 
     private void putIfPresent(Map<String, Object> m, String k, Object v) {
