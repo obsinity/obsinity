@@ -1,9 +1,5 @@
 # Obsinity JQL — Request/Response Format
 
-> **This spec mirrors the example bodies in** `insomnia.yaml` (the "Search - …" requests hitting `POST {{ base_url }}/api/search/events`). It uses the field names and structure shown there: `service`, `event`, `period`, `match`, `filter`, `order`, `limit`, `offset`.
-
----
-
 ## 1) Top-level Request Object
 
 **OB‑JQL (JSON):**
