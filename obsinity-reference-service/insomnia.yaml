@@ -90,7 +90,7 @@ collection:
 
   # ===================== Search API (JSON) =====================
   # Notes:
-  # - period: { since: "-1h" } or { between: ["ISO", "ISO"] }
+  # - period: { previous: "-1h" } or { between: ["ISO", "ISO"] }
   # - match (indexed attributes only):
   #     - Single condition: { attribute: "http.status", op: "=", value: 200 }
   #     - Boolean groups: { and: [ ... ] } or { or: [ ... ] }
@@ -114,7 +114,7 @@ collection:
         {
           "service": "{{ service_id }}",
           "event": "{{ event_name }}",
-          "period": { "since": "-1h" },
+          "period": { "previous": "-1h" },
           "match": {
             "and": [
               { "attribute": "api.name",    "op": "=",  "value": "getAccountHolders" },
@@ -140,7 +140,7 @@ collection:
         {
           "service": "{{ service_id }}",
           "event": "{{ event_name }}",
-          "period": { "since": "-24h" },
+          "period": { "previous": "-24h" },
           "match": {
             "and": [
               { "attribute": "api.name",   "op": "ilike", "value": "create%" },
@@ -190,7 +190,7 @@ collection:
         {
           "service": "{{ service_id }}",
           "event": "{{ event_name }}",
-          "period": { "since": "-1h" },
+          "period": { "previous": "-1h" },
           "filter": { "path": "event.subCategory", "op": "=", "value": "http.server" },
           "order": [{ "field": "occurred_at", "dir": "desc" }],
           "limit": 50
@@ -210,7 +210,7 @@ collection:
         {
           "service": "{{ service_id }}",
           "event": "{{ event_name }}",
-          "period": { "since": "-15m" },
+          "period": { "previous": "-15m" },
           "filter": { "path": "trace.correlation_id", "op": "=", "value": "{{ correlation_id }}" },
           "order": [{ "field": "occurred_at", "dir": "desc" }],
           "limit": 25
@@ -230,7 +230,7 @@ collection:
         {
           "service": "{{ service_id }}",
           "event": "{{ event_name }}",
-          "period": { "since": "-1h" },
+          "period": { "previous": "-1h" },
           "match": { "attribute": "http.status", "op": "=",  "value": 200 },
           "order": [{ "field": "occurred_at", "dir": "desc" }],
           "limit": 25,
@@ -251,7 +251,7 @@ collection:
         {
           "service": "{{ service_id }}",
           "event": "{{ event_name }}",
-          "period": { "since": "-24h" },
+          "period": { "previous": "-24h" },
           "match": [
             { "attribute": "http.method", "op": "=", "value": "GET" }
           ],
@@ -279,7 +279,7 @@ collection:
         {
           "service": "{{ service_id }}",
           "event": "{{ event_name }}",
-          "period": { "since": "-6h" },
+          "period": { "previous": "-6h" },
           "match": {
             "or": [
               { "attribute": "http.status", "op": "=", "value": 200 },
@@ -376,6 +376,27 @@ collection:
   - url: "{{ base_url }}/api/catalog/attributes/{{ service_id }}/api.name/values?prefix=get&limit=25"
     name: Catalog - Attribute values (api.name)
     meta: { id: req_attr_values_api_name, created: 1754511488101, modified: 1754511488101, isPrivate: false, description: "List distinct values for api.name under the service with optional prefix filter." }
+    method: GET
+    body: { mimeType: application/json, text: "" }
+    settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
+
+  - url: "{{ base_url }}/api/catalog/attributes/{{ service_id }}/http.status/values?limit=25"
+    name: Catalog - Attribute values (http.status)
+    meta: { id: req_attr_values_http_status, created: 1754511488102, modified: 1754511488102, isPrivate: false, description: "List distinct values for http.status under the service." }
+    method: GET
+    body: { mimeType: application/json, text: "" }
+    settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
+
+  - url: "{{ base_url }}/api/catalog/attributes/{{ service_id }}/names?limit=100"
+    name: Catalog - Attribute names (all)
+    meta: { id: req_attr_names_all, created: 1754511488103, modified: 1754511488103, isPrivate: false, description: "List distinct attribute names for the service." }
+    method: GET
+    body: { mimeType: application/json, text: "" }
+    settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
+
+  - url: "{{ base_url }}/api/catalog/attributes/{{ service_id }}/names?prefix=http.&limit=100"
+    name: Catalog - Attribute names (prefix http.)
+    meta: { id: req_attr_names_prefix_http, created: 1754511488104, modified: 1754511488104, isPrivate: false, description: "List attribute names with prefix filter." }
     method: GET
     body: { mimeType: application/json, text: "" }
     settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }

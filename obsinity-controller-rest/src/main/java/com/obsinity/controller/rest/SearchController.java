@@ -1,5 +1,6 @@
 package com.obsinity.controller.rest;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.obsinity.service.core.objql.OBJql;
@@ -15,6 +16,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,6 +36,7 @@ public class SearchController {
     private final ServicesCatalogRepository servicesRepo;
     private final String embeddedKey;
     private final String linksKey;
+    private static final Logger log = LoggerFactory.getLogger(SearchController.class);
 
     public SearchController(
             SearchService search,
@@ -62,6 +66,21 @@ public class SearchController {
 
         // Build OB-JQL AST from JSON (match -> attribute predicates)
         OBJql ast = toOBJql(body);
+
+        if (log.isInfoEnabled()) {
+            String periodDesc = body.period != null
+                    ? (body.period.previous != null
+                            ? ("previous=" + body.period.previous)
+                            : (body.period.between != null ? ("between=" + body.period.between) : ""))
+                    : "";
+            log.info(
+                    "POST /api/search/events service={}, event={}, {}, limit={}, offset={}",
+                    body.service,
+                    body.event,
+                    periodDesc,
+                    page.limit(),
+                    page.offset());
+        }
 
         // Execute CTE-backed search (returns full events from events_raw)
         List<Map<String, Object>> rows = search.query(ast, page);
@@ -113,7 +132,9 @@ public class SearchController {
     }
 
     public static class Period {
-        public String since; // e.g. -1h, -24h
+        @JsonAlias("since")
+        public String previous; // e.g. -1h, -24h (formerly 'since')
+
         public List<String> between; // [isoStart, isoEnd]
     }
 
@@ -143,8 +164,9 @@ public class SearchController {
     private void validate(SearchBody b) {
         if (b == null) throw new IllegalArgumentException("Body is required");
         if (b.service == null || b.service.isBlank()) throw new IllegalArgumentException("'service' is required");
-        if (b.period == null || (b.period.since == null && (b.period.between == null || b.period.between.size() != 2)))
-            throw new IllegalArgumentException("'period' must have 'since' or 'between' [start,end]");
+        if (b.period == null
+                || (b.period.previous == null && (b.period.between == null || b.period.between.size() != 2)))
+            throw new IllegalArgumentException("'period' must have 'previous' or 'between' [start,end]");
     }
 
     private OBJql toOBJql(SearchBody b) {
@@ -158,8 +180,8 @@ public class SearchController {
         // Time range
         Instant end = Instant.now();
         Instant start;
-        if (b.period.since != null && !b.period.since.isBlank()) {
-            start = parseRelative(b.period.since, end);
+        if (b.period.previous != null && !b.period.previous.isBlank()) {
+            start = parseRelative(b.period.previous, end);
         } else {
             start = parseInstant(b.period.between.get(0));
             end = parseInstant(b.period.between.get(1));
