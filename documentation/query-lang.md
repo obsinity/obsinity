@@ -229,8 +229,8 @@ All query responses are returned in **JSON/HAL** format (Hypertext Application L
 				"event": "http_request",
 				"period": {
 					"between": [
-						"2025-09-15T00:00:00Z",
-						"2025-09-15T06:00:00Z"
+						"2025-09-15T00:00:00[Dublin/Ireland]",
+						"2025-09-15T06:00:00[Dublin/Ireland]"
 					]
 				},
 				"match": [
@@ -281,8 +281,8 @@ All query responses are returned in **JSON/HAL** format (Hypertext Application L
 				"event": "http_request",
 				"period": {
 					"between": [
-						"2025-09-15T00:00:00Z",
-						"2025-09-15T06:00:00Z"
+						"2025-09-15T00:00:00[Dublin/Ireland]",
+						"2025-09-15T06:00:00[Dublin/Ireland]"
 					]
 				},
 				"match": [
@@ -333,8 +333,8 @@ All query responses are returned in **JSON/HAL** format (Hypertext Application L
 				"event": "http_request",
 				"period": {
 					"between": [
-						"2025-09-15T00:00:00Z",
-						"2025-09-15T06:00:00Z"
+						"2025-09-15T00:00:00[Dublin/Ireland]",
+						"2025-09-15T06:00:00[Dublin/Ireland]"
 					]
 				},
 				"match": [
