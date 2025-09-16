@@ -22,12 +22,12 @@ collection:
         {
           "event": { "name": "{{ event_name }}", "domain": "http", "kind": "SERVER" },
           "resource": { "service": { "name": "{{ service_id }}" } },
-          "trace": { "correlation_id": "{{ correlation_id }}", "trace_id": "{{ trace_id }}", "span_id": "{{ span_id }}" },
+          "trace": { "correlationId": "{{ correlation_id }}", "traceId": "{{ trace_id }}", "spanId": "{{ span_id }}" },
           "attributes": {
             "api": { "name": "getAccountHolders", "version": "v2" },
             "http": { "status": 200, "method": "GET" }
           },
-          "occurred_at": "{{ nowIso }}"
+          "occurredAt": "{{ nowIso }}"
         }
     headers:
       - name: Content-Type
@@ -44,12 +44,12 @@ collection:
         {
           "event": { "name": "{{ event_name }}", "domain": "http", "kind": "SERVER" },
           "resource": { "service": { "name": "{{ service_id }}" } },
-          "trace": { "correlation_id": "{{ correlation_id }}", "trace_id": "{{ trace_id }}", "span_id": "{{ span_id_error }}" },
+          "trace": { "correlationId": "{{ correlation_id }}", "traceId": "{{ trace_id }}", "spanId": "{{ span_id_error }}" },
           "attributes": {
             "api": { "name": "createTransaction", "version": "v2" },
             "http": { "status": 500, "method": "POST" }
           },
-          "occurred_at": "{{ nowIso }}"
+          "occurredAt": "{{ nowIso }}"
         }
     headers:
       - name: Content-Type
@@ -67,16 +67,16 @@ collection:
           {
             "event": { "name": "{{ event_name }}", "domain": "http", "kind": "CLIENT" },
             "resource": { "service": { "name": "{{ service_id }}" } },
-            "trace": { "correlation_id": "{{ correlation_id }}", "trace_id": "{{ trace_id }}", "span_id": "{{ span_id }}" },
+            "trace": { "correlationId": "{{ correlation_id }}", "traceId": "{{ trace_id }}", "spanId": "{{ span_id }}" },
             "attributes": { "api": { "name": "lookupUser" }, "http": { "status": 200 } },
-            "occurred_at": "{{ nowIso }}"
+            "occurredAt": "{{ nowIso }}"
           },
           {
             "event": { "name": "{{ event_name }}", "domain": "db", "kind": "INTERNAL" },
             "resource": { "service": { "name": "{{ service_id }}" } },
-            "trace": { "correlation_id": "{{ correlation_id }}", "trace_id": "{{ trace_id }}", "span_id": "{{ span_id_2 }}" },
+            "trace": { "correlationId": "{{ correlation_id }}", "traceId": "{{ trace_id }}", "spanId": "{{ span_id_2 }}" },
             "attributes": { "db": { "system": "postgresql", "statement": "select 1" } },
-            "occurred_at": "{{ nowIso }}"
+            "occurredAt": "{{ nowIso }}"
           }
         ]
     headers:
@@ -97,11 +97,11 @@ collection:
   #       where each item is { attribute, op, value }
   #     - Supported ops: =, !=, like, ilike
   # - filter (full event, post-filtering):
-  #     - Single condition: { path: "trace.correlation_id", op: "=", value: "..." }
+  #     - Single condition: { path: "trace.correlationId", op: "=", value: "..." }
   #     - Boolean groups: { and: [ ... ] } or { or: [ ... ] }
   #       where each item is { path, op, value }
   #     - Supported ops: =, !=, like, ilike (no regex)
-  # - order: [ { field: "occurred_at", dir: "desc" } ]
+  # - order: [ { field: "occurred_at", dir: "desc" } ]  # column names may be snake_case
   # - Results always return full events; select is not required.
 
   - url: "{{ base_url }}/api/search/events"
@@ -211,7 +211,7 @@ collection:
           "service": "{{ service_id }}",
           "event": "{{ event_name }}",
           "period": { "previous": "-15m" },
-          "filter": { "path": "trace.correlation_id", "op": "=", "value": "{{ correlation_id }}" },
+          "filter": { "path": "trace.correlationId", "op": "=", "value": "{{ correlation_id }}" },
           "order": [{ "field": "occurred_at", "dir": "desc" }],
           "limit": 25
         }

@@ -42,8 +42,8 @@ public class SearchController {
             SearchService search,
             ObjectMapper mapper,
             ServicesCatalogRepository servicesRepo,
-            @Value("${obsinity.api.hal.embedded:_embedded}") String embeddedKey,
-            @Value("${obsinity.api.hal.links:_links}") String linksKey) {
+            @Value("${obsinity.api.hal.embedded:embedded}") String embeddedKey,
+            @Value("${obsinity.api.hal.links:links}") String linksKey) {
         this.search = search;
         this.mapper = mapper;
         this.servicesRepo = servicesRepo;
@@ -139,7 +139,7 @@ public class SearchController {
     }
 
     public static class Order {
-        public String field; // occurred_at | received_at
+        public String field; // occurredAt | receivedAt (column names may still be snake_case)
         public String dir; // asc|desc
     }
 
@@ -150,7 +150,7 @@ public class SearchController {
     }
 
     public static class FilterClause {
-        public String path; // e.g., trace.correlation_id, attributes.api.name, event.subCategory
+        public String path; // e.g., trace.correlationId, attributes.api.name, event.subCategory
         public String op; // =, !=, like, ilike
         public Object value;
         public List<FilterClause> and; // nested
@@ -218,9 +218,10 @@ public class SearchController {
 
         // trace.*
         Map<String, Object> trace = new LinkedHashMap<>();
-        putIfPresent(trace, "correlation_id", row.get("correlation_id"));
-        putIfPresent(trace, "trace_id", row.get("trace_id"));
-        putIfPresent(trace, "span_id", row.get("span_id"));
+        // Prefer camelCase keys in output; values read from DB columns
+        putIfPresent(trace, "correlationId", row.get("correlation_id"));
+        putIfPresent(trace, "traceId", row.get("trace_id"));
+        putIfPresent(trace, "spanId", row.get("span_id"));
         env.put("trace", trace);
 
         // event.* (limited)
@@ -233,10 +234,10 @@ public class SearchController {
         env.put("attributes", attributes);
 
         // envelope roots for convenience
-        env.put("occurred_at", row.get("occurred_at"));
-        env.put("received_at", row.get("received_at"));
+        env.put("occurredAt", row.get("occurred_at"));
+        env.put("receivedAt", row.get("received_at"));
         env.put("service", row.get("service_short"));
-        env.put("event_type", row.get("event_type"));
+        env.put("eventType", row.get("event_type"));
 
         return env;
     }

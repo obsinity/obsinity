@@ -61,16 +61,17 @@ public class UnifiedPublishController {
 
         String eventId = coalesce(stringAt(root, "eventId"), UUID.randomUUID().toString());
 
-        Instant occurredAt = parseInstant(coalesce(stringAt(root, "occurred_at"), stringAt(root, "timestamp")));
-        Instant receivedAt = parseInstant(orNull(stringAt(root, "received_at")));
+        // Require camelCase inputs (allow 'timestamp' as fallback for occurredAt)
+        Instant occurredAt = parseInstant(coalesce(stringAt(root, "occurredAt"), stringAt(root, "timestamp")));
+        Instant receivedAt = parseInstant(orNull(stringAt(root, "receivedAt")));
         if (receivedAt == null) receivedAt = Instant.now();
 
         String name = stringAt(root, "event", "name");
         String kind = stringAt(root, "event", "kind");
 
-        String corr = stringAt(root, "trace", "correlation_id");
-        String traceId = stringAt(root, "trace", "trace_id");
-        String spanId = stringAt(root, "trace", "span_id");
+        String corr = stringAt(root, "trace", "correlationId");
+        String traceId = stringAt(root, "trace", "traceId");
+        String spanId = stringAt(root, "trace", "spanId");
 
         Map<String, Object> resource = toMap(root.path("resource"));
         Map<String, Object> attributes = toMap(root.path("attributes"));
