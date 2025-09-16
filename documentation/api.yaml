@@ -1,0 +1,430 @@
+openapi: 3.0.3
+info:
+  title: Obsinity API
+  version: 0.1.0
+  description: >
+    The Obsinity API enables developers to **publish** (ingest) structured,
+    OTEL-aligned events and to **search** across those events using a JSON
+    request format (OB-JQL). Search responses are **HAL-style** for easy
+    pagination and HATEOAS navigation.
+
+    ### Design notes
+    - **Event model** mirrors OTEL concepts (`event`, `resource.service`, `trace`, `attributes`, `occurred_at`).
+    - **Search** splits fast **indexed predicates** (`match`) from expressive **row filters** (`filter`).
+    - **Responses** use `links` (HAL-style). For strict HAL, rename `links` → `_links` and set `application/hal+json`.
+
+  termsOfService: https://obsinity.dev/terms
+  contact:
+    name: API Support
+    email: apisupport@mastercard.com
+    url: https://developer.mastercard.com/support
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+externalDocs:
+  description: Developer Guide and examples
+  url: https://docs.obsinity.dev
+
+servers:
+  - url: https://api.mastercard.com/
+    description: Production server
+  - url: https://sandbox.api.mastercard.com/
+    description: Sandbox server
+
+tags:
+  - name: Events
+    description: Publish/ingest telemetry events.
+  - name: Search
+    description: Search across ingested events with OB-JQL.
+
+paths:
+
+  /api/events:
+    post:
+      tags: [Events]
+      summary: Publish a new event
+      description: >
+        Publish a single OTEL-aligned event into Obsinity. The server validates
+        the event and enqueues it for durable ingestion and rollup.
+      operationId: publishEvent
+      requestBody:
+        required: true
+        description: Event envelope with service, trace, attributes, and time.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventEnvelope'
+            example:
+              event:
+                name: http_request
+                domain: http
+                kind: SERVER
+              resource:
+                service:
+                  name: payments
+              trace:
+                correlation_id: "req-123"
+                trace_id: "trace-456"
+                span_id: "span-789"
+              attributes:
+                api:
+                  name: getAccountHolders
+                  version: v2
+                http:
+                  status: 201
+                  method: GET
+              occurred_at: 2025-09-15T12:00:00Z
+      responses:
+        '202':
+          description: Event accepted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Accepted' }
+              example:
+                status: accepted
+                event_id: 2cbb7a45-d7d5-4f6c-b7a8-1d2b8c52c88a
+
+  /api/search/events:
+    post:
+      tags: [Search]
+      summary: Search events
+      description: >
+        Search for events by service, event type, time window, match predicates,
+        and filters. Results are paginated and returned as HAL-style pages.
+      operationId: searchEvents
+      requestBody:
+        required: true
+        description: OB-JQL style search request.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+            example:
+              service: payments
+              event: http_request
+              period:
+                between: ["2025-09-15T00:00:00Z", "2025-09-15T06:00:00Z"]
+              match:
+                - { attribute: "http.status", op: "!=", value: 500 }
+              filter:
+                and:
+                  - { path: "attributes.client.ip", op: "!=", value: "10.0.0.1" }
+                  - or:
+                      - { path: "attributes.api.name", op: "like", value: "%account%" }
+                      - { path: "attributes.api.name", op: "ilike", value: "create%" }
+              order:
+                - { field: "occurred_at", dir: desc }
+              limit: 100
+      responses:
+        '200':
+          description: HAL-style paginated response.
+          content:
+            application/hal+json:
+              schema:
+                $ref: '#/components/schemas/SearchResponseHAL'
+              example:
+                count: 1
+                total: 1
+                limit: 100
+                offset: 0
+                data:
+                  events:
+                    - event: { name: http_request, domain: http, kind: SERVER }
+                      resource: { service: { name: payments } }
+                      attributes: { http: { status: 201, method: GET } }
+                      occurred_at: 2025-09-15T12:00:00Z
+                links:
+                  self:
+                    href: /api/search/events
+                    method: POST
+                    body: { service: payments, event: http_request, period: { since: "-1h" } }
+
+components:
+  schemas:
+
+    EventEnvelope:
+      type: object
+      description: OTEL-aligned event envelope.
+      properties:
+        event:
+          type: object
+          description: Event identity and classification.
+          properties:
+            name:
+              type: string
+              description: Event name (e.g. `http_request`).
+              example: http_request
+            domain:
+              type: string
+              description: Domain namespace for event.
+              example: http
+            kind:
+              type: string
+              description: SpanKind-like role (`SERVER`, `CLIENT`, etc).
+              example: SERVER
+          required: [name]
+        resource:
+          type: object
+          description: Resource information about the emitting service.
+          properties:
+            service:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Service short name.
+                  example: payments
+        trace:
+          type: object
+          description: Trace identifiers for linking across systems.
+          properties:
+            correlation_id:
+              type: string
+              description: Request/session correlation id.
+              example: req-123
+            trace_id:
+              type: string
+              description: Trace id.
+              example: trace-456
+            span_id:
+              type: string
+              description: Span id.
+              example: span-789
+        attributes:
+          type: object
+          description: Namespaced attributes, freely extensible.
+          example:
+            api: { name: getAccountHolders, version: v2 }
+            http: { status: 201, method: GET }
+        occurred_at:
+          type: string
+          format: date-time
+          description: Producer timestamp (UTC ISO-8601).
+          example: 2025-09-15T12:00:00Z
+      required: [event, resource, occurred_at]
+
+    QueryRequest:
+      type: object
+      description: OB-JQL request payload for search.
+      properties:
+        service:
+          type: string
+          description: Service slug (partition key).
+          example: payments
+        event:
+          type: string
+          description: Event name.
+          example: http_request
+        period:
+          $ref: '#/components/schemas/Period'
+        match:
+          type: array
+          description: Indexed predicates for fast lookup.
+          items: { $ref: '#/components/schemas/MatchPredicate' }
+          example:
+            - { attribute: "http.status", op: "=", value: 200 }
+        filter:
+          $ref: '#/components/schemas/FilterExpr'
+        order:
+          type: array
+          description: Sort order.
+          items: { $ref: '#/components/schemas/OrderBy' }
+          example: [ { field: "occurred_at", dir: desc } ]
+        limit:
+          type: integer
+          description: Max number of events per page.
+          example: 100
+        offset:
+          type: integer
+          description: Starting offset for pagination.
+          example: 0
+        tz:
+          type: string
+          description: Output time zone for rendering timestamps.
+          example: Europe/Dublin
+      required: [service, event, period]
+
+    Period:
+      type: object
+      description: Defines the query time window.
+      properties:
+        previous:
+          type: string
+          description: Relative duration lookback (e.g. `1h`).
+          example: "1h"
+        since:
+          type: string
+          description: Relative duration (e.g. `-1h`) or absolute ISO-8601 time.
+          example: "-1h"
+        between:
+          type: array
+          description: Start and end timestamps (inclusive).
+          items: { type: string, format: date-time }
+          example: ["2025-09-15T00:00:00Z", "2025-09-15T06:00:00Z"]
+
+    MatchPredicate:
+      type: object
+      description: Condition over an indexed attribute.
+      properties:
+        attribute:
+          type: string
+          description: Indexed path (e.g. `http.status`).
+          example: http.status
+        op:
+          type: string
+          description: Operator.
+          enum: ["=", "!=", ">", "<", ">=", "<=", "like", "ilike", "in", "not in"]
+          example: "!="
+        value:
+          description: Value to compare.
+          example: 500
+      required: [attribute, op, value]
+
+    FilterExpr:
+      description: Recursive filter expression.
+      oneOf:
+        - $ref: '#/components/schemas/FilterCmp'
+        - $ref: '#/components/schemas/FilterAnd'
+        - $ref: '#/components/schemas/FilterOr'
+
+    FilterCmp:
+      type: object
+      description: Leaf comparison expression.
+      properties:
+        path:
+          type: string
+          description: JSON path to evaluate.
+          example: attributes.api.name
+        op:
+          type: string
+          description: Operator.
+          example: like
+        value:
+          description: Value to compare.
+          example: "%account%"
+      required: [path, op, value]
+
+    FilterAnd:
+      type: object
+      properties:
+        and:
+          type: array
+          items: { $ref: '#/components/schemas/FilterExpr' }
+          description: All sub-expressions must be true.
+          example:
+            - { path: "attributes.client.ip", op: "!=", value: "10.0.0.1" }
+
+    FilterOr:
+      type: object
+      properties:
+        or:
+          type: array
+          items: { $ref: '#/components/schemas/FilterExpr' }
+          description: At least one sub-expression must be true.
+          example:
+            - { path: "attributes.api.name", op: "like", value: "%account%" }
+            - { path: "attributes.api.name", op: "ilike", value: "create%" }
+
+    OrderBy:
+      type: object
+      description: Sorting directive.
+      properties:
+        field:
+          type: string
+          description: Field to sort by.
+          example: occurred_at
+        dir:
+          type: string
+          description: Sort direction.
+          enum: [asc, desc]
+          example: desc
+      required: [field]
+
+    SearchResponseHAL:
+      type: object
+      description: HAL-style search result page.
+      properties:
+        count:
+          type: integer
+          description: Number of events in this page.
+          example: 10
+        total:
+          type: integer
+          description: Total number of matching events.
+          example: 250
+        limit:
+          type: integer
+          description: Page size.
+          example: 100
+        offset:
+          type: integer
+          description: Page offset.
+          example: 0
+        data:
+          type: object
+          properties:
+            events:
+              type: array
+              items: { $ref: '#/components/schemas/EventEnvelope' }
+              description: List of events.
+        links:
+          type: object
+          description: HAL-style navigational links.
+          additionalProperties:
+            $ref: '#/components/schemas/HalActionLink'
+          example:
+            self:
+              href: /api/search/events
+              method: POST
+              body: { service: payments, event: http_request, period: { since: "-1h" } }
+
+    HalActionLink:
+      type: object
+      description: A HAL-style link with method and body.
+      properties:
+        href:
+          type: string
+          description: Target URL.
+          example: /api/search/events
+        method:
+          type: string
+          description: HTTP method.
+          example: POST
+        body:
+          type: object
+          description: Body to reproduce or paginate query.
+          example: { service: payments, event: http_request, period: { since: "-1h" } }
+      required: [href, method]
+
+    Accepted:
+      type: object
+      description: Acknowledgement for publish.
+      properties:
+        status:
+          type: string
+          description: Request status.
+          example: accepted
+        event_id:
+          type: string
+          description: Assigned ID for the ingested event.
+          example: 2cbb7a45-d7d5-4f6c-b7a8-1d2b8c52c88a
+      required: [status]
+
+    Error:
+      type: object
+      description: Error payload.
+      properties:
+        code:
+          type: string
+          description: Error code.
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          description: Human-readable message.
+          example: "Missing required field: event.name"
+        details:
+          type: object
+          description: Extra detail.
+          example: { field: "event.name" }
+      required: [code, message]
