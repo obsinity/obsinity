@@ -372,6 +372,14 @@ collection:
     body: { mimeType: application/json, text: "" }
     settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
 
+  # ===================== Catalog: Distinct Attribute Values =====================
+  - url: "{{ base_url }}/api/catalog/attributes/{{ service_id }}/api.name/values?prefix=get&limit=25"
+    name: Catalog - Attribute values (api.name)
+    meta: { id: req_attr_values_api_name, created: 1754511488101, modified: 1754511488101, isPrivate: false, description: "List distinct values for api.name under the service with optional prefix filter." }
+    method: GET
+    body: { mimeType: application/json, text: "" }
+    settings: { renderRequestBody: true, encodeUrl: true, followRedirects: global, cookies: { send: true, store: true }, rebuildPath: true }
+
 cookieJar:
   name: Default Jar
   meta:

@@ -93,6 +93,41 @@ public class AttributeIndexingService {
                 .toArray(MapSqlParameterSource[]::new);
 
         jdbc.batchUpdate(sql, batch);
+
+        // Also upsert into distinct values registry per service and attribute path
+        upsertDistinctValues(rows);
+    }
+
+    private void upsertDistinctValues(List<IndexRow> rows) {
+        if (rows == null || rows.isEmpty()) return;
+        // Deduplicate by (service_short, attr_name, attr_value)
+        record Key(String s, String n, String v) {}
+        Map<Key, OffsetDateTime> uniques = new java.util.LinkedHashMap<>();
+        for (IndexRow r : rows) {
+            Key k = new Key(r.serviceShort, r.attrName, r.attrValue);
+            uniques.merge(k, r.occurredAt, (a, b) -> a.isAfter(b) ? a : b);
+        }
+
+        final String sql =
+                """
+            INSERT INTO attribute_distinct_values (service_short, attr_name, attr_value, first_seen, last_seen, seen_count)
+            VALUES (:service_short, :attr_name, :attr_value, :first_seen, :last_seen, :delta)
+            ON CONFLICT (service_short, attr_name, attr_value) DO UPDATE
+              SET last_seen = GREATEST(attribute_distinct_values.last_seen, EXCLUDED.last_seen),
+                  seen_count = attribute_distinct_values.seen_count + EXCLUDED.seen_count
+            """;
+
+        MapSqlParameterSource[] batch = uniques.entrySet().stream()
+                .map(e -> new MapSqlParameterSource()
+                        .addValue("service_short", e.getKey().s())
+                        .addValue("attr_name", e.getKey().n())
+                        .addValue("attr_value", e.getKey().v())
+                        .addValue("first_seen", e.getValue())
+                        .addValue("last_seen", e.getValue())
+                        .addValue("delta", 1))
+                .toArray(MapSqlParameterSource[]::new);
+
+        jdbc.batchUpdate(sql, batch);
     }
 
     public interface EventForIndex {
