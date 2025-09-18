@@ -1,0 +1,63 @@
+{
+  "event": {                // span identity
+    "name": "...",
+    "domain": "...",
+    "kind": "SERVER|CLIENT|..."
+  },
+
+  "resource": {             // service/environment identity
+    "service": {
+      "name": "...",
+      "namespace": "...",
+      "instance": { "id": "..." },
+      "version": "..."
+    },
+    "host": { "name": "..." },
+    "telemetry": { "sdk": { "name": "...", "version": "..." } },
+    "cloud": { "provider": "...", "region": "..." }
+  },
+
+  "trace": {                // OTEL IDs
+    "traceId": "...",       // 32 lower-hex
+    "spanId": "...",        // 16 lower-hex
+    "parentSpanId": "...",  // optional
+    "state": "..."          // tracestate (optional)
+  },
+
+  "time": {                 // span timing
+    "startUnixNano": ...,
+    "endUnixNano": ...,
+    "startedAt": "...",     // ISO (optional, human-readable)
+    "endedAt": "..."
+  },
+
+  "attributes": {           // nested attributes (instead of dotted)
+    "api": { "name": "...", "version": "..." },
+    "http": { "method": "...", "status_code": ..., "route": "...", "flavor": "..." },
+    "net":  { "peer": { "ip": "...", "port": ... }, "transport": "..." },
+    "obsinity": { "correlation_id": "..." }
+  },
+
+  "events": [               // nested span events
+    {
+      "name": "...",
+      "timeUnixNano": ...,
+      "attributes": { "..." }
+    }
+  ],
+
+  "links": [                // links to other spans
+    {
+      "traceId": "...",
+      "spanId": "...",
+      "attributes": { "reason": "..." }
+    }
+  ],
+
+  "status": {               // OTEL span status
+    "code": "OK|ERROR|UNSET",
+    "message": "..."
+  },
+
+  "synthetic": false         // Obsinity-native flag
+}

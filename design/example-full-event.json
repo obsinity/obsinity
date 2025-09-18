@@ -1,0 +1,91 @@
+{
+  "event": {
+    "name": "http_request",
+    "domain": "http",
+    "kind": "SERVER"
+  },
+  "resource": {
+    "service": {
+      "name": "payment",
+      "namespace": "core",
+      "instance": { "id": "payment-7d4f8c9" },
+      "version": "1.42.0"
+    },
+    "host": { "name": "ip-10-0-3-15" },
+    "telemetry": { "sdk": { "name": "obsinity-java", "version": "0.9.0" } },
+    "cloud": { "provider": "aws", "region": "eu-west-1" }
+  },
+  "trace": {
+    "traceId":  "4a3f1b5e2f9d4c1aa0b2c3d4e5f60718",
+    "spanId":   "7b2c3d4e5f607182",
+    "parentSpanId": "8f7e6d5c4b3a2910",
+    "state": "ro=vendorA,ro2=vB"
+  },
+  "time": {
+    "startUnixNano": 1726665303120000000,
+    "endUnixNano":   1726665303345000000,
+    "startedAt": "2025-09-18T15:55:03.120Z",
+    "endedAt":   "2025-09-18T15:55:03.345Z"
+  },
+  "attributes": {
+    "api":  { "name": "getAccountHolders", "version": "v2" },
+    "http": {
+      "method": "GET",
+      "target": "/accounts/12345/holders",
+      "route":  "/accounts/{id}/holders",
+      "status_code": 200,
+      "flavor": "1.1",
+      "user_agent": "curl/8.8.1"
+    },
+    "net": {
+      "transport": "ip_tcp",
+      "peer": { "ip": "203.0.113.10", "port": 51872 }
+    },
+    "client": { "ip": "203.0.113.10" },
+    "obsinity": { "correlation_id": "order-12345" }
+  },
+  "events": [
+    {
+      "name": "http.request.headers",
+      "timeUnixNano": 1726665303121000000,
+      "attributes": {
+        "http": { "request_content_length": 0, "request_content_type": "application/json" }
+      }
+    },
+    {
+      "name": "db.query",
+      "timeUnixNano": 1726665303180000000,
+      "attributes": {
+        "db": {
+          "system": "postgresql",
+          "name": "ledger",
+          "user": "svc_payment",
+          "operation": "SELECT",
+          "statement": "SELECT holder_id, name FROM account_holders WHERE account_id = $1",
+          "rows_affected": 1
+        },
+        "net": { "peer": { "name": "pg-primary.internal", "port": 5432 } },
+        "duration": { "nanos": 22000000 }
+      }
+    },
+    {
+      "name": "cache.lookup",
+      "timeUnixNano": 1726665303205000000,
+      "attributes": {
+        "cache": { "system": "redis", "key": "acct:12345:holders", "hit": false }
+      }
+    }
+  ],
+  "links": [
+    {
+      "traceId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "spanId":  "bbbbbbbbbbbbbbbb",
+      "attributes": { "reason": "join-batch", "weight": 0.5 }
+    }
+  ],
+  "status": {
+    "code": "OK",
+    "message": "HTTP 200"
+  },
+  "synthetic": false
+}
