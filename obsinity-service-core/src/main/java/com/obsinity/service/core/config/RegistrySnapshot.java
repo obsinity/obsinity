@@ -9,7 +9,7 @@ import java.util.Map;
  *
  * Kept tiny and allocation-friendly by using Java records and unmodifiable collections.
  */
-public record RegistrySnapshot(Map<String, ServiceConfig> services, Instant loadedAt) {
+public record RegistrySnapshot(Map<java.util.UUID, ServiceConfig> services, Instant loadedAt) {
     public static RegistrySnapshot empty() {
         return new RegistrySnapshot(Map.of(), Instant.EPOCH);
     }

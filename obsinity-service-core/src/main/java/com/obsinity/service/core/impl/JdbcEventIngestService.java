@@ -87,7 +87,7 @@ public class JdbcEventIngestService implements EventIngestService {
         if (wrote == 1 && serviceId != null) {
             attributeIndexingService.indexEvent(new AttributeIndexingService.EventForIndex() {
                 @Override
-                public String serviceShort() {
+                public String serviceKey() {
                     return serviceShort;
                 }
 

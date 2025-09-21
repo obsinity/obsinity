@@ -19,5 +19,6 @@ public record MetricConfig(
         String backfillWindow, // e.g., "7 days"
         Instant cutoverAt,
         Instant graceUntil,
-        String state // PENDING | ACTIVE | etc. (server may override)
+        String state, // PENDING | ACTIVE | etc. (server may override)
+        String retentionTtl // optional TTL for metrics (e.g., "30d", may exceed raw TTL)
         ) {}

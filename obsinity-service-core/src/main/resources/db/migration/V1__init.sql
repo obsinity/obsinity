@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS events_raw (
   parent_event_id  UUID,
 
   -- Core envelope
+  -- Short key used ONLY for partition routing and child table names.
+  -- All semantic joins should rely on UUID foreign keys.
   service_short    TEXT        NOT NULL,
   event_type       TEXT        NOT NULL,
   attributes       JSONB       NOT NULL DEFAULT '{}'::jsonb,
@@ -65,7 +67,7 @@ CREATE TABLE IF NOT EXISTS event_attr_index_default
 CREATE TABLE IF NOT EXISTS service_registry (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   service_key TEXT NOT NULL UNIQUE,         -- e.g., "obsinity-reference-service"
-  short_key   TEXT NOT NULL UNIQUE,         -- 8-char sha256 hex substring
+  short_key   TEXT NOT NULL UNIQUE,         -- 8-char sha256 hex substring (for partitioning)
   description TEXT,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -84,6 +86,7 @@ CREATE TABLE IF NOT EXISTS event_registry (
   sub_category  TEXT,                         -- optional sub-category for the event
   event_name    TEXT NOT NULL,                -- canonical (e.g., "HttpRequest")
   event_norm    TEXT NOT NULL,                -- lowercase ("httprequest") for lookups
+  retention_ttl INTERVAL,                     -- optional raw-event retention for this event type
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (service_id, event_norm)
@@ -117,6 +120,7 @@ CREATE TABLE IF NOT EXISTS metric_registry (
   filters_json       JSONB NOT NULL DEFAULT '{}'::jsonb,
 
   backfill_window    INTERVAL,              -- optional
+  retention_ttl      INTERVAL,              -- optional metric retention (may exceed raw event TTL)
   state              TEXT NOT NULL DEFAULT 'PENDING',
   cutover_at         TIMESTAMPTZ,
   grace_until        TIMESTAMPTZ,
@@ -193,3 +197,27 @@ BEGIN
       CHECK (jsonb_typeof(spec_json) = 'object');
   END IF;
 END$$;
+
+-- 4) Distinct attribute values registry (for quick UI filters/autocomplete)
+CREATE TABLE IF NOT EXISTS attribute_distinct_values (
+  service_short TEXT        NOT NULL,
+  attr_name     TEXT        NOT NULL,
+  attr_value    TEXT        NOT NULL,
+  first_seen    TIMESTAMPTZ NOT NULL,
+  last_seen     TIMESTAMPTZ NOT NULL,
+  seen_count    BIGINT      NOT NULL DEFAULT 0,
+  PRIMARY KEY (service_short, attr_name, attr_value)
+);
+
+-- =============================
+-- Samples (commented)
+-- =============================
+-- Example: set event retention to 7 days for a given service/event
+-- UPDATE event_registry
+--    SET retention_ttl = INTERVAL '7 days'
+--  WHERE service = 'payments' AND event_name = 'http_request';
+--
+-- Example: set metric retention to 90 days for a histogram metric
+-- UPDATE metric_registry
+--    SET retention_ttl = INTERVAL '90 days'
+--  WHERE name = 'http_request_latency_ms';

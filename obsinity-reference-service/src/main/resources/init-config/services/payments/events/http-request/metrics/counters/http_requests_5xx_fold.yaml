@@ -33,6 +33,8 @@ spec:
     windowing:
       granularities: [5s, 1m, 1h, 1d, 7d]
     operation: count
+  retention:
+    ttl: "90d"
   attributeMapping:
     method: http.method
     route: http.route

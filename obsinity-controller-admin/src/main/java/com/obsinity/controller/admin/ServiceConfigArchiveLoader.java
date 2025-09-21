@@ -11,6 +11,8 @@ import com.obsinity.service.core.model.config.EventConfig;
 import com.obsinity.service.core.model.config.EventIndexConfig;
 import com.obsinity.service.core.model.config.MetricConfig;
 import com.obsinity.service.core.model.config.ServiceConfig;
+import com.obsinity.service.core.support.Constants;
+import com.obsinity.service.core.support.CrdKeys;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -71,80 +73,9 @@ public class ServiceConfigArchiveLoader {
                     Matcher mm = METRIC_YAML.matcher(path);
 
                     if (em.matches()) {
-                        String service = em.group(1);
-                        String eventFolder = em.group(2);
-                        Map<String, Object> doc = readYamlMap(tin);
-
-                        String eventName = eventNameFromDoc(doc).orElse(kebabToSnake(eventFolder));
-                        String eventNorm = eventName.toLowerCase(Locale.ROOT);
-
-                        Acc acc = accFor(services, service, eventNorm);
-                        acc.eventName = eventName;
-                        acc.eventDoc = doc;
+                        processEventYaml(tin, em, services);
                     } else if (mm.matches()) {
-                        String service = mm.group(1);
-                        String eventFolder = mm.group(2);
-                        String kindDir = mm.group(3);
-                        String fileBase = mm.group(4);
-                        Map<String, Object> doc = readYamlMap(tin);
-
-                        String eventName = kebabToSnake(eventFolder);
-                        String eventNorm = eventName.toLowerCase(Locale.ROOT);
-                        Acc acc = accFor(services, service, eventNorm);
-
-                        String metricType =
-                                switch (kindDir) {
-                                    case "counters" -> "COUNTER";
-                                    case "histograms" -> "HISTOGRAM";
-                                    case "gauges" -> "GAUGE";
-                                    default -> "COUNTER";
-                                };
-
-                        String metricName = metadataName(doc).orElse(fileBase);
-
-                        List<String> keyed = listOfStrings(mapAt(doc, "spec", "key"), "dimensions");
-                        if (keyed == null || keyed.isEmpty()) keyed = listOfStrings(mapAt(doc, "key"), "dimensions");
-
-                        List<String> rollups =
-                                listOfStrings(mapAt(doc, "spec", "aggregation", "windowing"), "granularities");
-                        if (rollups == null || rollups.isEmpty())
-                            rollups = listOfStrings(mapAt(doc, "aggregation"), "granularities");
-
-                        Map<String, Object> filters = mapAt(doc, "filters");
-                        if (filters == null) filters = mapAt(doc, "spec", "filters");
-                        if (filters == null) filters = Map.of();
-
-                        Map<String, Object> spec = mapAt(doc, "spec");
-                        if (spec == null) spec = new LinkedHashMap<>();
-                        spec.remove("state");
-                        spec.remove("cutover_at");
-                        spec.remove("grace_until");
-
-                        String specHash = shortHash(canonicalize(spec));
-
-                        String bucketLayoutHash = null;
-                        if ("HISTOGRAM".equals(metricType)) {
-                            Map<String, Object> buckets = mapAt(spec, "buckets");
-                            if (buckets != null && !buckets.isEmpty()) {
-                                bucketLayoutHash = shortHash(canonicalize(buckets));
-                            }
-                        }
-
-                        MetricConfig mc = new MetricConfig(
-                                null,
-                                metricName,
-                                metricType,
-                                spec,
-                                specHash,
-                                keyed == null ? List.of() : keyed,
-                                rollups == null ? List.of() : rollups,
-                                filters,
-                                bucketLayoutHash,
-                                null,
-                                null,
-                                null,
-                                "PENDING");
-                        acc.metrics.add(mc);
+                        processMetricYaml(tin, mm, services);
                     }
                 }
 
@@ -160,6 +91,7 @@ public class ServiceConfigArchiveLoader {
                 List<EventConfig> evs = new ArrayList<>();
                 for (Acc acc : services.get(service).values()) {
                     EventIndexConfig idx = buildIndexConfig(acc.eventDoc);
+                    String ttl = retentionTtlFrom(acc.eventDoc);
                     evs.add(new EventConfig(
                             null,
                             acc.eventName,
@@ -167,7 +99,8 @@ public class ServiceConfigArchiveLoader {
                             categoryFrom(acc.eventDoc),
                             subCategoryFrom(acc.eventDoc),
                             acc.metrics,
-                            idx));
+                            idx,
+                            ttl));
                 }
 
                 String snapshotId = shortHash(service + "|" + Instant.now());
@@ -176,6 +109,86 @@ public class ServiceConfigArchiveLoader {
         } catch (IOException io) {
             throw new RuntimeException("Failed to read config archive", io);
         }
+    }
+
+    private void processEventYaml(TarArchiveInputStream tin, Matcher em, Map<String, Map<String, Acc>> services)
+            throws IOException {
+        String service = em.group(1);
+        String eventFolder = em.group(2);
+        Map<String, Object> doc = readYamlMap(tin);
+        String eventName = eventNameFromDoc(doc).orElse(kebabToSnake(eventFolder));
+        String eventNorm = eventName.toLowerCase(Locale.ROOT);
+        Acc acc = accFor(services, service, eventNorm);
+        acc.eventName = eventName;
+        acc.eventDoc = doc;
+    }
+
+    private void processMetricYaml(TarArchiveInputStream tin, Matcher mm, Map<String, Map<String, Acc>> services)
+            throws IOException {
+        String service = mm.group(1);
+        String eventFolder = mm.group(2);
+        String kindDir = mm.group(3);
+        String fileBase = mm.group(4);
+        Map<String, Object> doc = readYamlMap(tin);
+
+        String eventName = kebabToSnake(eventFolder);
+        String eventNorm = eventName.toLowerCase(Locale.ROOT);
+        Acc acc = accFor(services, service, eventNorm);
+
+        String metricType =
+                switch (kindDir) {
+                    case "counters" -> "COUNTER";
+                    case "histograms" -> Constants.TYPE_HISTOGRAM;
+                    case "gauges" -> "GAUGE";
+                    default -> "COUNTER";
+                };
+
+        String metricName = metadataName(doc).orElse(fileBase);
+        List<String> keyed = listOfStrings(mapAt(doc, CrdKeys.SPEC, CrdKeys.KEY), CrdKeys.DIMENSIONS);
+        if (keyed == null || keyed.isEmpty()) keyed = listOfStrings(mapAt(doc, CrdKeys.KEY), CrdKeys.DIMENSIONS);
+
+        List<String> rollups =
+                listOfStrings(mapAt(doc, CrdKeys.SPEC, CrdKeys.AGGREGATION, CrdKeys.WINDOWING), CrdKeys.GRANULARITIES);
+        if (rollups == null || rollups.isEmpty())
+            rollups = listOfStrings(mapAt(doc, CrdKeys.AGGREGATION), CrdKeys.GRANULARITIES);
+
+        Map<String, Object> filters = mapAt(doc, CrdKeys.FILTERS);
+        if (filters == null) filters = mapAt(doc, CrdKeys.SPEC, CrdKeys.FILTERS);
+        if (filters == null) filters = Map.of();
+
+        Map<String, Object> spec = mapAt(doc, CrdKeys.SPEC);
+        if (spec == null) spec = new LinkedHashMap<>();
+        spec.remove("state");
+        spec.remove("cutover_at");
+        spec.remove("grace_until");
+
+        String specHash = shortHash(canonicalize(spec));
+
+        String bucketLayoutHash = null;
+        if (Constants.TYPE_HISTOGRAM.equals(metricType)) {
+            Map<String, Object> buckets = mapAt(spec, CrdKeys.BUCKETS);
+            if (buckets != null && !buckets.isEmpty()) {
+                bucketLayoutHash = shortHash(canonicalize(buckets));
+            }
+        }
+
+        String metricTtl = retentionTtlFrom(doc);
+        MetricConfig mc = new MetricConfig(
+                null,
+                metricName,
+                metricType,
+                spec,
+                specHash,
+                keyed == null ? List.of() : keyed,
+                rollups == null ? List.of() : rollups,
+                filters,
+                bucketLayoutHash,
+                null,
+                null,
+                null,
+                Constants.METRIC_STATE_PENDING,
+                metricTtl);
+        acc.metrics.add(mc);
     }
 
     /**
@@ -291,6 +304,19 @@ public class ServiceConfigArchiveLoader {
                 Object sc = labels.get("subCategory");
                 if (sc instanceof String sx && !sx.isBlank()) return sx.trim();
             }
+        }
+        return null;
+    }
+
+    private static String retentionTtlFrom(Map<String, Object> doc) {
+        Map<String, Object> spec = mapAt(doc, "spec");
+        if (spec == null) return null;
+        Object ttlDirect = spec.get("ttl");
+        if (ttlDirect instanceof String s && !s.isBlank()) return s.trim();
+        Map<String, Object> retention = mapAt(spec, "retention");
+        if (retention != null) {
+            Object ttl = retention.get("ttl");
+            if (ttl instanceof String ts && !ts.isBlank()) return ts.trim();
         }
         return null;
     }

@@ -23,6 +23,8 @@ metadata:
   displayName: <string>
   labels: { <k>: <v>, ... }
 spec:
+  retention:
+    ttl: "7d"                 # optional raw-event retention window
   schema:
     type: object
     properties:
@@ -145,6 +147,8 @@ spec:
   aggregation:
     windowing: { granularities: [5s, 1m, 1h, 1d, 7d] }
     operation: count
+  retention:
+    ttl: "90d"                # optional metric retention window
 
   attributeMapping:
     method: http.method
@@ -213,6 +217,8 @@ spec:
   aggregation:
     windowing: { granularities: [5s, 1m, 1h, 1d, 7d] }
     percentiles: [0.5, 0.9, 0.95, 0.99]
+  retention:
+    ttl: "90d"                # optional metric retention window
 ```
 
 ---

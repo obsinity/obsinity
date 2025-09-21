@@ -51,18 +51,123 @@ public class ConfigIngestService {
                 req.service(),
                 req.events() == null ? 0 : req.events().size(),
                 req.snapshotId());
-        int events = 0, metrics = 0, attrIdx = 0;
 
         if (req.events() == null || req.events().isEmpty()) {
             return new ServiceConfigResponse(req.snapshotId(), true, 0, 0, 0);
         }
 
         final String service = trimToNull(req.service());
-        if (service == null) {
-            throw new IllegalArgumentException("ServiceConfig.service must be provided");
-        }
+        if (service == null) throw new IllegalArgumentException("ServiceConfig.service must be provided");
 
-        // Ensure service exists in catalog (for partitioning and lookups)
+        SvcIds svc = ensureService(service);
+        Counts totals = processEvents(service, svc, req.events());
+
+        ServiceConfigResponse resp =
+                new ServiceConfigResponse(req.snapshotId(), true, totals.events, totals.metrics, totals.attrIdx);
+        log.debug(
+                "ConfigIngest: result events={}, metrics={}, attrIdx={}",
+                totals.events,
+                totals.metrics,
+                totals.attrIdx);
+        return resp;
+    }
+
+    private Counts processEvents(String service, SvcIds svc, List<EventConfig> events) {
+        int ev = 0;
+        int met = 0;
+        int ai = 0;
+        for (EventConfig e : events) {
+            String eventName = trimToNull(e.eventName());
+            if (eventName == null) throw new IllegalArgumentException("EventConfig.eventName must be provided");
+
+            String norm = normalizeEventNorm(eventName, e.eventNorm());
+            UUID eventId = ensureEvent(
+                    svc.serviceId,
+                    service,
+                    svc.shortKey,
+                    trimToNull(e.category()),
+                    trimToNull(e.subCategory()),
+                    eventName,
+                    norm,
+                    e.uuid(),
+                    normalizeInterval(e.retentionTtl()));
+            log.debug(
+                    "ConfigIngest: ensured event service={}, name={}, norm={}, id={}",
+                    service,
+                    eventName,
+                    norm,
+                    eventId);
+            ev++;
+
+            met += upsertMetricsForEvent(service, norm, eventId, e.metrics());
+            ai += upsertAttributeIndex(eventId, e.attributeIndex());
+        }
+        return new Counts(ev, met, ai);
+    }
+
+    private int upsertMetricsForEvent(String service, String norm, UUID eventId, List<MetricConfig> metrics) {
+        if (metrics == null || metrics.isEmpty()) return 0;
+        int count = 0;
+        for (MetricConfig m : metrics) {
+            String type = normalizeType(m.type());
+            List<String> keyed = canonicalizeList(m.keyedKeys());
+            List<String> rollups = canonicalizeList(m.rollups());
+
+            Map<String, Object> cleanSpec = cleanSpecForHash(m.specJson());
+            String specJson = toCanonicalJson(cleanSpec);
+            String specHashSrv = shortHash(specJson);
+
+            String bucketLayoutHash = trimToNull(m.bucketLayoutHash());
+            if (com.obsinity.service.core.support.Constants.TYPE_HISTOGRAM.equals(type)) {
+                Object buckets = (cleanSpec == null) ? null : cleanSpec.get("buckets");
+                if (buckets instanceof Map<?, ?> bmap && !bmap.isEmpty()) {
+                    bucketLayoutHash = shortHash(toCanonicalJson(castMap(buckets)));
+                }
+            }
+
+            Map<String, Object> filtersMap =
+                    Optional.ofNullable(m.filtersJson()).orElseGet(Map::of);
+            String filtersJson = toCanonicalJson(filtersMap);
+
+            String metricKey =
+                    metricKey(service, norm, m.name(), type, keyed, rollups, filtersMap, bucketLayoutHash, cleanSpec);
+
+            count += metricRepo.upsertMetric(
+                    Optional.ofNullable(m.uuid()).orElse(UUID.randomUUID()),
+                    eventId,
+                    m.name(),
+                    type,
+                    specJson,
+                    specHashSrv,
+                    toPgTextArray(keyed),
+                    toPgTextArray(rollups),
+                    bucketLayoutHash,
+                    filtersJson,
+                    m.backfillWindow(),
+                    m.cutoverAt(),
+                    m.graceUntil(),
+                    (m.state() == null ? com.obsinity.service.core.support.Constants.METRIC_STATE_PENDING : m.state()),
+                    normalizeInterval(m.retentionTtl()),
+                    metricKey);
+        }
+        return count;
+    }
+
+    private int upsertAttributeIndex(UUID eventId, EventIndexConfig ai) {
+        if (ai == null) return 0;
+        Map<String, Object> specMap = Optional.ofNullable(ai.specJson()).orElseGet(Map::of);
+        String specJson = toCanonicalJson(specMap);
+        String specHash = shortHash(specJson);
+        return attrRepo.upsertAttributeIndex(
+                Optional.ofNullable(ai.uuid()).orElse(UUID.randomUUID()), eventId, specJson, specHash);
+    }
+
+    private static String normalizeEventNorm(String eventName, String eventNorm) {
+        String n = trimToNull(eventNorm);
+        return (n != null) ? n.toLowerCase(Locale.ROOT).trim() : eventName.toLowerCase(Locale.ROOT);
+    }
+
+    private SvcIds ensureService(String service) {
         String shortKey = hex(sha256(service.getBytes(StandardCharsets.UTF_8)), 4);
         java.util.UUID serviceId = servicesRepo.findIdByServiceKey(service);
         if (serviceId == null) {
@@ -73,101 +178,12 @@ public class ConfigIngestService {
             serviceId = servicesRepo.findIdByServiceKey(service);
             if (serviceId == null) throw new IllegalStateException("Failed to resolve service id for " + service);
         }
-
-        for (EventConfig eb : req.events()) {
-            final String eventName = trimToNull(eb.eventName());
-            if (eventName == null) {
-                throw new IllegalArgumentException("EventConfig.eventName must be provided");
-            }
-            final String norm = trimToNull(eb.eventNorm()) != null
-                    ? eb.eventNorm().toLowerCase(Locale.ROOT).trim()
-                    : eventName.toLowerCase(Locale.ROOT);
-
-            String category = trimToNull(eb.category());
-            String subCategory = trimToNull(eb.subCategory());
-            UUID eventId = ensureEvent(serviceId, service, shortKey, category, subCategory, eventName, norm, eb.uuid());
-            log.debug(
-                    "ConfigIngest: ensured event service={}, name={}, norm={}, id={}",
-                    service,
-                    eventName,
-                    norm,
-                    eventId);
-            events++;
-
-            // Metrics
-            if (eb.metrics() != null) {
-                for (MetricConfig m : eb.metrics()) {
-                    // Normalize type and canonicalize keyedKeys/rollups ordering
-                    final String type = normalizeType(m.type());
-
-                    final List<String> keyedKeysCanonical = canonicalizeList(m.keyedKeys());
-                    final List<String> rollupsCanonical = canonicalizeList(m.rollups());
-
-                    // Canonical JSON for spec + recompute specHash server-side
-                    final Map<String, Object> cleanSpec = cleanSpecForHash(m.specJson());
-                    final String specJson = toCanonicalJson(cleanSpec);
-                    final String specHashSrv = shortHash(specJson);
-
-                    // Recompute bucketLayoutHash if histogram and buckets present
-                    String bucketLayoutHash = trimToNull(m.bucketLayoutHash());
-                    if ("HISTOGRAM".equals(type)) {
-                        Object buckets = (cleanSpec == null) ? null : cleanSpec.get("buckets");
-                        if (buckets instanceof Map<?, ?> bmap && !bmap.isEmpty()) {
-                            bucketLayoutHash = shortHash(toCanonicalJson(castMap(buckets)));
-                        }
-                    }
-
-                    // Filters canonical JSON (empty -> {})
-                    final Map<String, Object> filtersMap =
-                            Optional.ofNullable(m.filtersJson()).orElseGet(Map::of);
-                    final String filtersJson = toCanonicalJson(filtersMap);
-
-                    // Deterministic metric_key built from normalized pieces
-                    final String metricKey = metricKey(
-                            service,
-                            norm,
-                            m.name(),
-                            type,
-                            keyedKeysCanonical,
-                            rollupsCanonical,
-                            filtersMap,
-                            bucketLayoutHash,
-                            cleanSpec);
-
-                    metrics += metricRepo.upsertMetric(
-                            Optional.ofNullable(m.uuid()).orElse(UUID.randomUUID()),
-                            eventId,
-                            m.name(),
-                            type,
-                            specJson,
-                            specHashSrv, // use server-side spec hash
-                            toPgTextArray(keyedKeysCanonical),
-                            toPgTextArray(rollupsCanonical),
-                            bucketLayoutHash,
-                            filtersJson,
-                            m.backfillWindow(),
-                            m.cutoverAt(),
-                            m.graceUntil(),
-                            (m.state() == null ? "PENDING" : m.state()),
-                            metricKey);
-                }
-            }
-
-            // Attribute index (optional)
-            if (eb.attributeIndex() != null) {
-                EventIndexConfig ai = eb.attributeIndex();
-                Map<String, Object> specMap = Optional.ofNullable(ai.specJson()).orElseGet(Map::of);
-                String specJson = toCanonicalJson(specMap);
-                String specHash = shortHash(specJson); // recompute for safety
-                attrIdx += attrRepo.upsertAttributeIndex(
-                        Optional.ofNullable(ai.uuid()).orElse(UUID.randomUUID()), eventId, specJson, specHash);
-            }
-        }
-
-        ServiceConfigResponse resp = new ServiceConfigResponse(req.snapshotId(), true, events, metrics, attrIdx);
-        log.debug("ConfigIngest: result events={}, metrics={}, attrIdx={}", events, metrics, attrIdx);
-        return resp;
+        return new SvcIds(serviceId, shortKey);
     }
+
+    private record Counts(int events, int metrics, int attrIdx) {}
+
+    private record SvcIds(UUID serviceId, String shortKey) {}
 
     private UUID ensureEvent(
             UUID serviceId,
@@ -177,11 +193,20 @@ public class ConfigIngestService {
             String subCategory,
             String eventName,
             String eventNorm,
-            UUID desiredId) {
+            UUID desiredId,
+            String retentionTtlInterval) {
         UUID idToUse = desiredId != null ? desiredId : UUID.randomUUID();
         // insertIfAbsent should be implemented with ON CONFLICT DO NOTHING to avoid races
         eventRepo.insertIfAbsent(
-                idToUse, serviceId, service, serviceShort, category, subCategory, eventName, eventNorm);
+                idToUse,
+                serviceId,
+                service,
+                serviceShort,
+                category,
+                subCategory,
+                eventName,
+                eventNorm,
+                retentionTtlInterval);
         UUID existing = eventRepo.findIdByServiceIdAndEventNorm(serviceId, eventNorm);
         return existing != null ? existing : idToUse;
     }
@@ -216,6 +241,42 @@ public class ConfigIngestService {
         cleaned.remove("cutover_at");
         cleaned.remove("grace_until");
         return cleaned;
+    }
+
+    /**
+     * Normalize simple shorthand like "7d", "90d", "12h", "30m", "45s", "2w" into Postgres interval literals.
+     * If input already looks like an interval (e.g., contains a space or full unit names), return as-is.
+     */
+    private static String normalizeInterval(String ttl) {
+        if (ttl == null) return null;
+        String s = ttl.trim();
+        if (s.isEmpty()) return null;
+        String lower = s.toLowerCase(Locale.ROOT);
+        if (lower.contains(" ")
+                || lower.contains("day")
+                || lower.contains("hour")
+                || lower.contains("min")
+                || lower.contains("sec")
+                || lower.contains("week")) {
+            return s;
+        }
+        java.util.regex.Matcher m =
+                java.util.regex.Pattern.compile("^(\\d+)([smhdw])$").matcher(lower);
+        if (m.find()) {
+            String num = m.group(1);
+            String unit = m.group(2);
+            String full =
+                    switch (unit) {
+                        case "s" -> "seconds";
+                        case "m" -> "minutes";
+                        case "h" -> "hours";
+                        case "d" -> "days";
+                        case "w" -> "weeks";
+                        default -> null;
+                    };
+            if (full != null) return num + " " + full;
+        }
+        return s;
     }
 
     private static Map<String, Object> castMap(Object o) {

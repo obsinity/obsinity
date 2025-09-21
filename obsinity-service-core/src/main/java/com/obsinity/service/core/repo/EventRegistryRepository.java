@@ -19,9 +19,14 @@ public interface EventRegistryRepository extends JpaRepository<EventRegistryEnti
     @Query(
             value =
                     """
-        INSERT INTO event_registry (id, service_id, service, service_short, category, sub_category, event_name, event_norm)
-        VALUES (:id, :serviceId, :service, :serviceShort, :category, :subCategory, :eventName, :eventNorm)
-        ON CONFLICT (service_id, event_norm) DO UPDATE SET updated_at = now()
+        INSERT INTO event_registry (
+          id, service_id, service, service_short, category, sub_category, event_name, event_norm, retention_ttl
+        ) VALUES (
+          :id, :serviceId, :service, :serviceShort, :category, :subCategory, :eventName, :eventNorm, cast(:retentionTtl as interval)
+        )
+        ON CONFLICT (service_id, event_norm) DO UPDATE SET
+          updated_at = now(),
+          retention_ttl = COALESCE(EXCLUDED.retention_ttl, event_registry.retention_ttl)
         """,
             nativeQuery = true)
     int insertIfAbsent(
@@ -32,7 +37,8 @@ public interface EventRegistryRepository extends JpaRepository<EventRegistryEnti
             @Param("category") String category,
             @Param("subCategory") String subCategory,
             @Param("eventName") String eventName,
-            @Param("eventNorm") String eventNorm);
+            @Param("eventNorm") String eventNorm,
+            @Param("retentionTtl") String retentionTtl);
 
     @Query(
             value = "SELECT id FROM event_registry WHERE service_id = :serviceId AND event_norm = :eventNorm",

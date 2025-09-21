@@ -7,6 +7,7 @@ import com.obsinity.service.core.model.config.EventConfig;
 import com.obsinity.service.core.model.config.EventIndexConfig;
 import com.obsinity.service.core.model.config.MetricConfig;
 import com.obsinity.service.core.model.config.ServiceConfig;
+import com.obsinity.service.core.support.CrdKeys;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -27,16 +28,20 @@ public class ResourceConfigSource {
     }
 
     public List<ServiceConfig> load() throws Exception {
-        PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+        List<Resource> resources = locateResources();
+        List<ServiceConfig> parsed = new ArrayList<>(resources.size());
+        for (Resource r : resources) parsed.addAll(parseResource(r));
+        return mergeByService(parsed);
+    }
 
+    private List<Resource> locateResources() throws Exception {
+        PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
         String ymlPattern = baseLocation + "**/*.yml";
         String yamlPattern = baseLocation + "**/*.yaml";
         String jsonPattern = baseLocation + "**/*.json";
-
         Resource[] yml = resolver.getResources(ymlPattern);
         Resource[] yaml = resolver.getResources(yamlPattern);
         Resource[] json = resolver.getResources(jsonPattern);
-
         log.debug(
                 "ResourceConfigSource scanning: base={}, patterns=[{}, {}, {}], counts=[{}, {}, {}]",
                 baseLocation,
@@ -46,51 +51,44 @@ public class ResourceConfigSource {
                 yml.length,
                 yaml.length,
                 json.length);
+        return Stream.of(yml, yaml, json)
+                .flatMap(Arrays::stream)
+                .filter(r -> r.exists() && r.isReadable())
+                .toList();
+    }
 
-        List<ServiceConfig> all = new ArrayList<>();
-        for (Resource r : Stream.of(yml, yaml, json).flatMap(Arrays::stream).toList()) {
-            if (!r.exists() || !r.isReadable()) continue;
-            String fname = safeName(r);
-            log.info("Init-config: processing {}", fname);
-
-            String text;
-            try (InputStream in = r.getInputStream()) {
-                text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-            }
-
-            boolean parsedSomething = false;
-            boolean looksLikeCrd = text.contains("apiVersion") && text.contains("kind");
-
-            if (looksLikeCrd) {
-                List<ServiceConfig> crd = parseCrdDocuments(text, fname);
-                if (!crd.isEmpty()) {
-                    log.info("Init-config: parsed {} CRD-derived ServiceConfig item(s) from {}", crd.size(), fname);
-                    all.addAll(crd);
-                    parsedSomething = true;
-                }
-            }
-
-            if (!parsedSomething) {
-                try {
-                    List<ServiceConfig> parsed = parseServiceConfigText(text, fname);
-                    if (!parsed.isEmpty()) {
-                        log.info("Init-config: parsed {} ServiceConfig item(s) from {}", parsed.size(), fname);
-                        all.addAll(parsed);
-                        parsedSomething = true;
-                    }
-                } catch (Exception ex) {
-                    if (!looksLikeCrd) {
-                        log.debug("Init-config: ServiceConfig parse failed for {} ({}).", fname, ex.toString());
-                    }
-                }
-            }
-
-            if (!parsedSomething) {
-                log.warn("Init-config: no usable config parsed from {} (neither ServiceConfig nor CRD)", fname);
+    private List<ServiceConfig> parseResource(Resource r) throws Exception {
+        String fname = safeName(r);
+        log.info("Init-config: processing {}", fname);
+        String text;
+        try (InputStream in = r.getInputStream()) {
+            text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        boolean looksLikeCrd = text.contains(CrdKeys.KEY_API_VERSION) && text.contains(CrdKeys.KEY_KIND);
+        List<ServiceConfig> out = new ArrayList<>(1);
+        if (looksLikeCrd) {
+            List<ServiceConfig> crd = parseCrdDocuments(text, fname);
+            if (!crd.isEmpty()) {
+                log.info("Init-config: parsed {} CRD-derived ServiceConfig item(s) from {}", crd.size(), fname);
+                out.addAll(crd);
+                return out;
             }
         }
+        try {
+            List<ServiceConfig> scs = parseServiceConfigText(text, fname);
+            if (!scs.isEmpty()) {
+                log.info("Init-config: parsed {} ServiceConfig item(s) from {}", scs.size(), fname);
+                out.addAll(scs);
+            }
+        } catch (Exception ex) {
+            if (!looksLikeCrd) log.debug("Init-config: ServiceConfig parse failed for {} ({}).", fname, ex.toString());
+        }
+        if (out.isEmpty())
+            log.warn("Init-config: no usable config parsed from {} (neither ServiceConfig nor CRD)", fname);
+        return out;
+    }
 
-        // merge per service key (last wins)
+    private List<ServiceConfig> mergeByService(List<ServiceConfig> all) {
         Map<String, ServiceConfig> merged = new LinkedHashMap<>();
         for (ServiceConfig sc : all) {
             if (sc == null || sc.service() == null || sc.service().isBlank()) continue;
@@ -112,22 +110,22 @@ public class ResourceConfigSource {
     private List<ServiceConfig> parseCrdDocuments(String text, String fileNameHint) {
         try {
             Map<String, Object> root = chooseMapper(fileNameHint).readValue(text, new TypeReference<>() {});
-            Object api = root.get("apiVersion");
-            Object kind = root.get("kind");
+            Object api = root.get(CrdKeys.KEY_API_VERSION);
+            Object kind = root.get(CrdKeys.KEY_KIND);
             if (api == null || kind == null) return List.of();
 
             String apiVersion = String.valueOf(api).trim().toLowerCase(Locale.ROOT);
-            if (!apiVersion.equals("obsinity/v1")) {
+            if (!apiVersion.equals(CrdKeys.API_VERSION_LOWER)) {
                 log.warn("Unsupported apiVersion '{}' in {} — only obsinity/v1 is supported", apiVersion, fileNameHint);
                 return List.of();
             }
 
             String kindStr = String.valueOf(kind).trim().toLowerCase(Locale.ROOT);
-            if ("event".equals(kindStr)) {
+            if (CrdKeys.KIND_EVENT.equals(kindStr)) {
                 ServiceConfig sc = fromEventCrd(root);
                 return (sc == null) ? List.of() : List.of(sc);
             }
-            if ("metriccounter".equals(kindStr) || "metrichistogram".equals(kindStr)) {
+            if (CrdKeys.KIND_METRIC_COUNTER.equals(kindStr) || CrdKeys.KIND_METRIC_HISTOGRAM.equals(kindStr)) {
                 ServiceConfig sc = fromMetricCrd(root, kindStr);
                 return (sc == null) ? List.of() : List.of(sc);
             }
@@ -141,37 +139,17 @@ public class ResourceConfigSource {
     @SuppressWarnings("unchecked")
     private ServiceConfig fromEventCrd(Map<String, Object> root) {
         try {
-            Map<String, Object> meta = (Map<String, Object>) root.getOrDefault("metadata", Map.of());
-            Map<String, Object> spec = (Map<String, Object>) root.getOrDefault("spec", Map.of());
-            Map<String, Object> schema = (Map<String, Object>) spec.getOrDefault("schema", Map.of());
+            Map<String, Object> meta = (Map<String, Object>) root.getOrDefault(CrdKeys.METADATA, Map.of());
+            Map<String, Object> spec = (Map<String, Object>) root.getOrDefault(CrdKeys.SPEC, Map.of());
+            Map<String, Object> schema = (Map<String, Object>) spec.getOrDefault(CrdKeys.SCHEMA, Map.of());
 
-            String service = string(meta.get("service"));
-            String eventName = string(meta.get("name"));
+            String service = string(meta.get(CrdKeys.SERVICE));
+            String eventName = string(meta.get(CrdKeys.NAME));
             if (service == null || eventName == null) return null;
 
-            String category = null;
-            String subCategory = null;
-            Object cat = meta.get("category");
-            if (cat == null) {
-                Object labelsObj = meta.get("labels");
-                if (labelsObj instanceof Map<?, ?> labels) {
-                    Object c = labels.get("category");
-                    if (c != null) cat = c;
-                }
-            }
-            category = string(cat);
-            // prefer explicit metadata.subCategory; fallback to metadata.labels.subCategory
-            Object subCat = meta.get("subCategory");
-            if (subCat == null) {
-                Object labelsObj = meta.get("labels");
-                if (labelsObj instanceof Map<?, ?> labels) {
-                    Object sc = labels.get("subCategory");
-                    if (sc != null) subCat = sc;
-                }
-            }
-            subCategory = string(subCat);
+            String category = resolveCategory(meta);
+            String subCategory = resolveSubCategory(meta);
 
-            // Validate: reserved standard fields must NOT be declared in schema.properties
             if (declaresReservedFields(schema)) {
                 log.warn(
                         "Event CRD '{}' declares reserved standard fields in schema.properties; remove them (eventId, timestamp, name, kind, trace, correlationId)",
@@ -179,16 +157,10 @@ public class ResourceConfigSource {
                 return null;
             }
 
-            // Build attribute index spec from JSON-schema-like 'properties' using index: true flags
-            List<String> paths = deriveIndexedPaths(schema);
-            Map<String, Object> attrSpec = new LinkedHashMap<>();
-            if (schema != null && !schema.isEmpty()) {
-                attrSpec.put("schema", schema);
-            }
-            attrSpec.put("indexed", paths);
-
-            EventIndexConfig attrIndex = new EventIndexConfig(UUID.randomUUID(), attrSpec, null);
-            EventConfig event = new EventConfig(null, eventName, null, category, subCategory, List.of(), attrIndex);
+            EventIndexConfig attrIndex = new EventIndexConfig(UUID.randomUUID(), buildAttrIndexSpec(schema), null);
+            String ttl = extractTtl(spec);
+            EventConfig event =
+                    new EventConfig(null, eventName, null, category, subCategory, List.of(), attrIndex, ttl);
 
             return ServiceConfig.of(service, "crd:" + eventName, List.of(event));
         } catch (Exception e) {
@@ -198,9 +170,44 @@ public class ResourceConfigSource {
     }
 
     @SuppressWarnings("unchecked")
+    private static String resolveCategory(Map<String, Object> meta) {
+        Object cat = meta.get(CrdKeys.CATEGORY);
+        if (cat == null) {
+            Object labelsObj = meta.get(CrdKeys.LABELS);
+            if (labelsObj instanceof Map<?, ?> labels) {
+                Object c = labels.get(CrdKeys.CATEGORY);
+                if (c != null) cat = c;
+            }
+        }
+        return string(cat);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String resolveSubCategory(Map<String, Object> meta) {
+        Object subCat = meta.get(CrdKeys.SUB_CATEGORY);
+        if (subCat == null) {
+            Object labelsObj = meta.get(CrdKeys.LABELS);
+            if (labelsObj instanceof Map<?, ?> labels) {
+                Object sc = labels.get(CrdKeys.SUB_CATEGORY);
+                if (sc != null) subCat = sc;
+            }
+        }
+        return string(subCat);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> buildAttrIndexSpec(Map<String, Object> schema) {
+        List<String> paths = deriveIndexedPaths(schema);
+        Map<String, Object> attrSpec = new LinkedHashMap<>();
+        if (schema != null && !schema.isEmpty()) attrSpec.put("schema", schema);
+        attrSpec.put("indexed", paths);
+        return attrSpec;
+    }
+
+    @SuppressWarnings("unchecked")
     private boolean declaresReservedFields(Map<String, Object> schema) {
         if (schema == null || schema.isEmpty()) return false;
-        Object propsObj = schema.get("properties");
+        Object propsObj = schema.get(CrdKeys.PROPERTIES);
         if (!(propsObj instanceof Map<?, ?> props)) return false;
         Set<String> reserved = Set.of("eventId", "timestamp", "name", "kind", "trace", "correlationId");
         for (Object k : props.keySet()) {
@@ -220,32 +227,45 @@ public class ResourceConfigSource {
 
     @SuppressWarnings("unchecked")
     private void walkSchema(String prefix, Map<String, Object> node, boolean inheritedIndex, List<String> out) {
-        boolean nodeIndex = inheritedIndex || Boolean.TRUE.equals(node.get("index"));
-        Object typeObj = node.get("type");
-        String type = (typeObj == null) ? null : String.valueOf(typeObj);
-
-        if ("object".equals(type)) {
-            Map<String, Object> props = (Map<String, Object>) node.get("properties");
-            if (props != null) {
-                for (Map.Entry<String, Object> e : props.entrySet()) {
-                    String key = e.getKey();
-                    Object val = e.getValue();
-                    if (!(val instanceof Map)) continue;
-                    Map<String, Object> child = (Map<String, Object>) val;
-                    String next = prefix.isEmpty() ? key : prefix + "." + key;
-                    walkSchema(next, child, nodeIndex, out);
-                }
-            }
-        } else if ("array".equals(type)) {
-            Object items = node.get("items");
-            if (items instanceof Map<?, ?> m) {
-                String next = prefix + "[]";
-                walkSchema(next, (Map<String, Object>) m, nodeIndex, out);
-            }
-        } else {
-            // scalar leaf
-            if (nodeIndex && !prefix.isEmpty()) out.add(prefix);
+        boolean nodeIndex = inheritedIndex || Boolean.TRUE.equals(node.get(CrdKeys.INDEX));
+        String type = schemaType(node);
+        if (CrdKeys.TYPE_OBJECT.equals(type)) {
+            handleObjectNode(prefix, node, nodeIndex, out);
+            return;
         }
+        if (CrdKeys.TYPE_ARRAY.equals(type)) {
+            handleArrayNode(prefix, node, nodeIndex, out);
+            return;
+        }
+        // scalar leaf
+        if (nodeIndex && !prefix.isEmpty()) out.add(prefix);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void handleObjectNode(String prefix, Map<String, Object> node, boolean nodeIndex, List<String> out) {
+        Map<String, Object> props = (Map<String, Object>) node.get(CrdKeys.PROPERTIES);
+        if (props == null) return;
+        for (Map.Entry<String, Object> e : props.entrySet()) {
+            Object val = e.getValue();
+            if (!(val instanceof Map)) continue;
+            Map<String, Object> child = (Map<String, Object>) val;
+            String next = prefix.isEmpty() ? e.getKey() : prefix + "." + e.getKey();
+            new ResourceConfigSource("").walkSchema(next, child, nodeIndex, out);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void handleArrayNode(String prefix, Map<String, Object> node, boolean nodeIndex, List<String> out) {
+        Object items = node.get(CrdKeys.ITEMS);
+        if (items instanceof Map<?, ?> m) {
+            String next = prefix + "[]";
+            new ResourceConfigSource("").walkSchema(next, (Map<String, Object>) m, nodeIndex, out);
+        }
+    }
+
+    private static String schemaType(Map<String, Object> node) {
+        Object typeObj = node.get(CrdKeys.TYPE);
+        return (typeObj == null) ? null : String.valueOf(typeObj);
     }
 
     private static String string(Object o) {
@@ -291,105 +311,80 @@ public class ResourceConfigSource {
     }
 
     private static ServiceConfig merge(ServiceConfig a, ServiceConfig b) {
-        // Merge events by key; when keys collide, merge metrics lists (by name) and prefer b's attributeIndex if
-        // present
-        Map<String, com.obsinity.service.core.model.config.EventConfig> map = new LinkedHashMap<>();
+        Map<String, com.obsinity.service.core.model.config.EventConfig> byKey = new LinkedHashMap<>();
+
         if (a.events() != null) {
             for (var e : a.events()) {
-                String key = (e.eventNorm() != null && !e.eventNorm().isBlank())
-                        ? e.eventNorm()
-                        : (e.eventName() == null ? "" : e.eventName().toLowerCase(Locale.ROOT));
-                if (!key.isBlank()) map.put(key, e);
+                String key = eventKey(e);
+                if (!key.isBlank()) byKey.put(key, e);
             }
         }
+
         if (b.events() != null) {
             for (var e : b.events()) {
-                String key = (e.eventNorm() != null && !e.eventNorm().isBlank())
-                        ? e.eventNorm()
-                        : (e.eventName() == null ? "" : e.eventName().toLowerCase(Locale.ROOT));
+                String key = eventKey(e);
                 if (key.isBlank()) continue;
-                if (!map.containsKey(key)) {
-                    map.put(key, e);
-                } else {
-                    var existing = map.get(key);
-                    Map<String, MetricConfig> byName = new LinkedHashMap<>();
-                    if (existing.metrics() != null) {
-                        for (MetricConfig m : existing.metrics()) {
-                            if (m != null && m.name() != null) byName.put(m.name(), m);
-                        }
-                    }
-                    if (e.metrics() != null) {
-                        for (MetricConfig m : e.metrics()) {
-                            if (m != null && m.name() != null) byName.put(m.name(), m); // b overrides a
-                        }
-                    }
-                    List<MetricConfig> mergedMetrics = new ArrayList<>(byName.values());
-                    var attr = (e.attributeIndex() != null) ? e.attributeIndex() : existing.attributeIndex();
-                    String cat = (e.category() != null && !e.category().isBlank()) ? e.category() : existing.category();
-                    String sub = (e.subCategory() != null && !e.subCategory().isBlank())
-                            ? e.subCategory()
-                            : existing.subCategory();
-                    map.put(
-                            key,
-                            new com.obsinity.service.core.model.config.EventConfig(
-                                    existing.uuid(),
-                                    existing.eventName(),
-                                    existing.eventNorm(),
-                                    cat,
-                                    sub,
-                                    mergedMetrics,
-                                    attr));
-                }
+                com.obsinity.service.core.model.config.EventConfig merged =
+                        byKey.containsKey(key) ? mergeEvent(byKey.get(key), e) : e;
+                byKey.put(key, merged);
             }
         }
-        return ServiceConfig.of(a.service(), a.snapshotId(), new ArrayList<>(map.values()));
+
+        return ServiceConfig.of(a.service(), a.snapshotId(), new ArrayList<>(byKey.values()));
+    }
+
+    private static String eventKey(com.obsinity.service.core.model.config.EventConfig e) {
+        String norm = e.eventNorm();
+        if (norm != null && !norm.isBlank()) return norm;
+        String name = e.eventName();
+        return (name == null) ? "" : name.toLowerCase(Locale.ROOT);
+    }
+
+    private static com.obsinity.service.core.model.config.EventConfig mergeEvent(
+            com.obsinity.service.core.model.config.EventConfig base,
+            com.obsinity.service.core.model.config.EventConfig incoming) {
+        List<MetricConfig> mergedMetrics = mergeMetrics(base.metrics(), incoming.metrics());
+        var attr = (incoming.attributeIndex() != null) ? incoming.attributeIndex() : base.attributeIndex();
+        String cat = firstNonBlank(incoming.category(), base.category());
+        String sub = firstNonBlank(incoming.subCategory(), base.subCategory());
+        String ttl = firstNonBlank(incoming.retentionTtl(), base.retentionTtl());
+
+        return new com.obsinity.service.core.model.config.EventConfig(
+                base.uuid(), base.eventName(), base.eventNorm(), cat, sub, mergedMetrics, attr, ttl);
+    }
+
+    private static List<MetricConfig> mergeMetrics(List<MetricConfig> a, List<MetricConfig> b) {
+        Map<String, MetricConfig> byName = new LinkedHashMap<>();
+        if (a != null) {
+            for (MetricConfig m : a) if (m != null && m.name() != null) byName.put(m.name(), m);
+        }
+        if (b != null) {
+            for (MetricConfig m : b) if (m != null && m.name() != null) byName.put(m.name(), m);
+        }
+        return new ArrayList<>(byName.values());
+    }
+
+    private static String firstNonBlank(String first, String fallback) {
+        if (first != null && !first.isBlank()) return first;
+        return fallback;
     }
 
     @SuppressWarnings("unchecked")
     private ServiceConfig fromMetricCrd(Map<String, Object> root, String kindLower) {
         try {
-            Map<String, Object> meta = (Map<String, Object>) root.getOrDefault("metadata", Map.of());
-            Map<String, Object> spec = (Map<String, Object>) root.getOrDefault("spec", Map.of());
+            Map<String, Object> meta = (Map<String, Object>) root.getOrDefault(CrdKeys.METADATA, Map.of());
+            Map<String, Object> spec = (Map<String, Object>) root.getOrDefault(CrdKeys.SPEC, Map.of());
 
-            String service = string(meta.get("service"));
-            String eventName = string(meta.get("event"));
-            String metricName = string(meta.get("name"));
+            String service = string(meta.get(CrdKeys.SERVICE));
+            String eventName = string(meta.get(CrdKeys.KIND_EVENT));
+            String metricName = string(meta.get(CrdKeys.NAME));
             if (service == null || eventName == null || metricName == null) return null;
 
-            String type = "metriccounter".equals(kindLower) ? "COUNTER" : "HISTOGRAM";
-
-            // keyedKeys from key.dimensions
-            Map<String, Object> key = (Map<String, Object>) spec.getOrDefault("key", Map.of());
-            List<String> dimensions = new ArrayList<>();
-            Object dimsObj = key.get("dimensions");
-            if (dimsObj instanceof List<?> l) {
-                for (Object d : l) {
-                    String s = string(d);
-                    if (s != null) dimensions.add(s);
-                }
-            }
-
-            // rollups from aggregation.windowing.granularities
-            Map<String, Object> aggregation = (Map<String, Object>) spec.getOrDefault("aggregation", Map.of());
-            Map<String, Object> windowing = (Map<String, Object>) aggregation.getOrDefault("windowing", Map.of());
-            List<String> granularities = new ArrayList<>();
-            Object grans = windowing.get("granularities");
-            if (grans instanceof List<?> l) {
-                for (Object g : l) {
-                    String s = string(g);
-                    if (s != null) granularities.add(s);
-                }
-            }
-
-            // specJson: include relevant parts of spec verbatim
-            Map<String, Object> specJson = new LinkedHashMap<>();
-            if (spec.containsKey("value")) specJson.put("value", spec.get("value"));
-            if (spec.containsKey("buckets")) specJson.put("buckets", spec.get("buckets"));
-            if (spec.containsKey("fold")) specJson.put("fold", spec.get("fold"));
-            if (!aggregation.isEmpty()) specJson.put("aggregation", aggregation);
-            if (key.containsKey("dimensions")) specJson.put("key", Map.of("dimensions", dimensions));
-            if (spec.containsKey("attributeMapping")) specJson.put("attributeMapping", spec.get("attributeMapping"));
-            if (spec.containsKey("filters")) specJson.put("filters", spec.get("filters"));
+            String type = metricTypeFromKind(kindLower);
+            List<String> dimensions = extractDimensions(spec);
+            List<String> granularities = extractGranularities(spec);
+            Map<String, Object> specJson = buildMetricSpecJson(spec, dimensions);
+            String metricTtl = extractTtl(spec);
 
             MetricConfig m = new MetricConfig(
                     null,
@@ -404,15 +399,87 @@ public class ResourceConfigSource {
                     null,
                     null,
                     null,
-                    null);
+                    null,
+                    metricTtl);
 
             com.obsinity.service.core.model.config.EventConfig ev =
                     new com.obsinity.service.core.model.config.EventConfig(
-                            null, eventName, null, null, null, List.of(m), null);
+                            null, eventName, null, null, null, List.of(m), null, null);
             return ServiceConfig.of(service, "crd:" + metricName, List.of(ev));
         } catch (Exception e) {
             log.debug("Failed to convert Metric CRD to ServiceConfig: {}", e.toString());
             return null;
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String metricTypeFromKind(String kindLower) {
+        return "metriccounter".equals(kindLower) ? "COUNTER" : "HISTOGRAM";
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> extractDimensions(Map<String, Object> spec) {
+        Map<String, Object> key = (Map<String, Object>) spec.getOrDefault(CrdKeys.KEY, Map.of());
+        List<String> dimensions = new ArrayList<>();
+        Object dimsObj = key.get(CrdKeys.DIMENSIONS);
+        if (dimsObj instanceof List<?> l) {
+            for (Object d : l) {
+                String s = string(d);
+                if (s != null) dimensions.add(s);
+            }
+        }
+        return dimensions;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> extractGranularities(Map<String, Object> spec) {
+        Map<String, Object> aggregation = (Map<String, Object>) spec.getOrDefault(CrdKeys.AGGREGATION, Map.of());
+        Map<String, Object> windowing = (Map<String, Object>) aggregation.getOrDefault(CrdKeys.WINDOWING, Map.of());
+        List<String> granularities = new ArrayList<>();
+        Object grans = windowing.get(CrdKeys.GRANULARITIES);
+        if (grans instanceof List<?> l) {
+            for (Object g : l) {
+                String s = string(g);
+                if (s != null) granularities.add(s);
+            }
+        }
+        return granularities;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> buildMetricSpecJson(Map<String, Object> spec, List<String> dimensions) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        Map<String, Object> aggregation = (Map<String, Object>) spec.getOrDefault(CrdKeys.AGGREGATION, Map.of());
+        Map<String, Object> key = (Map<String, Object>) spec.getOrDefault(CrdKeys.KEY, Map.of());
+        if (spec.containsKey(CrdKeys.VALUE)) out.put(CrdKeys.VALUE, spec.get(CrdKeys.VALUE));
+        if (spec.containsKey(CrdKeys.BUCKETS)) out.put(CrdKeys.BUCKETS, spec.get(CrdKeys.BUCKETS));
+        if (spec.containsKey(CrdKeys.FOLD)) out.put(CrdKeys.FOLD, spec.get(CrdKeys.FOLD));
+        if (!aggregation.isEmpty()) out.put(CrdKeys.AGGREGATION, aggregation);
+        if (key.containsKey(CrdKeys.DIMENSIONS)) out.put(CrdKeys.KEY, Map.of(CrdKeys.DIMENSIONS, dimensions));
+        if (spec.containsKey(CrdKeys.ATTRIBUTE_MAPPING))
+            out.put(CrdKeys.ATTRIBUTE_MAPPING, spec.get(CrdKeys.ATTRIBUTE_MAPPING));
+        if (spec.containsKey(CrdKeys.FILTERS)) out.put(CrdKeys.FILTERS, spec.get(CrdKeys.FILTERS));
+        return out;
+    }
+
+    @SuppressWarnings("unchecked")
+    private String extractTtl(Map<String, Object> spec) {
+        if (spec == null || spec.isEmpty()) return null;
+        try {
+            Object ttlDirect = spec.get(CrdKeys.TTL);
+            if (ttlDirect != null) {
+                String s = string(ttlDirect);
+                if (s != null && !s.isBlank()) return s;
+            }
+            Object retention = spec.get(CrdKeys.RETENTION);
+            if (retention instanceof Map<?, ?> rmap) {
+                Object ttl = rmap.get(CrdKeys.TTL);
+                String s = string(ttl);
+                if (s != null && !s.isBlank()) return s;
+            }
+        } catch (Exception ignore) {
+            // fall through
+        }
+        return null;
     }
 }

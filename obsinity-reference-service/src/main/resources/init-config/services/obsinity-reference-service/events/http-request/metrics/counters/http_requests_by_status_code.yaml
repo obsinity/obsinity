@@ -20,6 +20,8 @@ spec:
   aggregation:
     windowing:
       granularities: [5s, 1m, 1h, 1d, 7d]
+  retention:
+    ttl: "90d"
     operation: count
   attributeMapping:
     method: http.method

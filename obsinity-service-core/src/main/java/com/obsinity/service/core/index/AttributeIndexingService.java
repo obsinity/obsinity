@@ -26,52 +26,58 @@ public class AttributeIndexingService {
 
     @Transactional
     public void indexEvent(EventForIndex evt) throws DataAccessException {
+        List<String> paths = loadIndexedPaths(evt);
+        if (paths.isEmpty()) return;
+
+        List<IndexRow> rows = buildIndexRows(evt, paths);
+        injectEventMeta(evt, rows);
+        if (!rows.isEmpty()) persist(rows);
+    }
+
+    private List<String> loadIndexedPaths(EventForIndex evt) {
         List<String> paths = specRepo.findIndexedAttributePaths(evt.serviceId(), evt.eventTypeId());
-        if (paths == null || paths.isEmpty()) {
-            return;
-        }
+        return (paths == null) ? List.of() : paths;
+    }
 
+    private List<IndexRow> buildIndexRows(EventForIndex evt, List<String> paths) {
         List<IndexRow> rows = new ArrayList<>(paths.size() * 2);
-        for (String path : paths) {
-            List<Object> values = extractValuesByPath(evt.attributes(), path);
-            if (values.isEmpty()) continue;
+        for (String path : paths) addRowsForPath(rows, evt, path);
+        return rows;
+    }
 
-            for (Object v : values) {
-                String canon = normalizeToText(v);
-                if (canon == null || canon.isBlank()) continue;
-
-                rows.add(new IndexRow(
-                        evt.serviceShort(),
-                        evt.occurredAt(),
-                        evt.serviceId(),
-                        evt.eventTypeId(),
-                        evt.eventId(),
-                        path,
-                        canon));
-            }
-        }
-
-        // Inject registry metadata into attribute index for cross-event search
-        Map<String, String> meta = loadEventCategories(evt.eventTypeId());
-        if (!meta.isEmpty()) {
-            for (Map.Entry<String, String> en : meta.entrySet()) {
-                rows.add(new IndexRow(
-                        evt.serviceShort(),
-                        evt.occurredAt(),
-                        evt.serviceId(),
-                        evt.eventTypeId(),
-                        evt.eventId(),
-                        en.getKey(),
-                        en.getValue()));
-            }
-        }
-
-        if (!rows.isEmpty()) {
-            batchInsert(rows);
+    private void addRowsForPath(List<IndexRow> rows, EventForIndex evt, String path) {
+        List<Object> values = extractValuesByPath(evt.attributes(), path);
+        if (values.isEmpty()) return;
+        for (Object v : values) {
+            String canon = normalizeToText(v);
+            if (canon == null || canon.isBlank()) continue;
+            rows.add(new IndexRow(
+                    evt.serviceKey(),
+                    evt.occurredAt(),
+                    evt.serviceId(),
+                    evt.eventTypeId(),
+                    evt.eventId(),
+                    path,
+                    canon));
         }
     }
 
-    private void batchInsert(List<IndexRow> rows) {
+    private void injectEventMeta(EventForIndex evt, List<IndexRow> rows) {
+        Map<String, String> meta = loadEventCategories(evt.eventTypeId());
+        if (meta.isEmpty()) return;
+        for (Map.Entry<String, String> en : meta.entrySet()) {
+            rows.add(new IndexRow(
+                    evt.serviceKey(),
+                    evt.occurredAt(),
+                    evt.serviceId(),
+                    evt.eventTypeId(),
+                    evt.eventId(),
+                    en.getKey(),
+                    en.getValue()));
+        }
+    }
+
+    private void persist(List<IndexRow> rows) {
         final String sql =
                 """
             INSERT INTO event_attr_index
@@ -81,30 +87,28 @@ public class AttributeIndexingService {
             ON CONFLICT DO NOTHING
             """;
 
-        MapSqlParameterSource[] batch = rows.stream()
-                .map(r -> new MapSqlParameterSource()
-                        .addValue("service_short", r.serviceShort)
-                        .addValue("occurred_at", r.occurredAt)
-                        .addValue("service_id", r.serviceId)
-                        .addValue("event_type_id", r.eventTypeId)
-                        .addValue("event_id", r.eventId)
-                        .addValue("attr_name", r.attrName)
-                        .addValue("attr_value", r.attrValue))
-                .toArray(MapSqlParameterSource[]::new);
-
+        MapSqlParameterSource[] batch = rows.stream().map(this::toParams).toArray(MapSqlParameterSource[]::new);
         jdbc.batchUpdate(sql, batch);
-
-        // Also upsert into distinct values registry per service and attribute path
         upsertDistinctValues(rows);
+    }
+
+    private MapSqlParameterSource toParams(IndexRow r) {
+        return new MapSqlParameterSource()
+                .addValue("service_short", r.serviceKey)
+                .addValue("occurred_at", r.occurredAt)
+                .addValue("service_id", r.serviceId)
+                .addValue("event_type_id", r.eventTypeId)
+                .addValue("event_id", r.eventId)
+                .addValue("attr_name", r.attrName)
+                .addValue("attr_value", r.attrValue);
     }
 
     private void upsertDistinctValues(List<IndexRow> rows) {
         if (rows == null || rows.isEmpty()) return;
-        // Deduplicate by (service_short, attr_name, attr_value)
         record Key(String s, String n, String v) {}
         Map<Key, OffsetDateTime> uniques = new java.util.LinkedHashMap<>();
         for (IndexRow r : rows) {
-            Key k = new Key(r.serviceShort, r.attrName, r.attrValue);
+            Key k = new Key(r.serviceKey, r.attrName, r.attrValue);
             uniques.merge(k, r.occurredAt, (a, b) -> a.isAfter(b) ? a : b);
         }
 
@@ -126,12 +130,11 @@ public class AttributeIndexingService {
                         .addValue("last_seen", e.getValue())
                         .addValue("delta", 1))
                 .toArray(MapSqlParameterSource[]::new);
-
         jdbc.batchUpdate(sql, batch);
     }
 
     public interface EventForIndex {
-        String serviceShort();
+        String serviceKey();
 
         java.util.UUID serviceId();
 
@@ -145,7 +148,7 @@ public class AttributeIndexingService {
     }
 
     private record IndexRow(
-            String serviceShort,
+            String serviceKey,
             OffsetDateTime occurredAt,
             java.util.UUID serviceId,
             java.util.UUID eventTypeId,
@@ -156,38 +159,39 @@ public class AttributeIndexingService {
     @SuppressWarnings("unchecked")
     private static List<Object> extractValuesByPath(Map<String, Object> root, String dotPath) {
         if (root == null || dotPath == null || dotPath.isBlank()) return List.of();
-        String[] parts = dotPath.split("\\.");
         List<Object> current = List.of(root);
-
-        for (String part : parts) {
+        for (String part : dotPath.split("\\.")) {
             List<Object> next = new ArrayList<>();
-            for (Object node : current) {
-                if (node instanceof Map<?, ?> m) {
-                    Object val = m.get(part);
-                    if (val == null) continue;
-                    if (val instanceof List<?> list) {
-                        next.addAll(list);
-                    } else {
-                        next.add(val);
-                    }
-                } else if (node instanceof List<?> list) {
-                    for (Object item : list) {
-                        if (item instanceof Map<?, ?> mm) {
-                            Object val = mm.get(part);
-                            if (val == null) continue;
-                            if (val instanceof List<?> l2) next.addAll(l2);
-                            else next.add(val);
-                        }
-                    }
-                }
-            }
+            descendOneLevel(current, part, next);
+            if (next.isEmpty()) return List.of();
             current = next;
-            if (current.isEmpty()) break;
         }
-
         return current.stream()
                 .map(v -> (v instanceof Map || v instanceof List) ? stringify(v) : v)
                 .toList();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void descendOneLevel(List<Object> nodes, String key, List<Object> out) {
+        for (Object node : nodes) addMatchesForKey(node, key, out);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void addMatchesForKey(Object node, String key, List<Object> out) {
+        if (node instanceof Map<?, ?> m) {
+            addValue(m.get(key), out);
+            return;
+        }
+        if (node instanceof List<?> list) {
+            for (Object item : list) addMatchesForKey(item, key, out);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void addValue(Object v, List<Object> out) {
+        if (v == null) return;
+        if (v instanceof List<?> l) out.addAll(l);
+        else out.add(v);
     }
 
     private Map<String, String> loadEventCategories(java.util.UUID eventTypeId) {

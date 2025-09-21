@@ -59,18 +59,18 @@ public class ConfigLoaderService {
         var curr = registry.current();
 
         // Build a quick map of cached service "lastUpdated"
-        Map<String, Instant> cachedServiceUpdated = curr.services().values().stream()
-                .collect(Collectors.toMap(ServiceConfig::serviceShort, ServiceConfig::updatedAt));
+        Map<java.util.UUID, Instant> cachedServiceUpdated = curr.services().values().stream()
+                .collect(Collectors.toMap(ServiceConfig::serviceId, ServiceConfig::updatedAt));
 
         List<EventRegistryEntity> allEvents = findAllEventsLite();
         log.info("ConfigLoader: event_registry_cfg rows observed = {}", allEvents.size());
         if (allEvents.isEmpty()) return;
 
-        Map<String, List<EventRegistryEntity>> byService =
-                allEvents.stream().collect(Collectors.groupingBy(EventRegistryEntity::getService));
+        Map<java.util.UUID, List<EventRegistryEntity>> byService =
+                allEvents.stream().collect(Collectors.groupingBy(EventRegistryEntity::getServiceId));
 
-        List<String> changedServices = new ArrayList<>();
-        Map<String, Instant> serviceUpdated = new HashMap<>();
+        List<java.util.UUID> changedServices = new ArrayList<>();
+        Map<java.util.UUID, Instant> serviceUpdated = new HashMap<>();
         for (var e : byService.entrySet()) {
             Instant maxUpd = e.getValue().stream()
                     .map(EventRegistryEntity::getUpdatedAt)
@@ -88,8 +88,8 @@ public class ConfigLoaderService {
 
         if (changedServices.isEmpty()) return;
 
-        Map<String, ServiceConfig> merged = new HashMap<>(curr.services());
-        for (String svc : changedServices) {
+        Map<java.util.UUID, ServiceConfig> merged = new HashMap<>(curr.services());
+        for (java.util.UUID svc : changedServices) {
             Instant svcUpdated = serviceUpdated.getOrDefault(svc, Instant.now());
             ServiceConfig sc = loadSingleService(svc, byService.getOrDefault(svc, List.of()), svcUpdated);
             merged.put(svc, sc);
@@ -103,10 +103,10 @@ public class ConfigLoaderService {
     // ===== Full materialization =====
     private RegistrySnapshot loadAllSnapshot() {
         List<EventRegistryEntity> events = findAllEventsLite();
-        Map<String, List<EventRegistryEntity>> byService =
-                events.stream().collect(Collectors.groupingBy(EventRegistryEntity::getService));
+        Map<java.util.UUID, List<EventRegistryEntity>> byService =
+                events.stream().collect(Collectors.groupingBy(EventRegistryEntity::getServiceId));
 
-        Map<String, ServiceConfig> out = new HashMap<>();
+        Map<java.util.UUID, ServiceConfig> out = new HashMap<>();
         for (var e : byService.entrySet()) {
             Instant maxUpd = e.getValue().stream()
                     .map(EventRegistryEntity::getUpdatedAt)
@@ -124,7 +124,7 @@ public class ConfigLoaderService {
     }
 
     private ServiceConfig loadSingleService(
-            String service, List<EventRegistryEntity> events, Instant serviceUpdatedAt) {
+            java.util.UUID serviceId, List<EventRegistryEntity> events, Instant serviceUpdatedAt) {
         Map<String, EventTypeConfig> byType = new HashMap<>(Math.max(16, events.size() * 2));
 
         for (EventRegistryEntity er : events) {
@@ -153,8 +153,8 @@ public class ConfigLoaderService {
             byType.put(etype, new EventTypeConfig(eventId, etype, etUpd, indexes, counters, histograms));
         }
 
-        UUID syntheticServiceId = UUID.nameUUIDFromBytes(("svc:" + service).getBytes());
-        return new ServiceConfig(syntheticServiceId, service, serviceUpdatedAt, Map.copyOf(byType));
+        String serviceKey = events.isEmpty() ? null : events.get(0).getService();
+        return new ServiceConfig(serviceId, serviceKey, serviceUpdatedAt, Map.copyOf(byType));
     }
 
     // ===== Lightweight queries =====

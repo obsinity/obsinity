@@ -14,9 +14,9 @@ public class ConfigLookup {
         this.registry = registry;
     }
 
-    public Optional<EventTypeConfig> get(String serviceShort, String eventType) {
+    public Optional<EventTypeConfig> get(java.util.UUID serviceId, String eventType) {
         var snap = registry.current();
-        var svc = snap.services().get(serviceShort);
+        var svc = snap.services().get(serviceId);
         if (svc == null) return Optional.empty();
         return Optional.ofNullable(svc.eventTypes().get(eventType));
     }

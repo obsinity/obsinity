@@ -11,4 +11,6 @@ public record EventConfig(
         String category, // optional category for the event
         String subCategory, // optional sub-category for the event
         List<MetricConfig> metrics,
-        EventIndexConfig attributeIndex) {}
+        EventIndexConfig attributeIndex,
+        String retentionTtl // optional TTL (e.g., "7d", "30d")
+        ) {}

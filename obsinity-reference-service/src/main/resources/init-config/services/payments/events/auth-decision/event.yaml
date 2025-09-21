@@ -7,6 +7,8 @@ metadata:
   labels:
     category: security
 spec:
+  retention:
+    ttl: "7d"
   schema:
     type: object
     properties:

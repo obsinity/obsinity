@@ -48,7 +48,8 @@ public final class OBJqlParser {
         if (src.isEmpty()) throw new IllegalArgumentException("empty OB-JQL");
 
         // service / event
-        String service = null, event = null;
+        String service = null;
+        String event = null;
         Matcher kv = KV.matcher(src);
         while (kv.find()) {
             String k = kv.group(1).toLowerCase(Locale.ROOT);

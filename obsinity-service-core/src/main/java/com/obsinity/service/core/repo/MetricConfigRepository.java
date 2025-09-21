@@ -20,11 +20,13 @@ public interface MetricConfigRepository extends JpaRepository<MetricConfigEntity
           id, event_id, name, type, spec_json, spec_hash,
           keyed_keys, rollups, bucket_layout_hash, filters_json,
           backfill_window, cutover_at, grace_until, state,
+          retention_ttl,
           metric_key
         ) VALUES (
           :id, :eventId, :name, :type, cast(:specJson as jsonb), :specHash,
           cast(:keyedKeys as text[]), cast(:rollups as text[]), :bucketLayoutHash, cast(:filtersJson as jsonb),
           cast(:backfillWindow as interval), :cutoverAt, :graceUntil, :state,
+          cast(:retentionTtl as interval),
           :metricKey
         )
         ON CONFLICT (event_id, metric_key) DO UPDATE SET
@@ -40,6 +42,7 @@ public interface MetricConfigRepository extends JpaRepository<MetricConfigEntity
           cutover_at = EXCLUDED.cutover_at,
           grace_until = EXCLUDED.grace_until,
           state = EXCLUDED.state,
+          retention_ttl = COALESCE(EXCLUDED.retention_ttl, metric_registry.retention_ttl),
           updated_at = now()
         """,
             nativeQuery = true)
@@ -58,5 +61,6 @@ public interface MetricConfigRepository extends JpaRepository<MetricConfigEntity
             @Param("cutoverAt") Instant cutoverAt,
             @Param("graceUntil") Instant graceUntil,
             @Param("state") String state,
+            @Param("retentionTtl") String retentionTtl,
             @Param("metricKey") String metricKey);
 }
