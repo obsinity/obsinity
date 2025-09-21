@@ -46,6 +46,9 @@ public class ServiceConfigArchiveLoader {
     private static final Pattern METRIC_YAML =
             Pattern.compile("^services/([^/]+)/events/([^/]+)/metrics/(counters|histograms|gauges)/([^/]+)\\.ya?ml$");
 
+    // Local key constants to avoid duplicated string literals
+    private static final String KEY_INDEXED = "indexed";
+
     private final ObjectMapper yaml = new ObjectMapper(new YAMLFactory()).disable(JsonParser.Feature.AUTO_CLOSE_SOURCE);
     private final ObjectMapper canonicalMapper =
             new ObjectMapper().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
@@ -65,9 +68,8 @@ public class ServiceConfigArchiveLoader {
 
                 TarArchiveEntry e;
                 while ((e = tin.getNextTarEntry()) != null) {
-                    if (e.isDirectory()) continue;
                     String path = normalize(e.getName());
-                    if (path.isBlank()) continue;
+                    if (e.isDirectory() || path.isBlank()) continue;
 
                     Matcher em = EVENT_YAML.matcher(path);
                     Matcher mm = METRIC_YAML.matcher(path);
@@ -137,10 +139,10 @@ public class ServiceConfigArchiveLoader {
 
         String metricType =
                 switch (kindDir) {
-                    case "counters" -> "COUNTER";
+                    case "counters" -> Constants.TYPE_COUNTER;
                     case "histograms" -> Constants.TYPE_HISTOGRAM;
-                    case "gauges" -> "GAUGE";
-                    default -> "COUNTER";
+                    case "gauges" -> Constants.TYPE_GAUGE;
+                    default -> Constants.TYPE_COUNTER;
                 };
 
         String metricName = metadataName(doc).orElse(fileBase);
@@ -158,9 +160,9 @@ public class ServiceConfigArchiveLoader {
 
         Map<String, Object> spec = mapAt(doc, CrdKeys.SPEC);
         if (spec == null) spec = new LinkedHashMap<>();
-        spec.remove("state");
-        spec.remove("cutover_at");
-        spec.remove("grace_until");
+        spec.remove(CrdKeys.STATE);
+        spec.remove(CrdKeys.CUTOVER_AT);
+        spec.remove(CrdKeys.GRACE_UNTIL);
 
         String specHash = shortHash(canonicalize(spec));
 
@@ -248,9 +250,9 @@ public class ServiceConfigArchiveLoader {
     }
 
     private Optional<String> eventNameFromDoc(Map<String, Object> doc) {
-        Map<String, Object> meta = mapAt(doc, "metadata");
+        Map<String, Object> meta = mapAt(doc, CrdKeys.METADATA);
         if (meta != null) {
-            Object n = meta.get("name");
+            Object n = meta.get(CrdKeys.NAME);
             if (n instanceof String sn && !sn.isBlank()) return Optional.of(sn.trim());
         }
         return Optional.empty();
@@ -281,13 +283,13 @@ public class ServiceConfigArchiveLoader {
     }
 
     private static String categoryFrom(Map<String, Object> doc) {
-        Map<String, Object> meta = mapAt(doc, "metadata");
+        Map<String, Object> meta = mapAt(doc, CrdKeys.METADATA);
         if (meta != null) {
-            Object v = meta.get("category");
+            Object v = meta.get(CrdKeys.CATEGORY);
             if (v instanceof String s && !s.isBlank()) return s.trim();
-            Map<String, Object> labels = mapAt(meta, "labels");
+            Map<String, Object> labels = mapAt(meta, CrdKeys.LABELS);
             if (labels != null) {
-                Object sc = labels.get("category");
+                Object sc = labels.get(CrdKeys.CATEGORY);
                 if (sc instanceof String sx && !sx.isBlank()) return sx.trim();
             }
         }
@@ -295,13 +297,13 @@ public class ServiceConfigArchiveLoader {
     }
 
     private static String subCategoryFrom(Map<String, Object> doc) {
-        Map<String, Object> meta = mapAt(doc, "metadata");
+        Map<String, Object> meta = mapAt(doc, CrdKeys.METADATA);
         if (meta != null) {
-            Object v = meta.get("subCategory");
+            Object v = meta.get(CrdKeys.SUB_CATEGORY);
             if (v instanceof String s && !s.isBlank()) return s.trim();
-            Map<String, Object> labels = mapAt(meta, "labels");
+            Map<String, Object> labels = mapAt(meta, CrdKeys.LABELS);
             if (labels != null) {
-                Object sc = labels.get("subCategory");
+                Object sc = labels.get(CrdKeys.SUB_CATEGORY);
                 if (sc instanceof String sx && !sx.isBlank()) return sx.trim();
             }
         }
@@ -309,13 +311,13 @@ public class ServiceConfigArchiveLoader {
     }
 
     private static String retentionTtlFrom(Map<String, Object> doc) {
-        Map<String, Object> spec = mapAt(doc, "spec");
+        Map<String, Object> spec = mapAt(doc, CrdKeys.SPEC);
         if (spec == null) return null;
-        Object ttlDirect = spec.get("ttl");
+        Object ttlDirect = spec.get(CrdKeys.TTL);
         if (ttlDirect instanceof String s && !s.isBlank()) return s.trim();
-        Map<String, Object> retention = mapAt(spec, "retention");
+        Map<String, Object> retention = mapAt(spec, CrdKeys.RETENTION);
         if (retention != null) {
-            Object ttl = retention.get("ttl");
+            Object ttl = retention.get(CrdKeys.TTL);
             if (ttl instanceof String ts && !ts.isBlank()) return ts.trim();
         }
         return null;
@@ -348,21 +350,21 @@ public class ServiceConfigArchiveLoader {
     }
 
     private static Optional<String> metadataName(Map<String, Object> doc) {
-        Map<String, Object> meta = mapAt(doc, "metadata");
+        Map<String, Object> meta = mapAt(doc, CrdKeys.METADATA);
         if (meta == null) return Optional.empty();
-        String n = metadataString(meta, "name");
+        String n = metadataString(meta, CrdKeys.NAME);
         return (n == null || n.isBlank()) ? Optional.empty() : Optional.of(n.trim());
     }
 
     private EventIndexConfig buildIndexConfig(Map<String, Object> eventDoc) {
-        Map<String, Object> spec = mapAt(eventDoc, "spec");
-        Map<String, Object> schema = mapAt(spec, "schema");
+        Map<String, Object> spec = mapAt(eventDoc, CrdKeys.SPEC);
+        Map<String, Object> schema = mapAt(spec, CrdKeys.SCHEMA);
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> indexed =
-                schema == null ? List.of() : (List<Map<String, Object>>) schema.getOrDefault("indexed", List.of());
+                schema == null ? List.of() : (List<Map<String, Object>>) schema.getOrDefault(KEY_INDEXED, List.of());
 
         Map<String, Object> specJson = new LinkedHashMap<>();
-        specJson.put("indexed", indexed);
+        specJson.put(KEY_INDEXED, indexed);
 
         String specHash = shortHash(canonicalize(specJson));
         return new EventIndexConfig(null, specJson, specHash);
