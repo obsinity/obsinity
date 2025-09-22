@@ -62,7 +62,10 @@ public class UnifiedPublishController {
         String eventId = coalesce(stringAt(root, "eventId"), UUID.randomUUID().toString());
 
         // Require camelCase inputs (allow 'timestamp' as fallback for occurredAt)
-        Instant occurredAt = parseInstant(coalesce(stringAt(root, "occurredAt"), stringAt(root, "timestamp")));
+        Instant occurredAt = parseInstantOrNanos(root, "time", "startedAt", "startUnixNano");
+        if (occurredAt == null)
+            occurredAt = parseInstant(coalesce(stringAt(root, "occurredAt"), stringAt(root, "timestamp")));
+        Instant endAt = parseInstantOrNanos(root, "time", "endedAt", "endUnixNano");
         Instant receivedAt = parseInstant(orNull(stringAt(root, "receivedAt")));
         if (receivedAt == null) receivedAt = Instant.now();
 
@@ -76,25 +79,61 @@ public class UnifiedPublishController {
         Map<String, Object> resource = toMap(root.path("resource"));
         Map<String, Object> attributes = toMap(root.path("attributes"));
 
-        return EventEnvelope.builder()
+        EventEnvelope.Builder b = EventEnvelope.builder()
                 .serviceId(serviceId)
                 .eventType(eventType)
                 .eventId(eventId)
                 .timestamp(occurredAt)
+                .endTimestamp(endAt)
                 .ingestedAt(receivedAt)
                 .name(name)
                 .kind(kind)
                 .traceId(traceId)
                 .spanId(spanId)
                 .parentSpanId(null)
-                .status(null)
                 .resourceAttributes(resource)
                 .attributes(attributes)
                 .events(null)
                 .links(null)
                 .correlationId(corr)
-                .synthetic(null)
-                .build();
+                .synthetic(null);
+
+        // Optional status mapping { code, message }
+        Map<String, Object> status = toMap(root.path("status"));
+        if (!status.isEmpty()) {
+            String sc = String.valueOf(status.getOrDefault("code", "")).trim();
+            String sm = String.valueOf(status.getOrDefault("message", "")).trim();
+            if (!sc.isEmpty() || !sm.isEmpty())
+                b.status(new EventEnvelope.Status(sc.isEmpty() ? null : sc, sm.isEmpty() ? null : sm));
+        }
+
+        // Optional events[] mapping
+        var eventsNode = root.path("events");
+        if (eventsNode.isArray() && eventsNode.size() > 0) {
+            java.util.List<EventEnvelope.OtelEvent> evts = new java.util.ArrayList<>(eventsNode.size());
+            for (var n : eventsNode) {
+                String ename = stringAt(n, "name");
+                Instant ets = parseInstantOrNanos(n, null, "timestamp", "timeUnixNano");
+                Map<String, Object> eattrs = toMap(n.path("attributes"));
+                evts.add(new EventEnvelope.OtelEvent(ename, ets, eattrs));
+            }
+            b.events(evts);
+        }
+
+        // Optional links[] mapping
+        var linksNode = root.path("links");
+        if (linksNode.isArray() && linksNode.size() > 0) {
+            java.util.List<EventEnvelope.OtelLink> lnks = new java.util.ArrayList<>(linksNode.size());
+            for (var n : linksNode) {
+                String ltr = stringAt(n, "traceId");
+                String lsp = stringAt(n, "spanId");
+                Map<String, Object> lattrs = toMap(n.path("attributes"));
+                lnks.add(new EventEnvelope.OtelLink(ltr, lsp, lattrs));
+            }
+            b.links(lnks);
+        }
+
+        return b.build();
     }
 
     private String stringAt(JsonNode n, String... path) {
@@ -123,6 +162,26 @@ public class UnifiedPublishController {
         } catch (DateTimeParseException e) {
             return Instant.parse(iso); // try plain instant
         }
+    }
+
+    private Instant parseInstantOrNanos(JsonNode root, String timeKey, String isoField, String nanosField) {
+        try {
+            JsonNode node = (timeKey == null) ? root : root.path(timeKey);
+            // Prefer ISO field if present
+            String iso = stringAt(node, isoField);
+            if (iso != null) return parseInstant(iso);
+            // Fall back to Unix nanos
+            JsonNode nanos = node.path(nanosField);
+            if (nanos != null && nanos.isNumber()) {
+                long ns = nanos.asLong();
+                long secs = ns / 1_000_000_000L;
+                long rem = ns % 1_000_000_000L;
+                return Instant.ofEpochSecond(secs, rem);
+            }
+        } catch (Exception ignore) {
+            // ignore and return null
+        }
+        return null;
     }
 
     private Map<String, Object> toMap(JsonNode node) {

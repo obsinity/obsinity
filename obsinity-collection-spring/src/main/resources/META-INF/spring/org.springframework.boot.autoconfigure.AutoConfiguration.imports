@@ -1,0 +1,4 @@
+com.obsinity.collection.spring.autoconfigure.CollectionAutoConfiguration
+com.obsinity.collection.spring.autoconfigure.HandlerAutoConfiguration
+com.obsinity.collection.spring.autoconfigure.TraceAutoConfiguration
+com.obsinity.collection.spring.autoconfigure.WebfluxTraceAutoConfiguration
