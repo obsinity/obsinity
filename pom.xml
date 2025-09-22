@@ -33,6 +33,13 @@
     <module>obsinity-controller-otlp</module>
     <module>obsinity-reference-service</module>
     <module>obsinity-core</module>
+    
+    <!-- Collection SDK (agnostic of Obsinity transport) -->
+    <module>obsinity-collection-api</module>
+    <module>obsinity-collection-core</module>
+    <module>obsinity-collection-spring</module>
+    <module>obsinity-collection-sink-logging</module>
+    <module>obsinity-collection-sink-obsinity</module>
   </modules>
 
   <properties>
@@ -71,6 +78,33 @@
         <version>${project.version}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+
+      <!-- Manage intra-repo Collection SDK module versions -->
+      <dependency>
+        <groupId>com.obsinity</groupId>
+        <artifactId>obsinity-collection-api</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.obsinity</groupId>
+        <artifactId>obsinity-collection-core</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.obsinity</groupId>
+        <artifactId>obsinity-collection-spring</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.obsinity</groupId>
+        <artifactId>obsinity-collection-sink-logging</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.obsinity</groupId>
+        <artifactId>obsinity-collection-sink-obsinity</artifactId>
+        <version>${project.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

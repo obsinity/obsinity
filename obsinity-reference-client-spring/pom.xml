@@ -11,9 +11,25 @@
   <packaging>jar</packaging>
 
   <dependencies>
-    <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-api</artifactId></dependency>
-    <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-core</artifactId></dependency>
-    <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-transport-webclient</artifactId></dependency>
+    <!-- Spring Boot app + WebFlux just for demo startup -->
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter</artifactId><version>${spring-boot.version}</version></dependency>
     <dependency><groupId>org.springframework</groupId><artifactId>spring-webflux</artifactId></dependency>
+
+    <!-- Collection SDK and sinks -->
+    <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-collection-api</artifactId></dependency>
+    <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-collection-core</artifactId></dependency>
+    <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-collection-spring</artifactId></dependency>
+    <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-collection-sink-logging</artifactId></dependency>
+    <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-collection-sink-obsinity</artifactId></dependency>
+
+    <!-- Provide at least one transport so Obsinity sink can wire -->
+    <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-transport-webclient</artifactId></dependency>
+    <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-transport-okhttp</artifactId></dependency>
+    <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-transport-jdkhttp</artifactId></dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-autoconfigure</artifactId>
+      <version>${spring-boot.version}</version>
+    </dependency>
   </dependencies>
 </project>

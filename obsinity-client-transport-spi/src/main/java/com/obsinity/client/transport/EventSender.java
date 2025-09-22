@@ -8,7 +8,8 @@ import java.util.Objects;
  * Minimal transport SPI: send serialized payloads to Obsinity ingest.
  */
 public interface EventSender extends Closeable {
-    String DEFAULT_ENDPOINT = "http://localhost:4318/obsinity/ingest";
+    // Default to the REST UnifiedPublish endpoint on a local controller instance
+    String DEFAULT_ENDPOINT = "http://localhost:8080/events/publish";
     String PROP_ENDPOINT = "obsinity.ingest.url";
     String ENV_ENDPOINT = "OBSINITY_INGEST_URL";
 
