@@ -1,6 +1,8 @@
 package com.obsinity.service.core.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -9,6 +11,13 @@ import java.util.Objects;
 /**
  * Canonical, storage-level envelope for an ingested event.
  * Uses Map<String,Object> for nested JSON payloads.
+ *
+ * JSON view aligns with the canonical structure:
+ *  - time: { startedAt, endUnixNano, ... }
+ *  - event: { name (event type), kind }
+ *  - trace: { traceId, spanId, parentSpanId }
+ *  - resource: <map>
+ *  - attributes: <map>
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public final class EventEnvelope {
@@ -24,7 +33,7 @@ public final class EventEnvelope {
     private final Instant ingestedAt; // set by server at write time
 
     // -------- OTEL span surface (optional)
-    private final String name; // Span.name
+    private final String name; // Span.name (exposed under event object only for kind; event name uses eventType)
     private final String kind; // INTERNAL | SERVER | CLIENT | PRODUCER | CONSUMER
 
     // Trace correlation (flattened)
@@ -262,6 +271,75 @@ public final class EventEnvelope {
         }
     }
 
+    // ---------- JSON view helpers ----------
+
+    /**
+     * Expose the OTEL-aligned time block for JSON serialization.
+     */
+    @JsonProperty("time")
+    public TimeBlock jsonTime() {
+        return new TimeBlock(timestamp, endTimestamp, null, null);
+    }
+
+    /** Expose event object with event type as name and span kind. */
+    @JsonProperty("event")
+    public EventObj jsonEvent() {
+        return new EventObj(eventType, kind);
+    }
+
+    /** Expose trace object. */
+    @JsonProperty("trace")
+    public TraceObj jsonTrace() {
+        if (traceId == null && spanId == null && parentSpanId == null) return null;
+        return new TraceObj(traceId, spanId, parentSpanId);
+    }
+
+    /** Expose resource map under 'resource'. */
+    @JsonProperty("resource")
+    public Map<String, Object> jsonResource() {
+        return resourceAttributes;
+    }
+
+    // helper DTOs for JSON view
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static final class TimeBlock {
+        public final Instant startedAt;
+        public final Instant endedAt;
+        public final Long startUnixNano;
+        public final Long endUnixNano;
+
+        public TimeBlock(Instant startedAt, Instant endedAt, Long startUnixNano, Long endUnixNano) {
+            this.startedAt = startedAt;
+            this.endedAt = endedAt;
+            this.startUnixNano = startUnixNano;
+            this.endUnixNano = endUnixNano;
+        }
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static final class EventObj {
+        public final String name; // event type
+        public final String kind;
+
+        public EventObj(String name, String kind) {
+            this.name = name;
+            this.kind = kind;
+        }
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static final class TraceObj {
+        public final String traceId;
+        public final String spanId;
+        public final String parentSpanId;
+
+        public TraceObj(String traceId, String spanId, String parentSpanId) {
+            this.traceId = traceId;
+            this.spanId = spanId;
+            this.parentSpanId = parentSpanId;
+        }
+    }
+
     // ---------- Getters
 
     public String getServiceId() {
@@ -276,10 +354,12 @@ public final class EventEnvelope {
         return eventId;
     }
 
+    @JsonIgnore
     public Instant getTimestamp() {
         return timestamp;
     }
 
+    @JsonIgnore
     public Instant getEndTimestamp() {
         return endTimestamp;
     }
@@ -288,22 +368,27 @@ public final class EventEnvelope {
         return ingestedAt;
     }
 
+    @JsonIgnore
     public String getName() {
         return name;
     }
 
+    @JsonIgnore
     public String getKind() {
         return kind;
     }
 
+    @JsonIgnore
     public String getTraceId() {
         return traceId;
     }
 
+    @JsonIgnore
     public String getSpanId() {
         return spanId;
     }
 
+    @JsonIgnore
     public String getParentSpanId() {
         return parentSpanId;
     }
@@ -312,6 +397,7 @@ public final class EventEnvelope {
         return status;
     }
 
+    @JsonIgnore
     public Map<String, Object> getResourceAttributes() {
         return resourceAttributes;
     }
