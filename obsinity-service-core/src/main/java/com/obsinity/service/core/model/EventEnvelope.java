@@ -16,7 +16,7 @@ public final class EventEnvelope {
     // -------- Routing / identity
     private final String serviceId; // from URL
     private final String eventType; // from URL
-    private final String eventId; // from body (ULID/UUIDv7 recommended)
+    private final String eventId; // from body (UUIDv7 recommended)
 
     // -------- Timing
     private final Instant timestamp; // start/occurredAt (body)

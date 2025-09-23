@@ -305,6 +305,44 @@ assertEquals("4xx", out);
 
 ---
 
+## ♻️ 6.1) Schema Evolution & Compatibility (Attributes)
+
+- No explicit version field is required on the attribute schema; however, all schema changes MUST be backward compatible.
+- New fields MUST be optional by default. If a new field is intended to be indexed (`index: true`), roll out in two phases:
+  1. Update producers first so they begin emitting the new field (SDKs or services generate the attribute into events).
+  2. Update the CRD to allow the additional field (keep it optional) and, once producers are broadly updated, enable `index: true`.
+- During the rollout window, events missing the new field will be accepted. Retrospective metrics and index regeneration will NOT backfill missing values for events that did not originally contain the field.
+- Removing fields or changing types is discouraged; prefer additive changes or add a new field with a new name.
+
+### Compatibility Checklist (Authoring & Rollout)
+
+1) Adding a new attribute path
+   - Author CRD: add the field under `spec.schema.properties` as optional (no `required`, no `index: true`).
+   - Deploy producer changes first (SDK/services start emitting the field).
+   - After most producers are updated, set `index: true` only if you plan to query on this field.
+
+2) Adding a new indexed field
+   - Same as above, but split deployment into two steps: (a) producers first, (b) CRD `index: true` later.
+   - Expect partial nulls during rollout; queries should handle missing values.
+
+3) Changing a field’s type
+   - Avoid in place. Instead, add a new field (e.g., `foo_v2`) with the desired type.
+   - Migrate producers to emit the new field; deprecate the old field over time.
+
+4) Renaming or removing a field
+   - Avoid renames/removals. Add the new field, keep the old field for compatibility.
+   - Optionally ship a derived mapping to populate the new field from the old during transition.
+
+5) Validating compatibility
+   - Ensure `spec.schema` remains backward compatible: new fields optional, no tightening of existing constraints.
+   - Run synthetic ingest tests with a mix of old/new payloads; confirm no rejects.
+
+6) Index & metrics regeneration expectations
+   - Attribute index and metric rollups do not backfill missing fields for past events.
+   - If backfill is required, plan a one‑off job that reads raw events and emits enriched copies (outside normal ingest SLA).
+
+---
+
 ## 📋 7) Cheat-Sheet (Field Reference)
 
 **Event**

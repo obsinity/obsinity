@@ -13,7 +13,7 @@ import lombok.Data;
 @Data
 public class PublishEventRequest {
 
-    /** Immutable event identity (ULID/UUIDv7 recommended). */
+    /** Immutable event identity (UUIDv7 recommended). */
     @NotBlank
     private String eventId;
 
