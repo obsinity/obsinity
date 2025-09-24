@@ -38,8 +38,8 @@
     <module>obsinity-collection-api</module>
     <module>obsinity-collection-core</module>
     <module>obsinity-collection-spring</module>
-    <module>obsinity-collection-sink-logging</module>
-    <module>obsinity-collection-sink-obsinity</module>
+    <module>obsinity-collection-receiver-logging</module>
+    <module>obsinity-collection-receiver-obsinity</module>
   </modules>
 
   <properties>
