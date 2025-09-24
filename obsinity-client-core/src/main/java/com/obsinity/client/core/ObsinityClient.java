@@ -1,7 +1,6 @@
 package com.obsinity.client.core;
 
 import com.obsinity.client.transport.EventSender;
-import com.obsinity.collection.core.context.TelemetryContext;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Map;
@@ -18,8 +17,8 @@ public final class ObsinityClient implements AutoCloseable {
     }
 
     public void recordFlow(String name) throws IOException {
-        Map<String, Object> attrs = TelemetryContext.snapshotAttrs();
-        Map<String, Object> ctx = TelemetryContext.snapshotContext();
+        Map<String, Object> attrs = java.util.Map.of();
+        Map<String, Object> ctx = java.util.Map.of();
         String json = "{\"ts\":\"" + Instant.now() + "\",\"type\":\"flow\",\"name\":\"" + esc(name)
                 + "\",\"attributes\":" + mapToJson(attrs) + ",\"context\":" + mapToJson(ctx) + "}";
         sender.send(EventSender.requireBytes(json));

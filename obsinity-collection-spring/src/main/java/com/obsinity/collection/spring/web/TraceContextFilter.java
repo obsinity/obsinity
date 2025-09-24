@@ -1,6 +1,5 @@
 package com.obsinity.collection.spring.web;
 
-import com.obsinity.collection.core.context.TelemetryContext;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -52,10 +51,6 @@ public final class TraceContextFilter implements Filter {
                 if (spanId != null) MDC.put("spanId", spanId);
                 if (parentSpanId != null) MDC.put("parentSpanId", parentSpanId);
 
-                if (traceId != null) TelemetryContext.putContext("traceId", traceId);
-                if (spanId != null) TelemetryContext.putContext("spanId", spanId);
-                if (parentSpanId != null) TelemetryContext.putContext("parentSpanId", parentSpanId);
-                if (tracestate != null) TelemetryContext.putContext("tracestate", tracestate);
             }
             chain.doFilter(request, response);
         } finally {
@@ -65,8 +60,6 @@ public final class TraceContextFilter implements Filter {
             restore("parentSpanId", prevParentSpanId);
             restore("tracestate", prevTracestate);
             restore("traceparent", prevTraceparent);
-            // Clear collection context to avoid thread reuse leaks
-            TelemetryContext.clear();
         }
     }
 

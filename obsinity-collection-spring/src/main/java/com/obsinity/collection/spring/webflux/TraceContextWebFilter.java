@@ -1,6 +1,5 @@
 package com.obsinity.collection.spring.webflux;
 
-import com.obsinity.collection.core.context.TelemetryContext;
 import java.util.Locale;
 import org.slf4j.MDC;
 import org.springframework.http.HttpHeaders;
@@ -49,18 +48,12 @@ public final class TraceContextWebFilter implements WebFilter {
         if (spanId != null) MDC.put("spanId", spanId);
         if (parentSpanId != null) MDC.put("parentSpanId", parentSpanId);
 
-        if (traceId != null) TelemetryContext.putContext("traceId", traceId);
-        if (spanId != null) TelemetryContext.putContext("spanId", spanId);
-        if (parentSpanId != null) TelemetryContext.putContext("parentSpanId", parentSpanId);
-        if (tracestate != null) TelemetryContext.putContext("tracestate", tracestate);
-
         return chain.filter(exchange).doFinally(sig -> {
             restore("traceId", prevTraceId);
             restore("spanId", prevSpanId);
             restore("parentSpanId", prevParentSpanId);
             restore("tracestate", prevTracestate);
             restore("traceparent", prevTraceparent);
-            TelemetryContext.clear();
         });
     }
 

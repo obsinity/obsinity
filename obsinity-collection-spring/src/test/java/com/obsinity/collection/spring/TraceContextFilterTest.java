@@ -2,7 +2,7 @@ package com.obsinity.collection.spring;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.obsinity.collection.core.context.TelemetryContext;
+import org.slf4j.MDC;
 import com.obsinity.collection.spring.web.TraceContextFilter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -15,7 +15,7 @@ class TraceContextFilterTest {
 
     @AfterEach
     void clear() {
-        TelemetryContext.clear();
+        MDC.clear();
     }
 
     @Test
@@ -26,9 +26,8 @@ class TraceContextFilterTest {
 
         final String[] vals = new String[2];
         filter.doFilter(req, resp, (r, s2) -> {
-            var ctx = TelemetryContext.snapshotContext();
-            vals[0] = (String) ctx.get("traceId");
-            vals[1] = (String) ctx.get("spanId");
+            vals[0] = MDC.get("traceId");
+            vals[1] = MDC.get("spanId");
         });
 
         assertThat(vals[0]).isEqualTo("4a3f1b5e2f9d4c1aa0b2c3d4e5f60718");
@@ -43,9 +42,8 @@ class TraceContextFilterTest {
 
         final String[] vals = new String[2];
         filter.doFilter(req, resp, (r, s2) -> {
-            var ctx = TelemetryContext.snapshotContext();
-            vals[0] = (String) ctx.get("traceId");
-            vals[1] = (String) ctx.get("spanId");
+            vals[0] = MDC.get("traceId");
+            vals[1] = MDC.get("spanId");
         });
 
         assertThat(vals[0]).isEqualTo("4a3f1b5e2f9d4c1aa0b2c3d4e5f60718");

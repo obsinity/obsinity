@@ -8,7 +8,6 @@ import com.obsinity.collection.api.annotations.Flow;
 import com.obsinity.collection.api.annotations.Kind;
 import com.obsinity.collection.api.annotations.PushAttribute;
 import com.obsinity.collection.api.annotations.PushContextValue;
-import com.obsinity.collection.core.context.TelemetryContext;
 import com.obsinity.collection.core.model.OEvent;
 import java.util.ArrayList;
 import java.util.List;
@@ -96,13 +95,11 @@ class TelemetryAspectBindingTest {
 
         @AfterEach
         void clear() {
-            TelemetryContext.clear();
             receiver.events.clear();
         }
 
         @Test
         void emits_started_and_completed_with_attributes_and_context() {
-            TelemetryContext.putContext("cart.size", 3);
             flows.checkout("alice", 3);
 
             List<OEvent> seen = !receiver.events.isEmpty() ? receiver.events : capturingReceiver.events;

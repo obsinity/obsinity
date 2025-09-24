@@ -63,11 +63,10 @@ public class TelemetryAspect {
         Domain d = m.getAnnotation(Domain.class);
         if (d != null && !d.value().isBlank()) b.domain(d.value());
         if (status != null) b.status(status.code(), status.message());
-        var ctx = com.obsinity.collection.core.context.TelemetryContext.snapshotContext();
-        String traceId = asString(ctx.get("traceId"));
-        String spanId = asString(ctx.get("spanId"));
-        String parentSpanId = asString(ctx.get("parentSpanId"));
-        String tracestate = asString(ctx.get("tracestate"));
+        String traceId = null;
+        String spanId = null;
+        String parentSpanId = null;
+        String tracestate = null;
         // Fallback to MDC if not provided in TelemetryContext
         if (traceId == null || spanId == null) {
             try {

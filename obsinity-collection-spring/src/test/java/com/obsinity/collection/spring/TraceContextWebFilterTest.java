@@ -2,7 +2,7 @@ package com.obsinity.collection.spring;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.obsinity.collection.core.context.TelemetryContext;
+import org.slf4j.MDC;
 import com.obsinity.collection.spring.webflux.TraceContextWebFilter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -17,7 +17,7 @@ class TraceContextWebFilterTest {
 
     @AfterEach
     void clear() {
-        TelemetryContext.clear();
+        MDC.clear();
     }
 
     @Test
@@ -27,9 +27,8 @@ class TraceContextWebFilterTest {
                 .build());
         final String[] vals = new String[2];
         WebFilterChain chain = e -> Mono.fromRunnable(() -> {
-            var ctx = TelemetryContext.snapshotContext();
-            vals[0] = (String) ctx.get("traceId");
-            vals[1] = (String) ctx.get("spanId");
+            vals[0] = MDC.get("traceId");
+            vals[1] = MDC.get("spanId");
         });
 
         filter.filter(exchange, chain).block();
@@ -45,9 +44,8 @@ class TraceContextWebFilterTest {
                 .build());
         final String[] vals = new String[2];
         WebFilterChain chain = e -> Mono.fromRunnable(() -> {
-            var ctx = TelemetryContext.snapshotContext();
-            vals[0] = (String) ctx.get("traceId");
-            vals[1] = (String) ctx.get("spanId");
+            vals[0] = MDC.get("traceId");
+            vals[1] = MDC.get("spanId");
         });
 
         filter.filter(exchange, chain).block();

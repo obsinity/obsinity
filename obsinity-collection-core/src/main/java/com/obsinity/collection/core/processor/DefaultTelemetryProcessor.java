@@ -1,6 +1,4 @@
 package com.obsinity.collection.core.processor;
-
-import com.obsinity.collection.core.context.TelemetryContext;
 import com.obsinity.collection.core.dispatch.DispatchBus;
 import com.obsinity.collection.core.model.OEvent;
 import java.time.Instant;
@@ -16,10 +14,8 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
 
     @Override
     public void onFlowStarted(String name, Map<String, Object> extraAttrs, Map<String, Object> extraContext) {
-        var attrs = new LinkedHashMap<String, Object>(TelemetryContext.snapshotAttrs());
-        if (extraAttrs != null) attrs.putAll(extraAttrs);
-        var ctx = new LinkedHashMap<String, Object>(TelemetryContext.snapshotContext());
-        if (extraContext != null) ctx.putAll(extraContext);
+        var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
+        var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
         bus.dispatch(OEvent.builder()
                 .occurredAt(Instant.now())
                 .name(name + ":started")
@@ -30,10 +26,8 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
 
     @Override
     public void onFlowCompleted(String name, Map<String, Object> extraAttrs, Map<String, Object> extraContext) {
-        var attrs = new LinkedHashMap<String, Object>(TelemetryContext.snapshotAttrs());
-        if (extraAttrs != null) attrs.putAll(extraAttrs);
-        var ctx = new LinkedHashMap<String, Object>(TelemetryContext.snapshotContext());
-        if (extraContext != null) ctx.putAll(extraContext);
+        var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
+        var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
         bus.dispatch(OEvent.builder()
                 .occurredAt(Instant.now())
                 .name(name + ":completed")
@@ -45,11 +39,9 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
     @Override
     public void onFlowFailed(
             String name, Throwable error, Map<String, Object> extraAttrs, Map<String, Object> extraContext) {
-        var attrs = new LinkedHashMap<String, Object>(TelemetryContext.snapshotAttrs());
-        if (extraAttrs != null) attrs.putAll(extraAttrs);
+        var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
         if (error != null) attrs.putIfAbsent("error", error.getClass().getSimpleName());
-        var ctx = new LinkedHashMap<String, Object>(TelemetryContext.snapshotContext());
-        if (extraContext != null) ctx.putAll(extraContext);
+        var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
         bus.dispatch(OEvent.builder()
                 .occurredAt(Instant.now())
                 .name(name + ":failed")
@@ -61,10 +53,8 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
     @Override
     public void onFlowStarted(
             String name, Map<String, Object> extraAttrs, Map<String, Object> extraContext, TelemetryMeta meta) {
-        var attrs = new LinkedHashMap<String, Object>(TelemetryContext.snapshotAttrs());
-        if (extraAttrs != null) attrs.putAll(extraAttrs);
-        var ctx = new LinkedHashMap<String, Object>(TelemetryContext.snapshotContext());
-        if (extraContext != null) ctx.putAll(extraContext);
+        var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
+        var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
         var b = OEvent.builder()
                 .occurredAt(Instant.now())
                 .name(name + ":started")
@@ -77,10 +67,8 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
     @Override
     public void onFlowCompleted(
             String name, Map<String, Object> extraAttrs, Map<String, Object> extraContext, TelemetryMeta meta) {
-        var attrs = new LinkedHashMap<String, Object>(TelemetryContext.snapshotAttrs());
-        if (extraAttrs != null) attrs.putAll(extraAttrs);
-        var ctx = new LinkedHashMap<String, Object>(TelemetryContext.snapshotContext());
-        if (extraContext != null) ctx.putAll(extraContext);
+        var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
+        var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
         var b = OEvent.builder()
                 .occurredAt(Instant.now())
                 .name(name + ":completed")
@@ -99,11 +87,9 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
             Map<String, Object> extraAttrs,
             Map<String, Object> extraContext,
             TelemetryMeta meta) {
-        var attrs = new LinkedHashMap<String, Object>(TelemetryContext.snapshotAttrs());
-        if (extraAttrs != null) attrs.putAll(extraAttrs);
+        var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
         if (error != null) attrs.putIfAbsent("error", error.getClass().getSimpleName());
-        var ctx = new LinkedHashMap<String, Object>(TelemetryContext.snapshotContext());
-        if (extraContext != null) ctx.putAll(extraContext);
+        var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
         var b = OEvent.builder()
                 .occurredAt(Instant.now())
                 .name(name + ":failed")
