@@ -7,8 +7,8 @@
     <artifactId>obsinity-parent</artifactId>
     <version>0.1.1-SNAPSHOT</version>
   </parent>
-  <artifactId>obsinity-collection-sink-logging</artifactId>
-  <name>Obsinity :: Collection Sink :: Logging</name>
+  <artifactId>obsinity-collection-receiver-logging</artifactId>
+  <name>Obsinity :: Collection Receiver :: Logging</name>
   <packaging>jar</packaging>
   <dependencies>
     <dependency>

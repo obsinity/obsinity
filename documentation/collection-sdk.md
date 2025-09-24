@@ -6,18 +6,18 @@ Overview
 
 Modules
 - obsinity-collection-api: Public annotations used by apps.
-- obsinity-collection-core: Minimal event model (OEvent), thread-local TelemetryContext, DispatchBus, EventSink SPI, processor.
+- obsinity-collection-core: Minimal event model (OEvent), thread-local TelemetryContext, DispatchBus, DispatchBus (EventReceiver), processor.
 - obsinity-collection-spring: Spring Boot autoconfig + AOP aspect (@Flow) that emits lifecycle events.
-- obsinity-collection-sink-logging: Logs OEvent via SLF4J; enabled by default (toggle property).
-- obsinity-collection-sink-obsinity: Adapts OEvent to Obsinity REST ingest JSON and posts via EventSender.
+- obsinity-collection-receiver-logging: Logs OEvent via SLF4J; enabled by default (toggle property).
+- obsinity-collection-receiver-obsinity: Adapts OEvent to Obsinity REST ingest JSON and posts via EventSender.
 
 Quick Start (Spring)
 1) Add dependencies (choose a transport; WebClient shown):
    - com.obsinity:obsinity-collection-api
    - com.obsinity:obsinity-collection-core
    - com.obsinity:obsinity-collection-spring
-   - com.obsinity:obsinity-collection-sink-logging (optional, default on)
-   - com.obsinity:obsinity-collection-sink-obsinity
+   - com.obsinity:obsinity-collection-receiver-logging (optional, default on)
+   - com.obsinity:obsinity-collection-receiver-obsinity
    - com.obsinity:obsinity-client-transport-webclient
 
 2) Annotate code:

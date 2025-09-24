@@ -49,73 +49,75 @@ class TelemetryAspectBindingTest {
             return new RecordingSink();
         }
 
-
-    static class SampleFlows {
-        @Flow(name = "demo.checkout")
-        @Kind("SERVER")
-        @Domain("http")
-        public void checkout(@PushAttribute("user.id") String userId, @PushContextValue("cart.size") int items) {
-            // no-op
-        }
-    }
-
-    @EventReceiver
-    static class RecordingReceiver {
-        final List<OEvent> events = new ArrayList<>();
-
-        @com.obsinity.collection.api.annotations.OnFlowStarted
-        public void onStart(OEvent e) {
-            events.add(e);
+        static class SampleFlows {
+            @Flow(name = "demo.checkout")
+            @Kind("SERVER")
+            @Domain("http")
+            public void checkout(@PushAttribute("user.id") String userId, @PushContextValue("cart.size") int items) {
+                // no-op
+            }
         }
 
-        @com.obsinity.collection.api.annotations.OnFlowCompleted
-        public void onCompleted(OEvent e) {
-            events.add(e);
+        @EventReceiver
+        static class RecordingReceiver {
+            final List<OEvent> events = new ArrayList<>();
+
+            @com.obsinity.collection.api.annotations.OnFlowStarted
+            public void onStart(OEvent e) {
+                events.add(e);
+            }
+
+            @com.obsinity.collection.api.annotations.OnFlowCompleted
+            public void onCompleted(OEvent e) {
+                events.add(e);
+            }
         }
-    }
 
-    /** Simple EventSink that records all dispatched events (bypasses handler scanner). */
-    static class RecordingSink implements com.obsinity.collection.core.receivers.EventHandler {
-        final List<OEvent> events = new ArrayList<>();
+        /**
+         * Simple EventSink that records all dispatched events (bypasses handler scanner).
+         */
+        static class RecordingSink implements com.obsinity.collection.core.receivers.EventHandler {
+            final List<OEvent> events = new ArrayList<>();
 
-        @Override
-        public void handle(OEvent event) {
-            events.add(event);
+            @Override
+            public void handle(OEvent event) {
+                events.add(event);
+            }
         }
-    }
 
-    @org.springframework.beans.factory.annotation.Autowired
-    private SampleFlows flows;
+        @org.springframework.beans.factory.annotation.Autowired
+        private SampleFlows flows;
 
-    @org.springframework.beans.factory.annotation.Autowired
-    private RecordingReceiver receiver;
+        @org.springframework.beans.factory.annotation.Autowired
+        private RecordingReceiver receiver;
 
-    @org.springframework.beans.factory.annotation.Autowired
-    private RecordingSink sink;
+        @org.springframework.beans.factory.annotation.Autowired
+        private RecordingSink sink;
 
-    @AfterEach
-    void clear() {
-        TelemetryContext.clear();
-        receiver.events.clear();
-    }
+        @AfterEach
+        void clear() {
+            TelemetryContext.clear();
+            receiver.events.clear();
+        }
 
-    @Test
-    void emits_started_and_completed_with_attributes_and_context() {
-        TelemetryContext.putContext("cart.size", 3);
-        flows.checkout("alice", 3);
+        @Test
+        void emits_started_and_completed_with_attributes_and_context() {
+            TelemetryContext.putContext("cart.size", 3);
+            flows.checkout("alice", 3);
 
-        List<OEvent> seen = !receiver.events.isEmpty() ? receiver.events : sink.events;
-        assertThat(seen).hasSize(2);
-        OEvent started = seen.get(0);
-        OEvent finished = seen.get(1);
+            List<OEvent> seen = !receiver.events.isEmpty() ? receiver.events : sink.events;
+            assertThat(seen).hasSize(2);
+            OEvent started = seen.get(0);
+            OEvent finished = seen.get(1);
 
-        assertThat(started.name()).isEqualTo("demo.checkout:started");
-        assertThat(finished.name()).isEqualTo("demo.checkout:completed");
+            assertThat(started.name()).isEqualTo("demo.checkout:started");
+            assertThat(finished.name()).isEqualTo("demo.checkout:completed");
 
-        assertThat(started.attributes()).containsEntry("user.id", "alice");
-        assertThat(finished.attributes()).containsEntry("user.id", "alice");
+            assertThat(started.attributes()).containsEntry("user.id", "alice");
+            assertThat(finished.attributes()).containsEntry("user.id", "alice");
 
-        assertThat(started.context()).containsEntry("cart.size", 3);
-        assertThat(finished.context()).containsEntry("cart.size", 3);
+            assertThat(started.context()).containsEntry("cart.size", 3);
+            assertThat(finished.context()).containsEntry("cart.size", 3);
+        }
     }
 }

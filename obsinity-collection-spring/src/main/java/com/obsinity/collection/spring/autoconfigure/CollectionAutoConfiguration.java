@@ -5,7 +5,6 @@ import com.obsinity.collection.core.processor.DefaultTelemetryProcessor;
 import com.obsinity.collection.core.processor.TelemetryProcessor;
 import com.obsinity.collection.core.receivers.HandlerRegistry;
 import com.obsinity.collection.spring.aspect.TelemetryAspect;
-import java.util.List;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;

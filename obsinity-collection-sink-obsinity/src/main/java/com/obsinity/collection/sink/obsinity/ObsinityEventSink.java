@@ -26,7 +26,6 @@ public final class ObsinityEventSink implements EventHandler {
         sender.send(body);
     }
 
-    @Override
     public void close() throws IOException {
         sender.close();
     }

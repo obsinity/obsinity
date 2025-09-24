@@ -20,7 +20,8 @@ public class HandlerAutoConfiguration {
     }
 
     @Bean
-    public org.springframework.beans.factory.config.BeanPostProcessor eventHandlerBeanRegistrar(HandlerRegistry registry) {
+    public org.springframework.beans.factory.config.BeanPostProcessor eventHandlerBeanRegistrar(
+            HandlerRegistry registry) {
         return new org.springframework.beans.factory.config.BeanPostProcessor() {
             @Override
             public Object postProcessAfterInitialization(Object bean, String beanName) {
