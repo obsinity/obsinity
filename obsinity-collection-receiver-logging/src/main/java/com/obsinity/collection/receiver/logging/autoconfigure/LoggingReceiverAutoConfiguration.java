@@ -1,7 +1,7 @@
 package com.obsinity.collection.receiver.logging.autoconfigure;
 
 import com.obsinity.collection.core.receivers.EventHandler;
-import com.obsinity.collection.sink.logging.LoggingEventReceiver;
+import com.obsinity.collection.receiver.logging.LoggingEventReceiver;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

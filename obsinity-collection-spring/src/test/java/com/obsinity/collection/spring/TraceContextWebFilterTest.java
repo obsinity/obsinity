@@ -16,33 +16,43 @@ class TraceContextWebFilterTest {
     private final TraceContextWebFilter filter = new TraceContextWebFilter();
 
     @AfterEach
-    void clear() { TelemetryContext.clear(); }
+    void clear() {
+        TelemetryContext.clear();
+    }
 
     @Test
     void populates_from_traceparent() {
-        MockServerWebExchange exchange = MockServerWebExchange.from(
-                MockServerHttpRequest.get("/test")
-                        .header("traceparent", "00-4a3f1b5e2f9d4c1aa0b2c3d4e5f60718-7b2c3d4e5f607182-01")
-                        .build());
-        WebFilterChain chain = e -> Mono.empty();
+        MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/test")
+                .header("traceparent", "00-4a3f1b5e2f9d4c1aa0b2c3d4e5f60718-7b2c3d4e5f607182-01")
+                .build());
+        final String[] vals = new String[2];
+        WebFilterChain chain = e -> Mono.fromRunnable(() -> {
+            var ctx = TelemetryContext.snapshotContext();
+            vals[0] = (String) ctx.get("traceId");
+            vals[1] = (String) ctx.get("spanId");
+        });
 
         filter.filter(exchange, chain).block();
 
-        var ctx = TelemetryContext.snapshotContext();
-        assertThat(ctx.get("traceId")).isEqualTo("4a3f1b5e2f9d4c1aa0b2c3d4e5f60718");
-        assertThat(ctx.get("spanId")).isEqualTo("7b2c3d4e5f607182");
+        assertThat(vals[0]).isEqualTo("4a3f1b5e2f9d4c1aa0b2c3d4e5f60718");
+        assertThat(vals[1]).isEqualTo("7b2c3d4e5f607182");
     }
 
     @Test
     void populates_from_b3_single() {
-        MockServerWebExchange exchange = MockServerWebExchange.from(
-                MockServerHttpRequest.get("/test").header("b3", "4a3f1b5e2f9d4c1aa0b2c3d4e5f60718-7b2c3d4e5f607182-1").build());
-        WebFilterChain chain = e -> Mono.empty();
+        MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/test")
+                .header("b3", "4a3f1b5e2f9d4c1aa0b2c3d4e5f60718-7b2c3d4e5f607182-1")
+                .build());
+        final String[] vals = new String[2];
+        WebFilterChain chain = e -> Mono.fromRunnable(() -> {
+            var ctx = TelemetryContext.snapshotContext();
+            vals[0] = (String) ctx.get("traceId");
+            vals[1] = (String) ctx.get("spanId");
+        });
 
         filter.filter(exchange, chain).block();
 
-        var ctx = TelemetryContext.snapshotContext();
-        assertThat(ctx.get("traceId")).isEqualTo("4a3f1b5e2f9d4c1aa0b2c3d4e5f60718");
-        assertThat(ctx.get("spanId")).isEqualTo("7b2c3d4e5f607182");
+        assertThat(vals[0]).isEqualTo("4a3f1b5e2f9d4c1aa0b2c3d4e5f60718");
+        assertThat(vals[1]).isEqualTo("7b2c3d4e5f607182");
     }
 }

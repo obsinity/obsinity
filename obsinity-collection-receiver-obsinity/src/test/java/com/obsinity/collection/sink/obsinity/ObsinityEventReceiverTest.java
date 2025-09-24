@@ -6,12 +6,17 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.obsinity.client.transport.EventSender;
 import com.obsinity.collection.core.model.OEvent;
+import com.obsinity.collection.receiver.obsinity.ObsinityEventReceiver;
 import org.junit.jupiter.api.Test;
 
 class ObsinityEventReceiverTest {
     static class CapturingSender implements EventSender {
         byte[] last;
-        @Override public void send(byte[] body) { last = body; }
+
+        @Override
+        public void send(byte[] body) {
+            last = body;
+        }
     }
 
     @Test
@@ -33,6 +38,7 @@ class ObsinityEventReceiverTest {
         assertThat(root.path("event").path("name").asText()).isEqualTo("demo.checkout");
         assertThat(root.path("status").path("code").asText()).isEqualTo("COMPLETED");
         assertThat(root.path("attributes").path("user.id").asText()).isEqualTo("alice");
-        assertThat(root.path("resource").path("context").path("cart.size").asInt()).isEqualTo(3);
+        assertThat(root.path("resource").path("context").path("cart.size").asInt())
+                .isEqualTo(3);
     }
 }
