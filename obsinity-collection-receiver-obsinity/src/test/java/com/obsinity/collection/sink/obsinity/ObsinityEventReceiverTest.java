@@ -8,7 +8,7 @@ import com.obsinity.client.transport.EventSender;
 import com.obsinity.collection.core.model.OEvent;
 import org.junit.jupiter.api.Test;
 
-class ObsinityEventSinkTest {
+class ObsinityEventReceiverTest {
     static class CapturingSender implements EventSender {
         byte[] last;
         @Override public void send(byte[] body) { last = body; }
@@ -17,7 +17,7 @@ class ObsinityEventSinkTest {
     @Test
     void maps_basic_fields() throws Exception {
         var sender = new CapturingSender();
-        var sink = new ObsinityEventSink(sender);
+        var sink = new ObsinityEventReceiver(sender);
 
         OEvent ev = OEvent.builder()
                 .occurredAt(java.time.Instant.parse("2025-09-24T08:30:00Z"))

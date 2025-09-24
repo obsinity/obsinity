@@ -2,7 +2,7 @@ package com.obsinity.collection.sink.obsinity.autoconfigure;
 
 import com.obsinity.client.transport.EventSender;
 import com.obsinity.collection.core.receivers.EventHandler;
-import com.obsinity.collection.sink.obsinity.ObsinityEventSink;
+import com.obsinity.collection.sink.obsinity.ObsinityEventReceiver;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -19,8 +19,8 @@ import org.springframework.context.annotation.Bean;
 public class ObsinitySinkAutoConfiguration {
 
     @Bean
-    @ConditionalOnMissingBean(name = "obsinityEventSink")
-    public EventHandler obsinityEventSink(EventSender sender) {
-        return new ObsinityEventSink(sender);
+    @ConditionalOnMissingBean(name = "obsinityEventReceiver")
+    public EventHandler obsinityEventHandler(EventSender sender) {
+        return new ObsinityEventReceiver(sender);
     }
 }

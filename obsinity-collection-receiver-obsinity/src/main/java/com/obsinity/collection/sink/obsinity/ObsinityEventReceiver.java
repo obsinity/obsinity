@@ -8,11 +8,11 @@ import com.obsinity.collection.core.model.OEvent;
 import com.obsinity.collection.core.receivers.EventHandler;
 import java.io.IOException;
 
-public final class ObsinityEventSink implements EventHandler {
+public final class ObsinityEventReceiver implements EventHandler {
     private final EventSender sender;
     private final ObjectMapper json;
 
-    public ObsinityEventSink(EventSender sender) {
+    public ObsinityEventReceiver(EventSender sender) {
         this.sender = sender;
         this.json = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
