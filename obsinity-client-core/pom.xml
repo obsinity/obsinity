@@ -13,6 +13,10 @@
   <dependencies>
   <dependency>
     <groupId>com.obsinity</groupId>
+    <artifactId>obsinity-collection-core</artifactId>
+  </dependency>
+  <dependency>
+    <groupId>com.obsinity</groupId>
     <artifactId>obsinity-client-api</artifactId>
   </dependency>
   <dependency>

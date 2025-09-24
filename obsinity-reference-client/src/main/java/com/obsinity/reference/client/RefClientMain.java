@@ -1,8 +1,8 @@
 package com.obsinity.reference.client;
 
 import com.obsinity.client.core.ObsinityClient;
-import com.obsinity.client.core.TelemetryContext;
 import com.obsinity.client.transport.jdkhttp.JdkHttpEventSender;
+import com.obsinity.collection.core.context.TelemetryContext;
 
 public class RefClientMain {
     public static void main(String[] args) throws Exception {

@@ -1,6 +1,7 @@
 package com.obsinity.client.core;
 
 import com.obsinity.client.transport.EventSender;
+import com.obsinity.collection.core.context.TelemetryContext;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Map;

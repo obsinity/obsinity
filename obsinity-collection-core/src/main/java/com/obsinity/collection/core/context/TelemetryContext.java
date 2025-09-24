@@ -4,6 +4,11 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * Deprecated thread-local context used by the collection SDK pipeline.
+ * Prefer {@code com.obsinity.telemetry.processor.TelemetryContext} for service-side processing.
+ */
+@Deprecated
 public final class TelemetryContext {
     private static final ThreadLocal<Map<String, Object>> ATTRS = ThreadLocal.withInitial(LinkedHashMap::new);
     private static final ThreadLocal<Map<String, Object>> CTX = ThreadLocal.withInitial(LinkedHashMap::new);
