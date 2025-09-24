@@ -1,4 +1,5 @@
 package com.obsinity.collection.core.processor;
+
 import com.obsinity.collection.core.dispatch.DispatchBus;
 import com.obsinity.collection.core.model.OEvent;
 import java.time.Instant;

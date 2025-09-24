@@ -50,7 +50,6 @@ public final class TraceContextFilter implements Filter {
                 if (traceId != null) MDC.put("traceId", traceId);
                 if (spanId != null) MDC.put("spanId", spanId);
                 if (parentSpanId != null) MDC.put("parentSpanId", parentSpanId);
-
             }
             chain.doFilter(request, response);
         } finally {

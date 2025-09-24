@@ -5,7 +5,6 @@ import com.obsinity.collection.api.annotations.Flow;
 import com.obsinity.collection.api.annotations.Kind;
 import com.obsinity.collection.api.annotations.PushAttribute;
 import com.obsinity.collection.api.annotations.PushContextValue;
-import com.obsinity.collection.core.context.TelemetryContext;
 import java.util.UUID;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -21,10 +20,6 @@ public class DemoApplication {
     @Bean
     CommandLineRunner demoRunner(SampleFlows flows) {
         return args -> {
-            TelemetryContext.putContext("session.id", UUID.randomUUID().toString());
-            // Demo trace context (picked up by aspect)
-            TelemetryContext.putContext("traceId", "4a3f1b5e2f9d4c1aa0b2c3d4e5f60718");
-            TelemetryContext.putContext("spanId", "7b2c3d4e5f607182");
             flows.checkout("alice", 42);
             flows.checkout("bob", 99);
             try {

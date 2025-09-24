@@ -2,10 +2,10 @@ package com.obsinity.collection.spring;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import org.slf4j.MDC;
 import com.obsinity.collection.spring.webflux.TraceContextWebFilter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.web.server.WebFilterChain;
