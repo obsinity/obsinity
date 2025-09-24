@@ -1,8 +1,7 @@
 package com.obsinity.collection.spring.autoconfigure;
 
+import com.obsinity.collection.core.receivers.EventHandler;
 import com.obsinity.collection.core.receivers.HandlerRegistry;
-import com.obsinity.collection.core.receivers.HandlerSink;
-import com.obsinity.collection.core.sink.EventSink;
 import com.obsinity.collection.spring.scanner.TelemetryEventHandlerScanner;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -16,12 +15,18 @@ public class HandlerAutoConfiguration {
     }
 
     @Bean
-    public EventSink handlerSink(HandlerRegistry registry) {
-        return new HandlerSink(registry);
+    public TelemetryEventHandlerScanner telemetryEventHandlerScanner(HandlerRegistry registry) {
+        return new TelemetryEventHandlerScanner(registry);
     }
 
     @Bean
-    public TelemetryEventHandlerScanner telemetryEventHandlerScanner(HandlerRegistry registry) {
-        return new TelemetryEventHandlerScanner(registry);
+    public org.springframework.beans.factory.config.BeanPostProcessor eventHandlerBeanRegistrar(HandlerRegistry registry) {
+        return new org.springframework.beans.factory.config.BeanPostProcessor() {
+            @Override
+            public Object postProcessAfterInitialization(Object bean, String beanName) {
+                if (bean instanceof EventHandler eh) registry.register(eh);
+                return bean;
+            }
+        };
     }
 }

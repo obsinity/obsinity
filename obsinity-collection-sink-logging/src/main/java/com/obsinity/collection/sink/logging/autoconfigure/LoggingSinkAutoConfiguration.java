@@ -1,6 +1,6 @@
 package com.obsinity.collection.sink.logging.autoconfigure;
 
-import com.obsinity.collection.core.sink.EventSink;
+import com.obsinity.collection.core.receivers.EventHandler;
 import com.obsinity.collection.sink.logging.LoggingEventSink;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -17,7 +17,7 @@ public class LoggingSinkAutoConfiguration {
             havingValue = "true",
             matchIfMissing = true)
     @ConditionalOnMissingBean(name = "loggingEventSink")
-    public EventSink loggingEventSink() {
+    public EventHandler loggingEventSink() {
         return new LoggingEventSink();
     }
 }

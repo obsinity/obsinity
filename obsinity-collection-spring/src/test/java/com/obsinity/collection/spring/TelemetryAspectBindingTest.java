@@ -49,13 +49,6 @@ class TelemetryAspectBindingTest {
             return new RecordingSink();
         }
 
-        @Bean
-        @org.springframework.context.annotation.Primary
-        com.obsinity.collection.core.dispatch.DispatchBus dispatchBus(
-                java.util.List<com.obsinity.collection.core.sink.EventSink> sinks) {
-            return new com.obsinity.collection.core.dispatch.DispatchBus(sinks);
-        }
-    }
 
     static class SampleFlows {
         @Flow(name = "demo.checkout")
@@ -82,11 +75,11 @@ class TelemetryAspectBindingTest {
     }
 
     /** Simple EventSink that records all dispatched events (bypasses handler scanner). */
-    static class RecordingSink implements com.obsinity.collection.core.sink.EventSink {
+    static class RecordingSink implements com.obsinity.collection.core.receivers.EventHandler {
         final List<OEvent> events = new ArrayList<>();
 
         @Override
-        public void accept(OEvent event) {
+        public void handle(OEvent event) {
             events.add(event);
         }
     }

@@ -5,10 +5,10 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.obsinity.client.transport.EventSender;
 import com.obsinity.collection.core.model.OEvent;
-import com.obsinity.collection.core.sink.EventSink;
+import com.obsinity.collection.core.receivers.EventHandler;
 import java.io.IOException;
 
-public final class ObsinityEventSink implements EventSink {
+public final class ObsinityEventSink implements EventHandler {
     private final EventSender sender;
     private final ObjectMapper json;
 
@@ -20,7 +20,7 @@ public final class ObsinityEventSink implements EventSink {
     }
 
     @Override
-    public void accept(OEvent event) throws IOException {
+    public void handle(OEvent event) throws IOException {
         if (event == null) return;
         byte[] body = json.writeValueAsBytes(ObsinityPayloads.toUnifiedPublishBody(event));
         sender.send(body);
