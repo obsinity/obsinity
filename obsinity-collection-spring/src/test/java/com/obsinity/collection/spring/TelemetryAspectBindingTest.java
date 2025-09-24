@@ -45,8 +45,8 @@ class TelemetryAspectBindingTest {
         }
 
         @Bean
-        RecordingSink recordingSink() {
-            return new RecordingSink();
+        CapturingReceiver capturingReceiver() {
+            return new CapturingReceiver();
         }
 
         static class SampleFlows {
@@ -74,9 +74,9 @@ class TelemetryAspectBindingTest {
         }
 
         /**
-         * Simple EventSink that records all dispatched events (bypasses handler scanner).
+         * Simple receiver bean that captures all dispatched events (fallback).
          */
-        static class RecordingSink implements com.obsinity.collection.core.receivers.EventHandler {
+        static class CapturingReceiver implements com.obsinity.collection.core.receivers.EventHandler {
             final List<OEvent> events = new ArrayList<>();
 
             @Override
@@ -92,7 +92,7 @@ class TelemetryAspectBindingTest {
         private RecordingReceiver receiver;
 
         @org.springframework.beans.factory.annotation.Autowired
-        private RecordingSink sink;
+        private CapturingReceiver capturingReceiver;
 
         @AfterEach
         void clear() {
@@ -105,7 +105,7 @@ class TelemetryAspectBindingTest {
             TelemetryContext.putContext("cart.size", 3);
             flows.checkout("alice", 3);
 
-            List<OEvent> seen = !receiver.events.isEmpty() ? receiver.events : sink.events;
+            List<OEvent> seen = !receiver.events.isEmpty() ? receiver.events : capturingReceiver.events;
             assertThat(seen).hasSize(2);
             OEvent started = seen.get(0);
             OEvent finished = seen.get(1);
