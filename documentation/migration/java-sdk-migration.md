@@ -2,8 +2,8 @@
 
 ### 1) Annotations (producer/emit side)
 
-**Move to:** `obsinity-client-api`
-**Packages:** `com.obsinity.client.api.annotations`
+**Live in:** `obsinity-collection-api`
+**Packages:** `com.obsinity.collection.api.annotations`
 **Classes:**
 
 * `@Flow`, `@Step`, `@Kind`
@@ -148,8 +148,8 @@ These belong in a **separate processing/receiver** repo (e.g., `obsinity-server`
 
 | Original package/class                                         | New module                                   | New package suggestion                       |
 | -------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------- |
-| `com.obsinity.telemetry.annotations.Flow/Step/Kind`            | `obsinity-client-api`                        | `com.obsinity.client.api.annotations`        |
-| `com.obsinity.telemetry.annotations.PushAttribute/PushContext` | `obsinity-client-api`                        | `com.obsinity.client.api.annotations`        |
+| `com.obsinity.telemetry.annotations.Flow/Step/Kind`            | `obsinity-collection-api`                    | `com.obsinity.collection.api.annotations`    |
+| `com.obsinity.telemetry.annotations.PushAttribute/PushContext` | `obsinity-collection-api`                    | `com.obsinity.collection.api.annotations`    |
 | `com.obsinity.telemetry.processor.TelemetryContext`            | `obsinity-client-core`                       | `com.obsinity.client.core`                   |
 | `com.obsinity.telemetry.processor.TelemetryProcessor*` (emit)  | **Trimmed** into `obsinity-client-core`      | `com.obsinity.client.core`                   |
 | `com.obsinity.telemetry.transport.EventSender`                 | `obsinity-client-transport-spi`              | `com.obsinity.client.transport`              |
@@ -176,7 +176,7 @@ These belong in a **separate processing/receiver** repo (e.g., `obsinity-server`
 
 # Quick migration checklist
 
-1. Move producer annotations → `obsinity-client-api`.
+1. Move producer annotations → `obsinity-collection-api`.
 2. Extract the minimal emit runtime (`TelemetryContext`, `ObsinityClient`) → `obsinity-client-core`.
 3. Keep/expand `EventSender` SPI; move each HTTP implementation into its transport module.
 4. Put `StdoutEventSender` into logging-sink; `InMemoryEventSender` into testkit.
