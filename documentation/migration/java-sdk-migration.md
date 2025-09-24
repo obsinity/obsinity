@@ -73,13 +73,11 @@
 
 ### 5) Logging sink / dev sink
 
-**Move to:** `obsinity-client-logging-sink`
-**Packages:** `com.obsinity.client.sink`
-**Classes:** `StdoutEventSender` (already present)
+Use the collection-side receiver module instead of a client sink.
 
-> Notes
->
-> * Useful for local dev; depends on SPI only.
+**Module:** `obsinity-collection-receiver-logging`
+**Packages:** `com.obsinity.collection.receiver.logging`
+**Classes:** logging receiver implementation
 
 ---
 
@@ -158,7 +156,7 @@ These belong in a **separate processing/receiver** repo (e.g., `obsinity-server`
 | `*JdkHttp*EventSender`                                         | `obsinity-client-transport-jdkhttp`          | `com.obsinity.client.transport.jdkhttp`      |
 | `*RestTemplate*EventSender`                                    | `obsinity-client-transport-resttemplate`     | `com.obsinity.client.transport.resttemplate` |
 | `*WebClient*EventSender`                                       | `obsinity-client-transport-webclient`        | `com.obsinity.client.transport.webclient`    |
-| `StdoutEventSender`                                            | `obsinity-client-logging-sink`               | `com.obsinity.client.sink`                   |
+| logging receiver                                               | `obsinity-collection-receiver-logging`       | `com.obsinity.collection.receiver.logging`   |
 | `InMemoryEventSender`, fakes                                   | `obsinity-client-testkit`                    | `com.obsinity.client.testkit`                |
 | **Receiver/handler side** (`@OnEvent`, scanners, dispatch, …)  | **Not in this repo** (server/processor repo) | —                                            |
 
@@ -179,6 +177,6 @@ These belong in a **separate processing/receiver** repo (e.g., `obsinity-server`
 1. Move producer annotations → `obsinity-collection-api`.
 2. Extract the minimal emit runtime (`TelemetryContext`, `ObsinityClient`) → `obsinity-client-core`.
 3. Keep/expand `EventSender` SPI; move each HTTP implementation into its transport module.
-4. Put `StdoutEventSender` into logging-sink; `InMemoryEventSender` into testkit.
+4. Use `obsinity-collection-receiver-logging` for dev/local logging; keep client testkit in `obsinity-client-testkit`.
 5. Exclude all receiver/handler/dispatch classes from this repo; create/keep a separate **server** repo for them.
 6. (Optional) Add `obsinity-client-spring-boot-starter` if you want autoconfig/AOP for @Flow/@Step.

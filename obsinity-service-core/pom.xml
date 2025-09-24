@@ -12,10 +12,6 @@
   <dependencies>
     <dependency>
       <groupId>com.obsinity</groupId>
-      <artifactId>obsinity-collection-api</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>com.obsinity</groupId>
       <artifactId>obsinity-core</artifactId>
     </dependency>
     <dependency>

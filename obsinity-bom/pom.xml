@@ -50,7 +50,7 @@
       <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-transport-jdkhttp</artifactId><version>${project.version}</version></dependency>
       <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-transport-resttemplate</artifactId><version>${project.version}</version></dependency>
       <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-transport-webclient</artifactId><version>${project.version}</version></dependency>
-      <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-logging-sink</artifactId><version>${project.version}</version></dependency>
+      <!-- client logging sink removed; use obsinity-collection-receiver-logging instead -->
       <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-testkit</artifactId><version>${project.version}</version></dependency>
 
       <!-- NEW: server-side internal artifacts -->

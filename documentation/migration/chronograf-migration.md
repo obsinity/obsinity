@@ -7,7 +7,7 @@ obsinity/
 ├─ obsinity-client-core/
 ├─ obsinity-client-transport-spi/
 ├─ obsinity-client-transport-*/           (apache/okhttp/jdkhttp/resttemplate/webclient)
-├─ obsinity-client-logging-sink/
+├─ obsinity-collection-receiver-logging/
 ├─ obsinity-client-testkit/
 ├─ obsinity-reference-client(-spring)/
 └─ engine/

@@ -21,7 +21,7 @@
     <module>obsinity-client-transport-resttemplate</module>
     <module>obsinity-client-transport-webclient</module>
 
-    <module>obsinity-client-logging-sink</module>
+    <!-- removed: obsinity-client-logging-sink (replaced by obsinity-collection-receiver-logging) -->
     <module>obsinity-client-testkit</module>
 
     <module>obsinity-reference-client</module>
