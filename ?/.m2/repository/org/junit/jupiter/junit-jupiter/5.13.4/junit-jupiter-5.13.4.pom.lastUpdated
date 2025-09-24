@@ -1,4 +1,0 @@
-#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
-#Wed Sep 24 16:12:56 IST 2025
-@default-central-https\://repo.maven.apache.org/maven2/.lastUpdated=1758726776370
-https\://repo.maven.apache.org/maven2/.error=Could not transfer artifact org.junit.jupiter\:junit-jupiter\:pom\:5.13.4 from/to central (https\://repo.maven.apache.org/maven2)\: transfer failed for https\://repo.maven.apache.org/maven2/org/junit/jupiter/junit-jupiter/5.13.4/junit-jupiter-5.13.4.pom
