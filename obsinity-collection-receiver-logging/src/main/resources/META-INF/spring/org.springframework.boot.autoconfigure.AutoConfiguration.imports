@@ -1,1 +1,1 @@
-com.obsinity.collection.sink.logging.autoconfigure.LoggingSinkAutoConfiguration
+com.obsinity.collection.receiver.logging.autoconfigure.LoggingReceiverAutoConfiguration

@@ -1,1 +1,1 @@
-com.obsinity.collection.sink.obsinity.autoconfigure.ObsinitySinkAutoConfiguration
+com.obsinity.collection.receiver.obsinity.autoconfigure.ObsinityReceiverAutoConfiguration

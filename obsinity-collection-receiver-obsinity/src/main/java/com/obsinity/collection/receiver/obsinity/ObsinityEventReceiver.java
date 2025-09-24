@@ -1,4 +1,4 @@
-package com.obsinity.collection.sink.obsinity;
+package com.obsinity.collection.receiver.obsinity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;

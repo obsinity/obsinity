@@ -1,12 +1,12 @@
-package com.obsinity.collection.sink.logging;
+package com.obsinity.collection.receiver.logging;
 
 import com.obsinity.collection.core.model.OEvent;
 import com.obsinity.collection.core.receivers.EventHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class LoggingEventSink implements EventHandler {
-    private static final Logger log = LoggerFactory.getLogger(LoggingEventSink.class);
+public final class LoggingEventReceiver implements EventHandler {
+    private static final Logger log = LoggerFactory.getLogger(LoggingEventReceiver.class);
 
     @Override
     public void handle(OEvent event) {
