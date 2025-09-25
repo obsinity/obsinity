@@ -5,12 +5,13 @@ import com.obsinity.collection.core.processor.DefaultTelemetryProcessor;
 import com.obsinity.collection.core.processor.TelemetryProcessor;
 import com.obsinity.collection.core.receivers.HandlerRegistry;
 import com.obsinity.collection.spring.aspect.TelemetryAspect;
+import com.obsinity.telemetry.processor.TelemetryProcessorSupport;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 @AutoConfiguration
-@Import(TelemetryAspect.class)
+@Import({TelemetryAspect.class, TelemetrySupportAutoConfiguration.class})
 public class CollectionAutoConfiguration {
 
     @Bean
@@ -19,7 +20,7 @@ public class CollectionAutoConfiguration {
     }
 
     @Bean
-    public TelemetryProcessor telemetryProcessor(DispatchBus bus) {
-        return new DefaultTelemetryProcessor(bus);
+    public TelemetryProcessor telemetryProcessor(DispatchBus bus, TelemetryProcessorSupport support) {
+        return new DefaultTelemetryProcessor(bus, support);
     }
 }

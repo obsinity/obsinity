@@ -45,7 +45,7 @@ public class TelemetryProcessorSupport {
 
     /* --------------------- flow stack --------------------- */
 
-    TelemetryHolder currentHolder() {
+    public TelemetryHolder currentHolder() {
         final Deque<TelemetryHolder> d = ctx.get();
         return d.isEmpty() ? null : d.peekLast();
     }
@@ -59,15 +59,15 @@ public class TelemetryProcessorSupport {
         return it.next(); // parent
     }
 
-    boolean hasActiveFlow() {
+    public boolean hasActiveFlow() {
         return !ctx.get().isEmpty();
     }
 
-    void push(final TelemetryHolder h) {
+    public void push(final TelemetryHolder h) {
         if (h != null) ctx.get().addLast(h);
     }
 
-    void pop(final TelemetryHolder expectedTop) {
+    public void pop(final TelemetryHolder expectedTop) {
         final Deque<TelemetryHolder> d = ctx.get();
         if (!d.isEmpty()) {
             final TelemetryHolder last = d.peekLast();
@@ -82,12 +82,12 @@ public class TelemetryProcessorSupport {
     /* --------------------- batch helpers --------------------- */
 
     /** Start a fresh batch for a new root flow. */
-    void startNewBatch() {
+    public void startNewBatch() {
         batch.set(new ArrayList<>());
     }
 
     /** Add a holder to the current root batch if present. */
-    void addToBatch(final TelemetryHolder holder) {
+    public void addToBatch(final TelemetryHolder holder) {
         final List<TelemetryHolder> list = batch.get();
         if (list != null && holder != null) list.add(holder);
     }
@@ -96,7 +96,7 @@ public class TelemetryProcessorSupport {
      * Return the current batch as-is (may be empty). <b>Does not clear.</b> Clearing must be done by
      * {@link #clearBatchAfterDispatch()} after dispatch completes.
      */
-    List<TelemetryHolder> finishBatchAndGet() {
+    public List<TelemetryHolder> finishBatchAndGet() {
         return batch.get();
     }
 
@@ -106,7 +106,7 @@ public class TelemetryProcessorSupport {
     }
 
     /** Clear the batch <b>after</b> ROOT_FLOW_FINISHED dispatch so binders can read it during invocation. */
-    void clearBatchAfterDispatch() {
+    public void clearBatchAfterDispatch() {
         batch.remove();
         // re-initialize to avoid extra allocations on the next root
         batch.set(new ArrayList<>());
@@ -114,13 +114,13 @@ public class TelemetryProcessorSupport {
 
     /* --------------------- mutation helpers --------------------- */
 
-    void setEndTime(final TelemetryHolder h, final Instant end) {
+    public void setEndTime(final TelemetryHolder h, final Instant end) {
         if (h != null) h.setEndTimestamp(end);
     }
 
     /* --------------------- utility --------------------- */
 
-    long unixNanos(final Instant ts) {
+    public long unixNanos(final Instant ts) {
         return ts.getEpochSecond() * 1_000_000_000L + ts.getNano();
     }
 
@@ -128,7 +128,7 @@ public class TelemetryProcessorSupport {
         void run() throws Exception;
     }
 
-    void safe(final UnsafeRunnable r) {
+    public void safe(final UnsafeRunnable r) {
         try {
             r.run();
         } catch (Exception ignored) {
@@ -142,7 +142,7 @@ public class TelemetryProcessorSupport {
      * Log that a @Step executed with no active Flow and is being promoted. Default level is ERROR if {@code level} is
      * null.
      */
-    void logOrphanStep(final String stepName, final OrphanAlert.Level level) {
+    public void logOrphanStep(final String stepName, final OrphanAlert.Level level) {
         final OrphanAlert.Level lvl = (level != null ? level : OrphanAlert.Level.ERROR);
         switch (lvl) {
             case NONE -> {

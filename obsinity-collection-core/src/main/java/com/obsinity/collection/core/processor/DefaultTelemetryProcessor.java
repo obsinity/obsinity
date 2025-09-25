@@ -2,15 +2,23 @@ package com.obsinity.collection.core.processor;
 
 import com.obsinity.collection.core.dispatch.DispatchBus;
 import com.obsinity.collection.core.model.OEvent;
+import com.obsinity.telemetry.model.TelemetryHolder;
+import com.obsinity.telemetry.processor.TelemetryProcessorSupport;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class DefaultTelemetryProcessor implements TelemetryProcessor {
     private final DispatchBus bus;
+    private final TelemetryProcessorSupport support;
 
     public DefaultTelemetryProcessor(DispatchBus bus) {
+        this(bus, null);
+    }
+
+    public DefaultTelemetryProcessor(DispatchBus bus, TelemetryProcessorSupport support) {
         this.bus = bus;
+        this.support = support;
     }
 
     @Override
@@ -61,6 +69,16 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
                 .name(name + ":started")
                 .attributes(attrs)
                 .resourceContext(ctx);
+        if (support != null) {
+            TelemetryHolder holder = TelemetryHolder.builder()
+                    .name(name)
+                    .timestamp(Instant.now())
+                    .build();
+            holder.attributes().map().putAll(attrs);
+            holder.eventContext().putAll(ctx);
+            support.push(holder);
+            support.startNewBatch();
+        }
         applyMeta(b, meta);
         bus.dispatch(b.build());
     }
@@ -79,6 +97,15 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
             b.status(meta.statusCode, meta.statusMessage);
         applyMeta(b, meta);
         bus.dispatch(b.build());
+        if (support != null) {
+            TelemetryHolder top = support.currentHolder();
+            if (top != null) {
+                top.attributes().map().putAll(attrs);
+                top.eventContext().putAll(ctx);
+            }
+            support.clearBatchAfterDispatch();
+            support.pop(top);
+        }
     }
 
     @Override
@@ -100,6 +127,15 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
             b.status(meta.statusCode, meta.statusMessage);
         applyMeta(b, meta);
         bus.dispatch(b.build());
+        if (support != null) {
+            TelemetryHolder top = support.currentHolder();
+            if (top != null) {
+                top.attributes().map().putAll(attrs);
+                top.eventContext().putAll(ctx);
+            }
+            support.clearBatchAfterDispatch();
+            support.pop(top);
+        }
     }
 
     private static void applyMeta(OEvent.Builder b, TelemetryMeta meta) {
