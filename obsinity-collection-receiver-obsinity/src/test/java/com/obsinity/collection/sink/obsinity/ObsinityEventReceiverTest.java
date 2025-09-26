@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.obsinity.client.transport.EventSender;
-import com.obsinity.collection.receiver.obsinity.TelemetryObsinityReceiver;
+import com.obsinity.collection.receiver.obsinity.TelemetryObsinityReceivers;
 import com.obsinity.telemetry.model.OStatus;
 import com.obsinity.telemetry.model.TelemetryHolder;
 import io.opentelemetry.api.trace.StatusCode;
@@ -25,7 +25,7 @@ class ObsinityEventReceiverTest {
     @Test
     void maps_basic_fields() throws Exception {
         var sender = new CapturingSender();
-        var sink = new TelemetryObsinityReceiver(sender);
+        var sink = new TelemetryObsinityReceivers(sender);
 
         TelemetryHolder h = TelemetryHolder.builder()
                 .name("demo.checkout")
@@ -35,7 +35,7 @@ class ObsinityEventReceiverTest {
         h.attributes().put("user.id", "alice");
         h.eventContext().put("cart.size", 3);
 
-        sink.handle(h);
+        sink.onCompleted(h);
 
         ObjectMapper om = new ObjectMapper();
         JsonNode root = om.readTree(sender.last);

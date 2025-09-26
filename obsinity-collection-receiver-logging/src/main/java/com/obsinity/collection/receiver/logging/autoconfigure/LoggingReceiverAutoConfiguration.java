@@ -1,7 +1,6 @@
 package com.obsinity.collection.receiver.logging.autoconfigure;
 
-import com.obsinity.collection.core.receivers.TelemetryReceiver;
-import com.obsinity.collection.receiver.logging.LoggingTelemetryReceiver;
+import com.obsinity.collection.receiver.logging.LoggingReceivers;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -16,8 +15,8 @@ public class LoggingReceiverAutoConfiguration {
             name = "enabled",
             havingValue = "true",
             matchIfMissing = true)
-    @ConditionalOnMissingBean(name = "loggingTelemetryReceiver")
-    public TelemetryReceiver loggingTelemetryReceiver() {
-        return new LoggingTelemetryReceiver();
+    @ConditionalOnMissingBean(name = "loggingReceivers")
+    public LoggingReceivers loggingReceivers() {
+        return new LoggingReceivers();
     }
 }
