@@ -3,11 +3,18 @@ package com.obsinity.collection.spring.aspect;
 import com.obsinity.collection.api.annotations.Domain;
 import com.obsinity.collection.api.annotations.Flow;
 import com.obsinity.collection.api.annotations.Kind;
+import com.obsinity.collection.api.annotations.OrphanAlert;
+import com.obsinity.collection.api.annotations.Step;
 import com.obsinity.collection.core.processor.TelemetryMeta;
 import com.obsinity.collection.core.processor.TelemetryProcessor;
 import com.obsinity.collection.spring.processor.AttributeParamExtractor;
 import com.obsinity.collection.spring.processor.AttributeParamExtractor.AttrCtx;
+import com.obsinity.telemetry.model.TelemetryHolder;
+import com.obsinity.telemetry.processor.TelemetryProcessorSupport;
 import java.lang.reflect.Method;
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -16,9 +23,11 @@ import org.aspectj.lang.reflect.MethodSignature;
 @Aspect
 public class TelemetryAspect {
     private final TelemetryProcessor processor;
+    private final TelemetryProcessorSupport support;
 
-    public TelemetryAspect(TelemetryProcessor processor) {
+    public TelemetryAspect(TelemetryProcessor processor, TelemetryProcessorSupport support) {
         this.processor = processor;
+        this.support = support;
     }
 
     @Around("@annotation(com.obsinity.collection.api.annotations.Flow) && execution(* *(..))")
@@ -41,6 +50,49 @@ public class TelemetryAspect {
         }
     }
 
+    @Around("@annotation(com.obsinity.collection.api.annotations.Step) && execution(* *(..))")
+    public Object aroundStep(ProceedingJoinPoint pjp) throws Throwable {
+        String name = resolveStepName(pjp);
+        AttrCtx ac = AttributeParamExtractor.extract(pjp);
+
+        TelemetryHolder holder = (support != null) ? support.currentHolder() : null;
+        if (holder == null) {
+            // Orphan step: log + auto-promote as a flow
+            OrphanAlert oa = ((MethodSignature) pjp.getSignature()).getMethod().getAnnotation(OrphanAlert.class);
+            if (support != null) support.logOrphanStep(name, oa != null ? oa.level() : OrphanAlert.Level.ERROR);
+            try {
+                processor.onFlowStarted(name, ac.attributes(), ac.context(), buildMeta(pjp, null));
+                Object result = pjp.proceed();
+                processor.onFlowCompleted(name, ac.attributes(), ac.context(), buildMeta(pjp, new StatusHint("OK", null)));
+                return result;
+            } catch (Throwable t) {
+                Map<String, Object> attrs = new LinkedHashMap<>(ac.attributes());
+                attrs.putIfAbsent("error", t.getClass().getSimpleName());
+                processor.onFlowFailed(name, t, attrs, ac.context(), buildMeta(pjp, new StatusHint("ERROR", t.getMessage())));
+                throw t;
+            }
+        }
+
+        // In-flow step: mutate current holder and add nested event for duration
+        holder.attributes().map().putAll(ac.attributes());
+        holder.eventContext().putAll(ac.context());
+
+        long startNano = System.nanoTime();
+        long startEpochNanos = support != null ? support.unixNanos(Instant.now()) : 0L;
+        TelemetryHolder.OAttributes initial = new TelemetryHolder.OAttributes(new LinkedHashMap<>(ac.attributes()));
+        holder.beginStepEvent(name, startEpochNanos, startNano, initial);
+        try {
+            Object result = pjp.proceed();
+            holder.endStepEvent(support != null ? support.unixNanos(Instant.now()) : 0L, System.nanoTime(), null);
+            return result;
+        } catch (Throwable t) {
+            Map<String, Object> updates = new LinkedHashMap<>();
+            updates.put("error", t.getClass().getSimpleName());
+            holder.endStepEvent(support != null ? support.unixNanos(Instant.now()) : 0L, System.nanoTime(), updates);
+            throw t;
+        }
+    }
+
     private static String resolveFlowName(ProceedingJoinPoint pjp) {
         MethodSignature ms = (MethodSignature) pjp.getSignature();
         Method m = ms.getMethod();
@@ -48,6 +100,17 @@ public class TelemetryAspect {
         if (f != null) {
             if (!f.name().isBlank()) return f.name();
             if (!f.value().isBlank()) return f.value();
+        }
+        return ms.toShortString();
+    }
+
+    private static String resolveStepName(ProceedingJoinPoint pjp) {
+        MethodSignature ms = (MethodSignature) pjp.getSignature();
+        Method m = ms.getMethod();
+        Step s = m.getAnnotation(Step.class);
+        if (s != null) {
+            if (!s.name().isBlank()) return s.name();
+            if (!s.value().isBlank()) return s.value();
         }
         return ms.toShortString();
     }
