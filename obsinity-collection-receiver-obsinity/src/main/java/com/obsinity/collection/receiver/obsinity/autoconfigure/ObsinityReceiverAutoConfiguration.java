@@ -2,7 +2,9 @@ package com.obsinity.collection.receiver.obsinity.autoconfigure;
 
 import com.obsinity.client.transport.EventSender;
 import com.obsinity.collection.core.receivers.EventHandler;
+import com.obsinity.collection.core.receivers.TelemetryReceiver;
 import com.obsinity.collection.receiver.obsinity.ObsinityEventReceiver;
+import com.obsinity.collection.receiver.obsinity.TelemetryObsinityReceiver;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -22,5 +24,11 @@ public class ObsinityReceiverAutoConfiguration {
     @ConditionalOnMissingBean(name = "obsinityEventReceiver")
     public EventHandler obsinityEventReceiver(EventSender sender) {
         return new ObsinityEventReceiver(sender);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "telemetryObsinityReceiver")
+    public TelemetryReceiver telemetryObsinityReceiver(EventSender sender) {
+        return new TelemetryObsinityReceiver(sender);
     }
 }

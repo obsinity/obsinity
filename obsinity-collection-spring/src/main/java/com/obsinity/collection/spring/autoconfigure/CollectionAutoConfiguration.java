@@ -1,9 +1,11 @@
 package com.obsinity.collection.spring.autoconfigure;
 
+import com.obsinity.collection.core.dispatch.AsyncDispatchBus;
 import com.obsinity.collection.core.dispatch.DispatchBus;
 import com.obsinity.collection.core.processor.DefaultTelemetryProcessor;
 import com.obsinity.collection.core.processor.TelemetryProcessor;
 import com.obsinity.collection.core.receivers.HandlerRegistry;
+import com.obsinity.collection.core.receivers.TelemetryHandlerRegistry;
 import com.obsinity.collection.spring.aspect.TelemetryAspect;
 import com.obsinity.telemetry.processor.TelemetryProcessorSupport;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -20,7 +22,12 @@ public class CollectionAutoConfiguration {
     }
 
     @Bean
-    public TelemetryProcessor telemetryProcessor(DispatchBus bus, TelemetryProcessorSupport support) {
-        return new DefaultTelemetryProcessor(bus, support);
+    public AsyncDispatchBus asyncDispatchBus(TelemetryHandlerRegistry registry) {
+        return new AsyncDispatchBus(registry);
+    }
+
+    @Bean
+    public TelemetryProcessor telemetryProcessor(DispatchBus bus, AsyncDispatchBus asyncBus, TelemetryProcessorSupport support) {
+        return new DefaultTelemetryProcessor(bus, asyncBus, support);
     }
 }

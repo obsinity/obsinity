@@ -1,5 +1,6 @@
 package com.obsinity.collection.core.processor;
 
+import com.obsinity.collection.core.dispatch.AsyncDispatchBus;
 import com.obsinity.collection.core.dispatch.DispatchBus;
 import com.obsinity.collection.core.model.OEvent;
 import com.obsinity.telemetry.model.TelemetryHolder;
@@ -10,14 +11,16 @@ import java.util.Map;
 
 public class DefaultTelemetryProcessor implements TelemetryProcessor {
     private final DispatchBus bus;
+    private final AsyncDispatchBus asyncBus;
     private final TelemetryProcessorSupport support;
 
     public DefaultTelemetryProcessor(DispatchBus bus) {
-        this(bus, null);
+        this(bus, null, null);
     }
 
-    public DefaultTelemetryProcessor(DispatchBus bus, TelemetryProcessorSupport support) {
+    public DefaultTelemetryProcessor(DispatchBus bus, AsyncDispatchBus asyncBus, TelemetryProcessorSupport support) {
         this.bus = bus;
+        this.asyncBus = asyncBus;
         this.support = support;
     }
 
@@ -78,6 +81,7 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
             holder.eventContext().putAll(ctx);
             support.push(holder);
             support.startNewBatch();
+            if (asyncBus != null) asyncBus.dispatch(holder);
         }
         applyMeta(b, meta);
         bus.dispatch(b.build());
@@ -105,6 +109,7 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
             }
             support.clearBatchAfterDispatch();
             support.pop(top);
+            if (asyncBus != null && top != null) asyncBus.dispatch(top);
         }
     }
 
@@ -135,6 +140,7 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
             }
             support.clearBatchAfterDispatch();
             support.pop(top);
+            if (asyncBus != null && top != null) asyncBus.dispatch(top);
         }
     }
 
