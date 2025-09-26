@@ -27,4 +27,3 @@ public class LoggingReceivers {
         log.warn("FAIL  {} attrs={} ctx={}", h.name(), h.attributes().map(), h.eventContext());
     }
 }
-

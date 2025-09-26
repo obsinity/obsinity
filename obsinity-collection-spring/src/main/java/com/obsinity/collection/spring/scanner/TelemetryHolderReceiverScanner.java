@@ -50,7 +50,8 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
         }
         if (m.isAnnotationPresent(OnFlowCompleted.class)) {
             registry.register(filterByLifecycle(h, "COMPLETED"));
-            log.info("Registered OnFlowCompleted handler: {}#{}", bean.getClass().getSimpleName(), m.getName());
+            log.info(
+                    "Registered OnFlowCompleted handler: {}#{}", bean.getClass().getSimpleName(), m.getName());
         }
         if (m.isAnnotationPresent(OnFlowFailure.class)) {
             registry.register(filterByLifecycle(h, "FAILED"));
@@ -88,4 +89,3 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
         };
     }
 }
-

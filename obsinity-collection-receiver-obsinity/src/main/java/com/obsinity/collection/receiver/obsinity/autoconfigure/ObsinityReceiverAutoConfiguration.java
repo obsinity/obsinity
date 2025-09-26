@@ -1,7 +1,6 @@
 package com.obsinity.collection.receiver.obsinity.autoconfigure;
 
 import com.obsinity.client.transport.EventSender;
-import com.obsinity.collection.core.receivers.TelemetryReceiver;
 import com.obsinity.collection.receiver.obsinity.TelemetryObsinityReceivers;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
