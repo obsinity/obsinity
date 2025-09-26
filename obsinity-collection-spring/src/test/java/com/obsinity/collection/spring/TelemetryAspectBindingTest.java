@@ -3,12 +3,12 @@ package com.obsinity.collection.spring;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.obsinity.collection.api.annotations.Domain;
-import com.obsinity.collection.api.annotations.EventReceiver;
 import com.obsinity.collection.api.annotations.Flow;
 import com.obsinity.collection.api.annotations.Kind;
 import com.obsinity.collection.api.annotations.PushAttribute;
 import com.obsinity.collection.api.annotations.PushContextValue;
-import com.obsinity.collection.core.model.OEvent;
+import com.obsinity.collection.core.receivers.TelemetryReceiver;
+import com.obsinity.telemetry.model.TelemetryHolder;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
@@ -39,11 +39,6 @@ class TelemetryAspectBindingTest {
         }
 
         @Bean
-        RecordingReceiver recordingReceiver() {
-            return new RecordingReceiver();
-        }
-
-        @Bean
         CapturingReceiver capturingReceiver() {
             return new CapturingReceiver();
         }
@@ -57,30 +52,13 @@ class TelemetryAspectBindingTest {
             }
         }
 
-        @EventReceiver
-        static class RecordingReceiver {
-            final List<OEvent> events = new ArrayList<>();
-
-            @com.obsinity.collection.api.annotations.OnFlowStarted
-            public void onStart(OEvent e) {
-                events.add(e);
-            }
-
-            @com.obsinity.collection.api.annotations.OnFlowCompleted
-            public void onCompleted(OEvent e) {
-                events.add(e);
-            }
-        }
-
-        /**
-         * Simple receiver bean that captures all dispatched events (fallback).
-         */
-        static class CapturingReceiver implements com.obsinity.collection.core.receivers.EventHandler {
-            final List<OEvent> events = new ArrayList<>();
+        /** Simple receiver bean that captures TelemetryHolder fan-out. */
+        static class CapturingReceiver implements TelemetryReceiver {
+            final List<TelemetryHolder> holders = new ArrayList<>();
 
             @Override
-            public void handle(OEvent event) {
-                events.add(event);
+            public void handle(TelemetryHolder holder) {
+                holders.add(holder);
             }
         }
 
@@ -88,33 +66,33 @@ class TelemetryAspectBindingTest {
         private SampleFlows flows;
 
         @org.springframework.beans.factory.annotation.Autowired
-        private RecordingReceiver receiver;
-
-        @org.springframework.beans.factory.annotation.Autowired
         private CapturingReceiver capturingReceiver;
 
         @AfterEach
         void clear() {
-            receiver.events.clear();
+            capturingReceiver.holders.clear();
         }
 
         @Test
         void emits_started_and_completed_with_attributes_and_context() {
             flows.checkout("alice", 3);
 
-            List<OEvent> seen = !receiver.events.isEmpty() ? receiver.events : capturingReceiver.events;
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException ignored) {
+            }
+            List<TelemetryHolder> seen = capturingReceiver.holders;
             assertThat(seen).hasSize(2);
-            OEvent started = seen.get(0);
-            OEvent finished = seen.get(1);
+            TelemetryHolder started = seen.get(0);
+            TelemetryHolder finished = seen.get(1);
 
-            assertThat(started.name()).isEqualTo("demo.checkout:started");
-            assertThat(finished.name()).isEqualTo("demo.checkout:completed");
+            assertThat(started.name()).isEqualTo("demo.checkout");
+            assertThat(finished.name()).isEqualTo("demo.checkout");
 
-            assertThat(started.attributes()).containsEntry("user.id", "alice");
-            assertThat(finished.attributes()).containsEntry("user.id", "alice");
-
-            assertThat(started.context()).containsEntry("cart.size", 3);
-            assertThat(finished.context()).containsEntry("cart.size", 3);
+            assertThat(started.attributes().map()).containsEntry("user.id", "alice");
+            assertThat(finished.attributes().map()).containsEntry("user.id", "alice");
+            assertThat(started.eventContext()).containsEntry("cart.size", 3);
+            assertThat(finished.eventContext()).containsEntry("cart.size", 3);
         }
     }
 }

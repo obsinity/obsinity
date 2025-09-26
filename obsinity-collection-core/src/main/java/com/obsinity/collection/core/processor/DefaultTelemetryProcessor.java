@@ -1,8 +1,6 @@
 package com.obsinity.collection.core.processor;
 
 import com.obsinity.collection.core.dispatch.AsyncDispatchBus;
-import com.obsinity.collection.core.dispatch.DispatchBus;
-import com.obsinity.collection.core.model.OEvent;
 import com.obsinity.telemetry.model.TelemetryHolder;
 import com.obsinity.telemetry.processor.TelemetryProcessorSupport;
 import java.time.Instant;
@@ -10,16 +8,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class DefaultTelemetryProcessor implements TelemetryProcessor {
-    private final DispatchBus bus;
     private final AsyncDispatchBus asyncBus;
     private final TelemetryProcessorSupport support;
 
-    public DefaultTelemetryProcessor(DispatchBus bus) {
-        this(bus, null, null);
-    }
-
-    public DefaultTelemetryProcessor(DispatchBus bus, AsyncDispatchBus asyncBus, TelemetryProcessorSupport support) {
-        this.bus = bus;
+    public DefaultTelemetryProcessor(AsyncDispatchBus asyncBus, TelemetryProcessorSupport support) {
         this.asyncBus = asyncBus;
         this.support = support;
     }
@@ -28,24 +20,14 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
     public void onFlowStarted(String name, Map<String, Object> extraAttrs, Map<String, Object> extraContext) {
         var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
         var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
-        bus.dispatch(OEvent.builder()
-                .occurredAt(Instant.now())
-                .name(name + ":started")
-                .attributes(attrs)
-                .resourceContext(ctx)
-                .build());
+        onFlowStarted(name, attrs, ctx, null);
     }
 
     @Override
     public void onFlowCompleted(String name, Map<String, Object> extraAttrs, Map<String, Object> extraContext) {
         var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
         var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
-        bus.dispatch(OEvent.builder()
-                .occurredAt(Instant.now())
-                .name(name + ":completed")
-                .attributes(attrs)
-                .resourceContext(ctx)
-                .build());
+        onFlowCompleted(name, attrs, ctx, null);
     }
 
     @Override
@@ -54,12 +36,7 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
         var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
         if (error != null) attrs.putIfAbsent("error", error.getClass().getSimpleName());
         var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
-        bus.dispatch(OEvent.builder()
-                .occurredAt(Instant.now())
-                .name(name + ":failed")
-                .attributes(attrs)
-                .resourceContext(ctx)
-                .build());
+        onFlowFailed(name, error, attrs, ctx, null);
     }
 
     @Override
@@ -67,11 +44,6 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
             String name, Map<String, Object> extraAttrs, Map<String, Object> extraContext, TelemetryMeta meta) {
         var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
         var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
-        var b = OEvent.builder()
-                .occurredAt(Instant.now())
-                .name(name + ":started")
-                .attributes(attrs)
-                .resourceContext(ctx);
         if (support != null) {
             TelemetryHolder holder = TelemetryHolder.builder()
                     .name(name)
@@ -83,8 +55,7 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
             support.startNewBatch();
             if (asyncBus != null) asyncBus.dispatch(holder);
         }
-        applyMeta(b, meta);
-        bus.dispatch(b.build());
+        // meta applied to OEvent previously; if needed, augment holder creation to include meta.
     }
 
     @Override
@@ -92,15 +63,6 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
             String name, Map<String, Object> extraAttrs, Map<String, Object> extraContext, TelemetryMeta meta) {
         var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
         var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
-        var b = OEvent.builder()
-                .occurredAt(Instant.now())
-                .name(name + ":completed")
-                .attributes(attrs)
-                .resourceContext(ctx);
-        if (meta != null && (meta.statusCode != null || meta.statusMessage != null))
-            b.status(meta.statusCode, meta.statusMessage);
-        applyMeta(b, meta);
-        bus.dispatch(b.build());
         if (support != null) {
             TelemetryHolder top = support.currentHolder();
             if (top != null) {
@@ -123,15 +85,6 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
         var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
         if (error != null) attrs.putIfAbsent("error", error.getClass().getSimpleName());
         var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
-        var b = OEvent.builder()
-                .occurredAt(Instant.now())
-                .name(name + ":failed")
-                .attributes(attrs)
-                .resourceContext(ctx);
-        if (meta != null && (meta.statusCode != null || meta.statusMessage != null))
-            b.status(meta.statusCode, meta.statusMessage);
-        applyMeta(b, meta);
-        bus.dispatch(b.build());
         if (support != null) {
             TelemetryHolder top = support.currentHolder();
             if (top != null) {
@@ -142,13 +95,5 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
             support.pop(top);
             if (asyncBus != null && top != null) asyncBus.dispatch(top);
         }
-    }
-
-    private static void applyMeta(OEvent.Builder b, TelemetryMeta meta) {
-        if (meta == null) return;
-        if (meta.kind != null) b.kind(meta.kind);
-        if (meta.domain != null) b.domain(meta.domain);
-        if (meta.traceId != null || meta.spanId != null || meta.parentSpanId != null || meta.tracestate != null)
-            b.trace(meta.traceId, meta.spanId, meta.parentSpanId, meta.tracestate);
     }
 }

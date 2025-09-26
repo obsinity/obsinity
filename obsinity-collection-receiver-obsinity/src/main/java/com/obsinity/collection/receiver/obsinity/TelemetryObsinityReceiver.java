@@ -49,8 +49,10 @@ public final class TelemetryObsinityReceiver implements TelemetryReceiver {
 
         if (h.status() != null && (h.status().getCode() != null || h.status().getMessage() != null)) {
             Map<String, Object> status = new LinkedHashMap<>();
-            if (h.status().getCode() != null) status.put("code", String.valueOf(h.status().getCode()));
-            if (h.status().getMessage() != null) status.put("message", h.status().getMessage());
+            if (h.status().getCode() != null)
+                status.put("code", String.valueOf(h.status().getCode()));
+            if (h.status().getMessage() != null)
+                status.put("message", h.status().getMessage());
             root.put("status", status);
         }
 

@@ -2,8 +2,9 @@ package com.obsinity.collection.spring;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.obsinity.collection.core.dispatch.DispatchBus;
-import com.obsinity.collection.core.model.OEvent;
+import com.obsinity.collection.core.dispatch.AsyncDispatchBus;
+import com.obsinity.collection.core.receivers.TelemetryReceiver;
+import com.obsinity.telemetry.model.TelemetryHolder;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,28 +30,31 @@ class HandlerScannerTest {
         }
     }
 
-    static class TestReceiver implements com.obsinity.collection.core.receivers.EventHandler {
-        static final List<OEvent> received = new ArrayList<>();
+    static class TestReceiver implements TelemetryReceiver {
+        static final List<TelemetryHolder> received = new ArrayList<>();
 
         @Override
-        public void handle(OEvent e) {
-            received.add(e);
+        public void handle(TelemetryHolder h) {
+            received.add(h);
         }
     }
 
     @org.springframework.beans.factory.annotation.Autowired
-    private DispatchBus bus;
+    private AsyncDispatchBus bus;
 
     @Test
     void scanner_registers_receiver_methods() {
-        OEvent e = OEvent.builder()
-                .occurredAt(Instant.now())
-                .name("unit.test:started")
-                .attributes(java.util.Map.of())
+        TelemetryHolder h = TelemetryHolder.builder()
+                .name("unit.test")
+                .timestamp(Instant.now())
                 .build();
-        bus.dispatch(e);
+        bus.dispatch(h);
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException ignored) {
+        }
         assertThat(TestReceiver.received).hasSize(1);
-        assertThat(TestReceiver.received.get(0).name()).isEqualTo("unit.test:started");
+        assertThat(TestReceiver.received.get(0).name()).isEqualTo("unit.test");
         TestReceiver.received.clear();
     }
 }
