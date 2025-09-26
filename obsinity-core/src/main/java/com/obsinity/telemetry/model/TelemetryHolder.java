@@ -54,7 +54,9 @@ public class TelemetryHolder {
         private boolean step;
         private long startNanoTime;
 
-        private Builder() {}
+        private Builder() {
+            this.serviceId = "**DUMMY-SERVICE-ID**";
+        }
 
         public Builder name(String name) {
             this.name = name;
