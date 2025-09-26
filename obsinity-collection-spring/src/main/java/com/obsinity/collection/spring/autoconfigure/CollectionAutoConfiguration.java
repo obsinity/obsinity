@@ -27,7 +27,8 @@ public class CollectionAutoConfiguration {
     }
 
     @Bean
-    public TelemetryProcessor telemetryProcessor(DispatchBus bus, AsyncDispatchBus asyncBus, TelemetryProcessorSupport support) {
+    public TelemetryProcessor telemetryProcessor(
+            DispatchBus bus, AsyncDispatchBus asyncBus, TelemetryProcessorSupport support) {
         return new DefaultTelemetryProcessor(bus, asyncBus, support);
     }
 }

@@ -35,6 +35,12 @@
       <version>${spring-boot.version}</version>
     </dependency>
 
+    <!-- Required for TelemetryHolder.kind() (SpanKind) -->
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-api</artifactId>
+    </dependency>
+
     <!-- Test dependencies -->
     <dependency>
       <groupId>org.springframework.boot</groupId>

@@ -19,4 +19,3 @@ public final class LoggingTelemetryReceiver implements TelemetryReceiver {
                 holder.eventContext());
     }
 }
-

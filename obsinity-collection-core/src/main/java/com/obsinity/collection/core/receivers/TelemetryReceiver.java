@@ -6,4 +6,3 @@ import com.obsinity.telemetry.model.TelemetryHolder;
 public interface TelemetryReceiver {
     void handle(TelemetryHolder holder) throws Exception;
 }
-

@@ -48,7 +48,8 @@ public final class AsyncDispatchBus implements AutoCloseable {
 
         Worker(TelemetryReceiver receiver) {
             this.receiver = receiver;
-            this.thread = new Thread(this, "obsinity-telemetry-worker-" + receiver.getClass().getSimpleName());
+            this.thread = new Thread(
+                    this, "obsinity-telemetry-worker-" + receiver.getClass().getSimpleName());
             this.thread.setDaemon(true);
             this.thread.start();
         }
@@ -78,4 +79,3 @@ public final class AsyncDispatchBus implements AutoCloseable {
         }
     }
 }
-

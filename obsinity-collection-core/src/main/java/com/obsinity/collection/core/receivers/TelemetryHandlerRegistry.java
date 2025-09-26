@@ -14,4 +14,3 @@ public final class TelemetryHandlerRegistry {
         return List.copyOf(handlers);
     }
 }
-

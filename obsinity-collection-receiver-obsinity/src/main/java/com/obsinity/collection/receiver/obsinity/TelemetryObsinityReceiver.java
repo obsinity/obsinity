@@ -47,20 +47,23 @@ public final class TelemetryObsinityReceiver implements TelemetryReceiver {
             root.put("trace", trace);
         }
 
-        if (h.status() != null && (h.status().code() != null || h.status().message() != null)) {
+        if (h.status() != null && (h.status().getCode() != null || h.status().getMessage() != null)) {
             Map<String, Object> status = new LinkedHashMap<>();
-            if (h.status().code() != null) status.put("code", h.status().code());
-            if (h.status().message() != null) status.put("message", h.status().message());
+            if (h.status().getCode() != null) status.put("code", String.valueOf(h.status().getCode()));
+            if (h.status().getMessage() != null) status.put("message", h.status().getMessage());
             root.put("status", status);
         }
 
-        Map<String, Object> attrs = new LinkedHashMap<>(h.attributes() == null ? Map.of() : h.attributes().map());
+        Map<String, Object> attrs = new LinkedHashMap<>(
+                h.attributes() == null ? Map.of() : h.attributes().map());
         root.put("attributes", attrs);
 
         Map<String, Object> resource = new LinkedHashMap<>();
         OResource r = h.resource();
         if (r != null) {
-            if (r.attributes() != null && r.attributes().map() != null && !r.attributes().map().isEmpty()) {
+            if (r.attributes() != null
+                    && r.attributes().map() != null
+                    && !r.attributes().map().isEmpty()) {
                 resource.put("attributes", r.attributes().map());
             }
         }
@@ -69,4 +72,3 @@ public final class TelemetryObsinityReceiver implements TelemetryReceiver {
         return root;
     }
 }
-
