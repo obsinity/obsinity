@@ -9,6 +9,7 @@ import com.obsinity.collection.core.processor.TelemetryMeta;
 import com.obsinity.collection.core.processor.TelemetryProcessor;
 import com.obsinity.collection.spring.processor.AttributeParamExtractor;
 import com.obsinity.collection.spring.processor.AttributeParamExtractor.AttrCtx;
+import com.obsinity.telemetry.model.OAttributes;
 import com.obsinity.telemetry.model.TelemetryHolder;
 import com.obsinity.telemetry.processor.TelemetryProcessorSupport;
 import java.lang.reflect.Method;
@@ -63,12 +64,14 @@ public class TelemetryAspect {
             try {
                 processor.onFlowStarted(name, ac.attributes(), ac.context(), buildMeta(pjp, null));
                 Object result = pjp.proceed();
-                processor.onFlowCompleted(name, ac.attributes(), ac.context(), buildMeta(pjp, new StatusHint("OK", null)));
+                processor.onFlowCompleted(
+                        name, ac.attributes(), ac.context(), buildMeta(pjp, new StatusHint("OK", null)));
                 return result;
             } catch (Throwable t) {
                 Map<String, Object> attrs = new LinkedHashMap<>(ac.attributes());
                 attrs.putIfAbsent("error", t.getClass().getSimpleName());
-                processor.onFlowFailed(name, t, attrs, ac.context(), buildMeta(pjp, new StatusHint("ERROR", t.getMessage())));
+                processor.onFlowFailed(
+                        name, t, attrs, ac.context(), buildMeta(pjp, new StatusHint("ERROR", t.getMessage())));
                 throw t;
             }
         }
@@ -79,7 +82,7 @@ public class TelemetryAspect {
 
         long startNano = System.nanoTime();
         long startEpochNanos = support != null ? support.unixNanos(Instant.now()) : 0L;
-        TelemetryHolder.OAttributes initial = new TelemetryHolder.OAttributes(new LinkedHashMap<>(ac.attributes()));
+        OAttributes initial = new OAttributes(new LinkedHashMap<>(ac.attributes()));
         holder.beginStepEvent(name, startEpochNanos, startNano, initial);
         try {
             Object result = pjp.proceed();
