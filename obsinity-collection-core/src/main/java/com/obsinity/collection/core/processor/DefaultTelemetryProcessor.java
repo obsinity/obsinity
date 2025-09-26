@@ -51,6 +51,7 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
                     .build();
             holder.attributes().map().putAll(attrs);
             holder.eventContext().putAll(ctx);
+            holder.eventContext().put("lifecycle", "STARTED");
             support.push(holder);
             support.startNewBatch();
             if (asyncBus != null) asyncBus.dispatch(holder);
@@ -68,6 +69,7 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
             if (top != null) {
                 top.attributes().map().putAll(attrs);
                 top.eventContext().putAll(ctx);
+                top.eventContext().put("lifecycle", "COMPLETED");
             }
             support.clearBatchAfterDispatch();
             support.pop(top);
@@ -90,6 +92,7 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
             if (top != null) {
                 top.attributes().map().putAll(attrs);
                 top.eventContext().putAll(ctx);
+                top.eventContext().put("lifecycle", "FAILED");
             }
             support.clearBatchAfterDispatch();
             support.pop(top);
