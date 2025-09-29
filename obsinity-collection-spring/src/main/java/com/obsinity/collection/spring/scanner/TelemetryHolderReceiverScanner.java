@@ -6,6 +6,7 @@ import com.obsinity.collection.api.annotations.OnFlowFailure;
 import com.obsinity.collection.api.annotations.OnFlowLifecycle;
 import com.obsinity.collection.api.annotations.OnFlowStarted;
 import com.obsinity.collection.api.annotations.RequiredAttributes;
+import com.obsinity.collection.api.annotations.FlowException;
 import com.obsinity.collection.core.receivers.TelemetryHandlerRegistry;
 import com.obsinity.collection.core.receivers.TelemetryReceiver;
 import com.obsinity.telemetry.model.TelemetryHolder;
@@ -120,6 +121,7 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
     private static TelemetryReceiver createHandler(Object bean, Method m, boolean allowThrowableParam) {
         ReflectionUtils.makeAccessible(m);
         Class<?>[] p = m.getParameterTypes();
+        java.lang.annotation.Annotation[][] ann = m.getParameterAnnotations();
         if (p.length == 0) {
             return holder -> ReflectionUtils.invokeMethod(m, bean);
         }
@@ -129,7 +131,8 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
                 return holder -> ReflectionUtils.invokeMethod(m, bean, holder);
             }
             if (allowThrowableParam && Throwable.class.isAssignableFrom(a0)) {
-                return holder -> ReflectionUtils.invokeMethod(m, bean, holder.throwable());
+                final boolean root = isRootRequested(ann[0]);
+                return holder -> ReflectionUtils.invokeMethod(m, bean, chooseThrowable(holder, root));
             }
             return null;
         }
@@ -140,13 +143,30 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
             boolean firstIsThrowable = Throwable.class.isAssignableFrom(a0);
             boolean secondIsThrowable = Throwable.class.isAssignableFrom(a1);
             if (allowThrowableParam && firstIsHolder && secondIsThrowable) {
-                return holder -> ReflectionUtils.invokeMethod(m, bean, holder, holder.throwable());
+                final boolean root = isRootRequested(ann[1]);
+                return holder -> ReflectionUtils.invokeMethod(m, bean, holder, chooseThrowable(holder, root));
             }
             if (allowThrowableParam && firstIsThrowable && secondIsHolder) {
-                return holder -> ReflectionUtils.invokeMethod(m, bean, holder.throwable(), holder);
+                final boolean root = isRootRequested(ann[0]);
+                return holder -> ReflectionUtils.invokeMethod(m, bean, chooseThrowable(holder, root), holder);
             }
         }
         return null;
+    }
+
+    private static boolean isRootRequested(java.lang.annotation.Annotation[] anns) {
+        if (anns == null) return false;
+        for (var a : anns) {
+            if (a instanceof FlowException ffc && ffc.value() == FlowException.Source.ROOT) return true;
+        }
+        return false;
+    }
+
+    private static Throwable chooseThrowable(TelemetryHolder holder, boolean root) {
+        Throwable t = holder != null ? holder.throwable() : null;
+        if (!root || t == null) return t;
+        while (t.getCause() != null) t = t.getCause();
+        return t;
     }
 
     private static TelemetryReceiver filterByLifecycle(TelemetryReceiver delegate, String lifecycle) {

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.obsinity.collection.api.annotations.EventReceiver;
 import com.obsinity.collection.api.annotations.OnFlowCompleted;
+import com.obsinity.collection.api.annotations.FlowException;
 import com.obsinity.collection.api.annotations.OnFlowFailure;
 import com.obsinity.collection.api.annotations.RequiredAttributes;
 import com.obsinity.collection.core.receivers.TelemetryHandlerRegistry;
@@ -38,6 +39,11 @@ class TelemetryHolderReceiverScannerTest {
         public void onFailureThrowable(Throwable t) {
             lastThrowable = t;
             failureWithThrowableOnly.incrementAndGet();
+        }
+
+        @OnFlowFailure
+        public void onFailureThrowableRoot(@FlowException(FlowException.Source.ROOT) Throwable t) {
+            // no-op; verifies parameter can be annotated
         }
 
         // Invalid signature for COMPLETED (Throwable params only allowed for failures); should be ignored
@@ -147,7 +153,8 @@ class TelemetryHolderReceiverScannerTest {
                 .timestamp(Instant.now())
                 .build();
         h.eventContext().put("lifecycle", "FAILED");
-        RuntimeException boom = new RuntimeException("boom");
+        RuntimeException root = new RuntimeException("root");
+        RuntimeException boom = new RuntimeException("boom", root);
         h.setThrowable(boom);
 
         for (var handler : registry.handlers()) {
