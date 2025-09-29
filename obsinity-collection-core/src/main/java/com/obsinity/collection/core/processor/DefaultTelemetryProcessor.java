@@ -93,6 +93,7 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
                 top.attributes().map().putAll(attrs);
                 top.eventContext().putAll(ctx);
                 top.eventContext().put("lifecycle", "FAILED");
+                if (error != null) top.setThrowable(error);
             }
             support.clearBatchAfterDispatch();
             support.pop(top);

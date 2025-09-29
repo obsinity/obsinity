@@ -49,31 +49,65 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
                 || m.isAnnotationPresent(OnFlowLifecycle.class);
         if (!hasLifecycleAnnotation) return;
 
-        TelemetryReceiver h = createHandler(bean, m);
-        if (h == null) return;
         RequiredAttributes ra = m.getAnnotation(RequiredAttributes.class);
-        if (ra != null) {
-            h = filterByRequiredAttributes(h, ra.value());
-        }
+
         if (m.isAnnotationPresent(OnFlowStarted.class)) {
-            registry.register(filterByLifecycle(h, "STARTED"));
-            log.info("Registered OnFlowStarted handler: {}#{}", bean.getClass().getSimpleName(), m.getName());
+            TelemetryReceiver h = createHandler(bean, m, false);
+            if (h != null) {
+                if (ra != null) h = filterByRequiredAttributes(h, ra.value());
+                registry.register(filterByLifecycle(h, "STARTED"));
+                log.info(
+                        "Registered OnFlowStarted handler: {}#{}",
+                        bean.getClass().getSimpleName(),
+                        m.getName());
+            }
         }
         if (m.isAnnotationPresent(OnFlowCompleted.class)) {
-            registry.register(filterByLifecycle(h, "COMPLETED"));
-            log.info(
-                    "Registered OnFlowCompleted handler: {}#{}", bean.getClass().getSimpleName(), m.getName());
+            TelemetryReceiver h = createHandler(bean, m, false);
+            if (h != null) {
+                if (ra != null) h = filterByRequiredAttributes(h, ra.value());
+                registry.register(filterByLifecycle(h, "COMPLETED"));
+                log.info(
+                        "Registered OnFlowCompleted handler: {}#{}",
+                        bean.getClass().getSimpleName(),
+                        m.getName());
+            }
         }
         if (m.isAnnotationPresent(OnFlowFailure.class)) {
-            registry.register(filterByLifecycle(h, "FAILED"));
-            log.info("Registered OnFlowFailure handler: {}#{}", bean.getClass().getSimpleName(), m.getName());
+            TelemetryReceiver h = createHandler(bean, m, true);
+            if (h != null) {
+                if (ra != null) h = filterByRequiredAttributes(h, ra.value());
+                registry.register(filterByLifecycle(h, "FAILED"));
+                log.info(
+                        "Registered OnFlowFailure handler: {}#{}",
+                        bean.getClass().getSimpleName(),
+                        m.getName());
+            }
         }
         OnFlowLifecycle ofl = m.getAnnotation(OnFlowLifecycle.class);
         if (ofl != null) {
             switch (ofl.value()) {
-                case STARTED -> registry.register(filterByLifecycle(h, "STARTED"));
-                case COMPLETED -> registry.register(filterByLifecycle(h, "COMPLETED"));
-                case FAILED -> registry.register(filterByLifecycle(h, "FAILED"));
+                case STARTED -> {
+                    TelemetryReceiver h = createHandler(bean, m, false);
+                    if (h != null) {
+                        if (ra != null) h = filterByRequiredAttributes(h, ra.value());
+                        registry.register(filterByLifecycle(h, "STARTED"));
+                    }
+                }
+                case COMPLETED -> {
+                    TelemetryReceiver h = createHandler(bean, m, false);
+                    if (h != null) {
+                        if (ra != null) h = filterByRequiredAttributes(h, ra.value());
+                        registry.register(filterByLifecycle(h, "COMPLETED"));
+                    }
+                }
+                case FAILED -> {
+                    TelemetryReceiver h = createHandler(bean, m, true);
+                    if (h != null) {
+                        if (ra != null) h = filterByRequiredAttributes(h, ra.value());
+                        registry.register(filterByLifecycle(h, "FAILED"));
+                    }
+                }
             }
             log.info(
                     "Registered OnFlowLifecycle handler: {}#{} -> {}",
@@ -83,13 +117,34 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
         }
     }
 
-    private static TelemetryReceiver createHandler(Object bean, Method m) {
+    private static TelemetryReceiver createHandler(Object bean, Method m, boolean allowThrowableParam) {
         ReflectionUtils.makeAccessible(m);
-        if (m.getParameterCount() == 0) {
+        Class<?>[] p = m.getParameterTypes();
+        if (p.length == 0) {
             return holder -> ReflectionUtils.invokeMethod(m, bean);
         }
-        if (m.getParameterCount() == 1 && m.getParameterTypes()[0].isAssignableFrom(TelemetryHolder.class)) {
-            return holder -> ReflectionUtils.invokeMethod(m, bean, holder);
+        if (p.length == 1) {
+            Class<?> a0 = p[0];
+            if (a0.isAssignableFrom(TelemetryHolder.class)) {
+                return holder -> ReflectionUtils.invokeMethod(m, bean, holder);
+            }
+            if (allowThrowableParam && Throwable.class.isAssignableFrom(a0)) {
+                return holder -> ReflectionUtils.invokeMethod(m, bean, holder.throwable());
+            }
+            return null;
+        }
+        if (p.length == 2) {
+            Class<?> a0 = p[0], a1 = p[1];
+            boolean firstIsHolder = a0.isAssignableFrom(TelemetryHolder.class);
+            boolean secondIsHolder = a1.isAssignableFrom(TelemetryHolder.class);
+            boolean firstIsThrowable = Throwable.class.isAssignableFrom(a0);
+            boolean secondIsThrowable = Throwable.class.isAssignableFrom(a1);
+            if (allowThrowableParam && firstIsHolder && secondIsThrowable) {
+                return holder -> ReflectionUtils.invokeMethod(m, bean, holder, holder.throwable());
+            }
+            if (allowThrowableParam && firstIsThrowable && secondIsHolder) {
+                return holder -> ReflectionUtils.invokeMethod(m, bean, holder.throwable(), holder);
+            }
         }
         return null;
     }
