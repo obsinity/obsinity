@@ -5,6 +5,7 @@ import com.obsinity.collection.api.annotations.OnFlowCompleted;
 import com.obsinity.collection.api.annotations.OnFlowFailure;
 import com.obsinity.collection.api.annotations.OnFlowLifecycle;
 import com.obsinity.collection.api.annotations.OnFlowStarted;
+import com.obsinity.collection.api.annotations.RequiredAttributes;
 import com.obsinity.collection.core.receivers.TelemetryHandlerRegistry;
 import com.obsinity.collection.core.receivers.TelemetryReceiver;
 import com.obsinity.telemetry.model.TelemetryHolder;
@@ -42,8 +43,18 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
     }
 
     private void registerIfAnnotated(Object bean, Method m) {
+        boolean hasLifecycleAnnotation = m.isAnnotationPresent(OnFlowStarted.class)
+                || m.isAnnotationPresent(OnFlowCompleted.class)
+                || m.isAnnotationPresent(OnFlowFailure.class)
+                || m.isAnnotationPresent(OnFlowLifecycle.class);
+        if (!hasLifecycleAnnotation) return;
+
         TelemetryReceiver h = createHandler(bean, m);
         if (h == null) return;
+        RequiredAttributes ra = m.getAnnotation(RequiredAttributes.class);
+        if (ra != null) {
+            h = filterByRequiredAttributes(h, ra.value());
+        }
         if (m.isAnnotationPresent(OnFlowStarted.class)) {
             registry.register(filterByLifecycle(h, "STARTED"));
             log.info("Registered OnFlowStarted handler: {}#{}", bean.getClass().getSimpleName(), m.getName());
@@ -73,6 +84,7 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
     }
 
     private static TelemetryReceiver createHandler(Object bean, Method m) {
+        ReflectionUtils.makeAccessible(m);
         if (m.getParameterCount() == 0) {
             return holder -> ReflectionUtils.invokeMethod(m, bean);
         }
@@ -86,6 +98,22 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
         return holder -> {
             Object lc = holder.eventContext().get("lifecycle");
             if (lifecycle.equals(lc)) delegate.handle(holder);
+        };
+    }
+
+    private static TelemetryReceiver filterByRequiredAttributes(TelemetryReceiver delegate, String[] required) {
+        return holder -> {
+            if (required == null || required.length == 0) {
+                delegate.handle(holder);
+                return;
+            }
+            var attrs = holder.attributes() != null ? holder.attributes().map() : null;
+            if (attrs == null) return; // nothing to check against
+            for (String key : required) {
+                if (key == null || key.isBlank()) return; // invalid key => skip
+                if (!attrs.containsKey(key)) return; // missing required attribute
+            }
+            delegate.handle(holder);
         };
     }
 }
