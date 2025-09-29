@@ -1,3 +1,4 @@
+
 # Compiled class file
 *.class
 
@@ -35,3 +36,6 @@ target/
 out/
 **/out/
 
+# Sandbox/CI artifacts accidentally created under a literal '?' directory
+# (e.g., `?/.m2/...`). Ignore that directory at the repo root.
+/\?/
