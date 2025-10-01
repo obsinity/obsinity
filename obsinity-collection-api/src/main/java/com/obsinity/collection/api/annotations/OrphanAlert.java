@@ -18,9 +18,9 @@ import java.lang.annotation.Target;
 public @interface OrphanAlert {
 
     /**
-     * Preferred element name, compatible with original API.
+     * Log level for orphan step promotion. Kept as the primary value element for concise usage.
      */
-    Level level() default Level.ERROR;
+    Level value() default Level.ERROR;
 
     /** Simple log level enum decoupled from specific logging frameworks. */
     enum Level {

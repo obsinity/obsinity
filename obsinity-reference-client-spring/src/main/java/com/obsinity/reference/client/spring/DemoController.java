@@ -84,7 +84,7 @@ public class DemoController {
      */
     @GetMapping(path = "/api/orphan-step", produces = MediaType.TEXT_PLAIN_VALUE)
     @com.obsinity.collection.api.annotations.Step("demo.orphan.step")
-    @OrphanAlert(level = OrphanAlert.Level.WARN)
+    @OrphanAlert(OrphanAlert.Level.WARN)
     public String orphanStep(@RequestParam(value = "note", required = false, defaultValue = "hello")
             @PushAttribute("note") String note) {
         return "orphan step executed: " + note;
