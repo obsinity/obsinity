@@ -11,13 +11,19 @@
   <packaging>jar</packaging>
 
   <dependencies>
+    <!-- Spring MVC (servlet) web app -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+      <version>${spring-boot.version}</version>
+    </dependency>
     <dependency>
       <groupId>com.obsinity</groupId>
       <artifactId>obsinity-client-core</artifactId>
     </dependency>
     <!-- Spring Boot app + WebFlux just for demo startup -->
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter</artifactId><version>${spring-boot.version}</version></dependency>
-    <dependency><groupId>org.springframework</groupId><artifactId>spring-webflux</artifactId></dependency>
+    <!-- WebFlux optional; keep only MVC for this demo -->
 
     <!-- Collection SDK and receivers -->
     <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-collection-api</artifactId></dependency>
