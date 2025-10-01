@@ -9,7 +9,7 @@ import com.obsinity.collection.api.annotations.OnFlowCompleted;
 import com.obsinity.collection.api.annotations.OnFlowFailure;
 import com.obsinity.collection.api.annotations.OnFlowStarted;
 import com.obsinity.telemetry.model.OResource;
-import com.obsinity.telemetry.model.TelemetryHolder;
+import com.obsinity.telemetry.model.TelemetryEvent;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -27,17 +27,17 @@ public class TelemetryObsinityReceivers {
     }
 
     @OnFlowStarted
-    public void onStarted(TelemetryHolder h) throws IOException {
+    public void onStarted(TelemetryEvent h) throws IOException {
         send(h);
     }
 
     @OnFlowCompleted
-    public void onCompleted(TelemetryHolder h) throws IOException {
+    public void onCompleted(TelemetryEvent h) throws IOException {
         send(h);
     }
 
     @OnFlowFailure
-    public void onFailed(TelemetryHolder h) throws IOException {
+    public void onFailed(TelemetryEvent h) throws IOException {
         send(h);
     }
 
@@ -46,7 +46,7 @@ public class TelemetryObsinityReceivers {
         sender.send(body);
     }
 
-    static Map<String, Object> toUnifiedPublishBody(TelemetryHolder h) {
+    static Map<String, Object> toUnifiedPublishBody(TelemetryEvent h) {
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("occurredAt", h.timestamp());
 

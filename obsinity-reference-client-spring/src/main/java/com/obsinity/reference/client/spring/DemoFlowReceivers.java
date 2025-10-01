@@ -1,7 +1,7 @@
 package com.obsinity.reference.client.spring;
 
 import com.obsinity.collection.api.annotations.*;
-import com.obsinity.telemetry.model.TelemetryHolder;
+import com.obsinity.telemetry.model.TelemetryEvent;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +35,7 @@ public class DemoFlowReceivers {
      * Binds: full attributes map via {@code @PullAllAttributes}.
      */
     @OnFlowStarted
-    public void onStart(TelemetryHolder h, @PullAllAttributes Map<String, Object> attrs) {
+    public void onStart(TelemetryEvent h, @PullAllAttributes Map<String, Object> attrs) {
         log.info("START {} attrs={} ctx={}", h.name(), attrs, h.eventContext());
     }
 
@@ -72,10 +72,10 @@ public class DemoFlowReceivers {
      * - Lifecycle = FAILED
      * - Throwable is an IllegalArgumentException (or subtype)
      * - Event name matches class scope {@code demo.*}
-     * Binds: the specific IllegalArgumentException and the full TelemetryHolder.
+     * Binds: the specific IllegalArgumentException and the full TelemetryEvent.
      */
     @OnFlowFailure
-    public void onIllegalArg(IllegalArgumentException ex, TelemetryHolder h) {
+    public void onIllegalArg(IllegalArgumentException ex, TelemetryEvent h) {
         log.warn("FAIL-IAE {} ex={}", h.name(), ex.getMessage());
     }
 
@@ -98,7 +98,7 @@ public class DemoFlowReceivers {
      * - Runs regardless of lifecycle/name (used as a last resort within this bean only)
      */
     @OnFlowNotMatched
-    public void notMatched(TelemetryHolder h) {
+    public void notMatched(TelemetryEvent h) {
         log.debug("FALLBACK {} attrs={} ctx={}", h.name(), h.attributes().map(), h.eventContext());
     }
 }

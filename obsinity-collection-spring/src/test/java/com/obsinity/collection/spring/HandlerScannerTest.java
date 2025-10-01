@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.obsinity.collection.core.dispatch.AsyncDispatchBus;
 import com.obsinity.collection.core.receivers.TelemetryReceiver;
-import com.obsinity.telemetry.model.TelemetryHolder;
+import com.obsinity.telemetry.model.TelemetryEvent;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,10 +31,10 @@ class HandlerScannerTest {
     }
 
     static class TestReceiver implements TelemetryReceiver {
-        static final List<TelemetryHolder> received = new ArrayList<>();
+        static final List<TelemetryEvent> received = new ArrayList<>();
 
         @Override
-        public void handle(TelemetryHolder h) {
+        public void handle(TelemetryEvent h) {
             received.add(h);
         }
     }
@@ -44,7 +44,7 @@ class HandlerScannerTest {
 
     @Test
     void scanner_registers_receiver_methods() {
-        TelemetryHolder h = TelemetryHolder.builder()
+        TelemetryEvent h = TelemetryEvent.builder()
                 .name("unit.test")
                 .timestamp(Instant.now())
                 .build();

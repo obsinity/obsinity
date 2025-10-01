@@ -2,7 +2,7 @@ package com.obsinity.collection.spring.scanner;
 
 import com.obsinity.collection.api.annotations.*;
 import com.obsinity.collection.core.receivers.TelemetryHandlerRegistry;
-import com.obsinity.telemetry.model.TelemetryHolder;
+import com.obsinity.telemetry.model.TelemetryEvent;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
@@ -168,7 +168,7 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
         Class<?> type = p.getType();
 
         // Holder
-        if (TelemetryHolder.class.isAssignableFrom(type)) return h -> h;
+        if (TelemetryEvent.class.isAssignableFrom(type)) return h -> h;
 
         // Throwable for failures
         if (allowThrowable && Throwable.class.isAssignableFrom(type)) {
@@ -215,7 +215,8 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
 
             for (CompiledHandler c : handlers) {
                 if (isFailed && c.flowFailure) continue; // already handled
-                if (isFailed && c.failureFinish && anyFlowFailureMatched) continue; // suppress finish if failure matched
+                if (isFailed && c.failureFinish && anyFlowFailureMatched)
+                    continue; // suppress finish if failure matched
                 if (c.matches(h)) {
                     c.invoke(h);
                     any = true;

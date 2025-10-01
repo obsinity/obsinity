@@ -10,7 +10,7 @@ import com.obsinity.collection.core.processor.TelemetryProcessor;
 import com.obsinity.collection.spring.processor.AttributeParamExtractor;
 import com.obsinity.collection.spring.processor.AttributeParamExtractor.AttrCtx;
 import com.obsinity.telemetry.model.OAttributes;
-import com.obsinity.telemetry.model.TelemetryHolder;
+import com.obsinity.telemetry.model.TelemetryEvent;
 import com.obsinity.telemetry.processor.TelemetryProcessorSupport;
 import java.lang.reflect.Method;
 import java.time.Instant;
@@ -56,11 +56,11 @@ public class TelemetryAspect {
         String name = resolveStepName(pjp);
         AttrCtx ac = AttributeParamExtractor.extract(pjp);
 
-        TelemetryHolder holder = (support != null) ? support.currentHolder() : null;
+        TelemetryEvent holder = (support != null) ? support.currentHolder() : null;
         if (holder == null) {
             // Orphan step: log + auto-promote as a flow
             OrphanAlert oa = ((MethodSignature) pjp.getSignature()).getMethod().getAnnotation(OrphanAlert.class);
-            if (support != null) support.logOrphanStep(name, oa != null ? oa.level() : OrphanAlert.Level.ERROR);
+            if (support != null) support.logOrphanStep(name, oa != null ? oa.value() : OrphanAlert.Level.ERROR);
             try {
                 processor.onFlowStarted(name, ac.attributes(), ac.context(), buildMeta(pjp, null));
                 Object result = pjp.proceed();

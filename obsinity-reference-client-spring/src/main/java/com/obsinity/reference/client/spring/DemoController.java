@@ -85,8 +85,9 @@ public class DemoController {
     @GetMapping(path = "/api/orphan-step", produces = MediaType.TEXT_PLAIN_VALUE)
     @com.obsinity.collection.api.annotations.Step("demo.orphan.step")
     @OrphanAlert(OrphanAlert.Level.WARN)
-    public String orphanStep(@RequestParam(value = "note", required = false, defaultValue = "hello")
-            @PushAttribute("note") String note) {
+    public String orphanStep(
+            @RequestParam(value = "note", required = false, defaultValue = "hello") @PushAttribute("note")
+                    String note) {
         return "orphan step executed: " + note;
     }
     /**
@@ -97,8 +98,8 @@ public class DemoController {
     @Flow(name = "demo.client.call")
     @Kind(SpanKind.CLIENT)
     @Domain("http")
-    public java.util.Map<String, Object> clientCall(@RequestParam(value = "target", defaultValue = "service-x")
-            @PushAttribute("client.target") String target) {
+    public java.util.Map<String, Object> clientCall(
+            @RequestParam(value = "target", defaultValue = "service-x") @PushAttribute("client.target") String target) {
         // pretend to call an external service
         return java.util.Map.of("status", "ok", "target", target);
     }
@@ -111,8 +112,9 @@ public class DemoController {
     @Flow(name = "demo.produce")
     @Kind(SpanKind.PRODUCER)
     @Domain(type = Domain.Type.MESSAGING)
-    public java.util.Map<String, Object> produce(@RequestParam(value = "topic", defaultValue = "demo-topic")
-            @PushAttribute("messaging.topic") String topic) {
+    public java.util.Map<String, Object> produce(
+            @RequestParam(value = "topic", defaultValue = "demo-topic") @PushAttribute("messaging.topic")
+                    String topic) {
         // pretend to publish to a topic
         return java.util.Map.of("status", "queued", "topic", topic);
     }

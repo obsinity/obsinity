@@ -1,8 +1,8 @@
 package com.obsinity.collection.core.receivers;
 
-import com.obsinity.telemetry.model.TelemetryHolder;
+import com.obsinity.telemetry.model.TelemetryEvent;
 
 @FunctionalInterface
 public interface TelemetryReceiver {
-    void handle(TelemetryHolder holder) throws Exception;
+    void handle(TelemetryEvent holder) throws Exception;
 }

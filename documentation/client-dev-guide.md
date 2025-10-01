@@ -10,7 +10,7 @@ Scope
 
 Core client-side pieces (add what you need):
 - `obsinity-collection-api` — public annotations (`@Flow`, `@Step`, `@PushAttribute`, `@PushContextValue`, …).
-- `obsinity-collection-core` — event model and processor (`OEvent`, `TelemetryHolder`, `TelemetryProcessor`).
+- `obsinity-collection-core` — event model and processor (`OEvent`, `TelemetryEvent`, `TelemetryProcessor`).
 - `obsinity-collection-spring` — Spring Boot autoconfig + AOP aspect that emits lifecycle events from annotations.
 - `obsinity-collection-receiver-logging` — logs events via SLF4J; enabled by default (toggleable).
 - `obsinity-collection-receiver-obsinity` — adapts events to Obsinity’s REST ingest and posts via an `EventSender`.
@@ -163,7 +163,7 @@ class SampleFlows {
 
 What happens at runtime:
 - `TelemetryAspect` wraps annotated methods and emits `STARTED` → `COMPLETED` (or `FAILED`) events.
-- Attributes/context from parameters are merged into the current `TelemetryHolder`.
+- Attributes/context from parameters are merged into the current `TelemetryEvent`.
 - Receivers run on each lifecycle event:
   - Logging receiver prints to application logs.
   - Obsinity receiver serializes to JSON and posts to `obsinity.ingest.url` via the active `EventSender`.

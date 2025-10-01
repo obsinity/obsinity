@@ -8,7 +8,7 @@ import com.obsinity.collection.api.annotations.OnFlowCompleted;
 import com.obsinity.collection.api.annotations.OnFlowFailure;
 import com.obsinity.collection.api.annotations.RequiredAttributes;
 import com.obsinity.collection.core.receivers.TelemetryHandlerRegistry;
-import com.obsinity.telemetry.model.TelemetryHolder;
+import com.obsinity.telemetry.model.TelemetryEvent;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,13 +25,13 @@ class TelemetryHolderReceiverScannerTest {
         static final AtomicInteger completedWithThrowable = new AtomicInteger();
 
         @OnFlowFailure
-        public void onFailureAny(TelemetryHolder h) {
+        public void onFailureAny(TelemetryEvent h) {
             failureAny.incrementAndGet();
         }
 
         @OnFlowFailure
         @RequiredAttributes({"order.id", "error.code"})
-        public void onFailureWithAttrs(TelemetryHolder h) {
+        public void onFailureWithAttrs(TelemetryEvent h) {
             failureWithAttrs.incrementAndGet();
         }
 
@@ -73,7 +73,7 @@ class TelemetryHolderReceiverScannerTest {
 
     @Test
     void invokes_failure_handlers_when_failed_and_required_attrs_present() throws Exception {
-        TelemetryHolder h = TelemetryHolder.builder()
+        TelemetryEvent h = TelemetryEvent.builder()
                 .name("demo.flow")
                 .timestamp(Instant.now())
                 .build();
@@ -93,7 +93,7 @@ class TelemetryHolderReceiverScannerTest {
 
     @Test
     void skips_required_attrs_handler_when_attr_missing() throws Exception {
-        TelemetryHolder h = TelemetryHolder.builder()
+        TelemetryEvent h = TelemetryEvent.builder()
                 .name("demo.flow")
                 .timestamp(Instant.now())
                 .build();
@@ -112,7 +112,7 @@ class TelemetryHolderReceiverScannerTest {
 
     @Test
     void does_not_invoke_failure_handlers_when_not_failed() throws Exception {
-        TelemetryHolder h = TelemetryHolder.builder()
+        TelemetryEvent h = TelemetryEvent.builder()
                 .name("demo.flow")
                 .timestamp(Instant.now())
                 .build();
@@ -132,7 +132,7 @@ class TelemetryHolderReceiverScannerTest {
 
     @Test
     void does_not_register_completed_handler_with_throwable_param() throws Exception {
-        TelemetryHolder h = TelemetryHolder.builder()
+        TelemetryEvent h = TelemetryEvent.builder()
                 .name("demo.flow")
                 .timestamp(Instant.now())
                 .build();
@@ -148,7 +148,7 @@ class TelemetryHolderReceiverScannerTest {
 
     @Test
     void binds_throwable_parameter_when_present() throws Exception {
-        TelemetryHolder h = TelemetryHolder.builder()
+        TelemetryEvent h = TelemetryEvent.builder()
                 .name("demo.flow")
                 .timestamp(Instant.now())
                 .build();

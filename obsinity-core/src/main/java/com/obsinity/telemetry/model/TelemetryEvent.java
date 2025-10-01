@@ -20,13 +20,13 @@ import java.util.Map;
  * {@link #effectiveServiceId()} to read the resolved value.
  */
 @JsonInclude(Include.NON_NULL)
-public class TelemetryHolder {
+public class TelemetryEvent {
 
     public static final String SERVICE_ID_ATTR = "service.id";
 
     /* ========================= Embedded Builder ========================= */
 
-    /** Create a new builder for {@link TelemetryHolder}. */
+    /** Create a new builder for {@link TelemetryEvent}. */
     public static Builder builder() {
         return new Builder();
     }
@@ -163,7 +163,7 @@ public class TelemetryHolder {
             return this;
         }
 
-        /** Mark this holder as representing a promoted step (not serialized). */
+        /** Mark this event as representing a promoted step (not serialized). */
         public Builder step(boolean step) {
             this.step = step;
             return this;
@@ -174,8 +174,8 @@ public class TelemetryHolder {
             return this;
         }
 
-        public TelemetryHolder build() {
-            TelemetryHolder holder = new TelemetryHolder(
+        public TelemetryEvent build() {
+            TelemetryEvent holder = new TelemetryEvent(
                     name,
                     timestamp,
                     timeUnixNano,
@@ -241,7 +241,7 @@ public class TelemetryHolder {
     private transient long startNanoTime; // monotonic start for accurate duration when folding
 
     /** Full constructor (validates service id consistency). */
-    public TelemetryHolder(
+    public TelemetryEvent(
             String name,
             Instant timestamp,
             Long timeUnixNano,
@@ -332,7 +332,7 @@ public class TelemetryHolder {
         return status;
     }
 
-    public TelemetryHolder setStatus(OStatus status) {
+    public TelemetryEvent setStatus(OStatus status) {
         this.status = status;
         return this;
     }

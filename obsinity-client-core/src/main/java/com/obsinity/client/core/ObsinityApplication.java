@@ -15,11 +15,10 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
  */
 @EnableAspectJAutoProxy(proxyTargetClass = true, exposeProxy = true)
 @ImportAutoConfiguration({
-        CollectionAutoConfiguration.class,
-        TelemetrySupportAutoConfiguration.class,
-        TraceAutoConfiguration.class,
-        WebfluxTraceAutoConfiguration.class,
-        HandlerAutoConfiguration.class
+    CollectionAutoConfiguration.class,
+    TelemetrySupportAutoConfiguration.class,
+    TraceAutoConfiguration.class,
+    WebfluxTraceAutoConfiguration.class,
+    HandlerAutoConfiguration.class
 })
 public @interface ObsinityApplication {}
-

@@ -7,7 +7,7 @@ import com.obsinity.collection.api.annotations.OnEventScope;
 import com.obsinity.collection.api.annotations.OnFlowCompleted;
 import com.obsinity.collection.api.annotations.OnFlowSuccess;
 import com.obsinity.collection.core.receivers.TelemetryHandlerRegistry;
-import com.obsinity.telemetry.model.TelemetryHolder;
+import com.obsinity.telemetry.model.TelemetryEvent;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,18 +24,18 @@ class MultipleScopeAndSuccessTest {
         static final AtomicInteger completedOthers = new AtomicInteger();
 
         @OnFlowSuccess
-        public void orders(TelemetryHolder h) {
+        public void orders(TelemetryEvent h) {
             if (h.name().equals("orders.create")) successOrders.incrementAndGet();
         }
 
         @OnFlowSuccess
-        public void payments(TelemetryHolder h) {
+        public void payments(TelemetryEvent h) {
             if (h.name().equals("payments.charge")) successPayments.incrementAndGet();
         }
 
         // Sanity: completed without success filter still fires; used to guard no extra matches
         @OnFlowCompleted
-        public void completed(TelemetryHolder h) {
+        public void completed(TelemetryEvent h) {
             if (!h.name().startsWith("orders.") && !h.name().startsWith("payments.")) completedOthers.incrementAndGet();
         }
     }
@@ -55,19 +55,19 @@ class MultipleScopeAndSuccessTest {
 
     @Test
     void multiple_prefixes_are_ORed_and_success_only_on_completed() throws Exception {
-        TelemetryHolder o = TelemetryHolder.builder()
+        TelemetryEvent o = TelemetryEvent.builder()
                 .name("orders.create")
                 .timestamp(Instant.now())
                 .build();
         o.eventContext().put("lifecycle", "COMPLETED");
 
-        TelemetryHolder p = TelemetryHolder.builder()
+        TelemetryEvent p = TelemetryEvent.builder()
                 .name("payments.charge")
                 .timestamp(Instant.now())
                 .build();
         p.eventContext().put("lifecycle", "COMPLETED");
 
-        TelemetryHolder other = TelemetryHolder.builder()
+        TelemetryEvent other = TelemetryEvent.builder()
                 .name("inventory.update")
                 .timestamp(Instant.now())
                 .build();

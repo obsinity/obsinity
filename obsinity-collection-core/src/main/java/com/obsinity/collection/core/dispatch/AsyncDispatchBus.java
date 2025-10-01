@@ -2,7 +2,7 @@ package com.obsinity.collection.core.dispatch;
 
 import com.obsinity.collection.core.receivers.TelemetryHandlerRegistry;
 import com.obsinity.collection.core.receivers.TelemetryReceiver;
-import com.obsinity.telemetry.model.TelemetryHolder;
+import com.obsinity.telemetry.model.TelemetryEvent;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -26,7 +26,7 @@ public final class AsyncDispatchBus implements AutoCloseable {
         this.registry = Objects.requireNonNull(registry, "registry");
     }
 
-    public void dispatch(TelemetryHolder holder) {
+    public void dispatch(TelemetryEvent holder) {
         if (holder == null) return;
         List<TelemetryReceiver> list = registry.handlers();
         for (TelemetryReceiver r : list) {
@@ -42,7 +42,7 @@ public final class AsyncDispatchBus implements AutoCloseable {
 
     private static final class Worker implements Runnable {
         private final TelemetryReceiver receiver;
-        private final LinkedBlockingDeque<TelemetryHolder> queue = new LinkedBlockingDeque<>();
+        private final LinkedBlockingDeque<TelemetryEvent> queue = new LinkedBlockingDeque<>();
         private final AtomicBoolean running = new AtomicBoolean(true);
         private final Thread thread;
 
@@ -54,7 +54,7 @@ public final class AsyncDispatchBus implements AutoCloseable {
             this.thread.start();
         }
 
-        void offer(TelemetryHolder h) {
+        void offer(TelemetryEvent h) {
             queue.offer(h);
         }
 
@@ -67,7 +67,7 @@ public final class AsyncDispatchBus implements AutoCloseable {
         public void run() {
             while (running.get()) {
                 try {
-                    TelemetryHolder h = queue.poll(250, TimeUnit.MILLISECONDS);
+                    TelemetryEvent h = queue.poll(250, TimeUnit.MILLISECONDS);
                     if (h != null) receiver.handle(h);
                 } catch (InterruptedException ie) {
                     // shutdown

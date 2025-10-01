@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.obsinity.client.transport.EventSender;
 import com.obsinity.collection.receiver.obsinity.TelemetryObsinityReceivers;
 import com.obsinity.telemetry.model.OStatus;
-import com.obsinity.telemetry.model.TelemetryHolder;
+import com.obsinity.telemetry.model.TelemetryEvent;
 import io.opentelemetry.api.trace.StatusCode;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
@@ -27,7 +27,7 @@ class ObsinityEventReceiverTest {
         var sender = new CapturingSender();
         var sink = new TelemetryObsinityReceivers(sender);
 
-        TelemetryHolder h = TelemetryHolder.builder()
+        TelemetryEvent h = TelemetryEvent.builder()
                 .name("demo.checkout")
                 .timestamp(Instant.parse("2025-09-24T08:30:00Z"))
                 .status(new OStatus(StatusCode.OK, null))

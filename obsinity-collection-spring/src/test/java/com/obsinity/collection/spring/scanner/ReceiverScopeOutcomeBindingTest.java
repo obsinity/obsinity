@@ -15,7 +15,7 @@ import com.obsinity.collection.api.annotations.PullAllContextValues;
 import com.obsinity.collection.api.annotations.PullAttribute;
 import com.obsinity.collection.api.annotations.PullContextValue;
 import com.obsinity.collection.core.receivers.TelemetryHandlerRegistry;
-import com.obsinity.telemetry.model.TelemetryHolder;
+import com.obsinity.telemetry.model.TelemetryEvent;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -108,7 +108,7 @@ class ReceiverScopeOutcomeBindingTest {
 
     @Test
     void binds_pull_parameters_on_started_and_filters_by_class_scope() throws Exception {
-        TelemetryHolder h = TelemetryHolder.builder()
+        TelemetryEvent h = TelemetryEvent.builder()
                 .name("checkout.payment")
                 .timestamp(Instant.now())
                 .build();
@@ -128,7 +128,7 @@ class ReceiverScopeOutcomeBindingTest {
 
     @Test
     void invokes_success_handler_only_for_completed_and_within_scope() throws Exception {
-        TelemetryHolder h = TelemetryHolder.builder()
+        TelemetryEvent h = TelemetryEvent.builder()
                 .name("checkout.reserve")
                 .timestamp(Instant.now())
                 .build();
@@ -143,7 +143,7 @@ class ReceiverScopeOutcomeBindingTest {
 
     @Test
     void invokes_failure_handler_with_root_throwable_when_failed() throws Exception {
-        TelemetryHolder h = TelemetryHolder.builder()
+        TelemetryEvent h = TelemetryEvent.builder()
                 .name("checkout.reserve")
                 .timestamp(Instant.now())
                 .build();
@@ -160,7 +160,7 @@ class ReceiverScopeOutcomeBindingTest {
 
     @Test
     void component_fallback_invoked_when_no_handler_matches_in_receiver() throws Exception {
-        TelemetryHolder h = TelemetryHolder.builder()
+        TelemetryEvent h = TelemetryEvent.builder()
                 .name("billing.charge")
                 .timestamp(Instant.now())
                 .build();
@@ -173,8 +173,8 @@ class ReceiverScopeOutcomeBindingTest {
 
     @Test
     void dot_chop_scope_matches_prefix() throws Exception {
-        TelemetryHolder h =
-                TelemetryHolder.builder().name("a.b.c").timestamp(Instant.now()).build();
+        TelemetryEvent h =
+                TelemetryEvent.builder().name("a.b.c").timestamp(Instant.now()).build();
         h.eventContext().put("lifecycle", "STARTED");
 
         for (var handler : registry.handlers()) handler.handle(h);

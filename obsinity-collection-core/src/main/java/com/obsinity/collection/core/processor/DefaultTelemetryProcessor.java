@@ -1,7 +1,7 @@
 package com.obsinity.collection.core.processor;
 
 import com.obsinity.collection.core.dispatch.AsyncDispatchBus;
-import com.obsinity.telemetry.model.TelemetryHolder;
+import com.obsinity.telemetry.model.TelemetryEvent;
 import com.obsinity.telemetry.processor.TelemetryProcessorSupport;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -45,7 +45,7 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
         var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
         var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
         if (support != null) {
-            TelemetryHolder holder = TelemetryHolder.builder()
+            TelemetryEvent holder = TelemetryEvent.builder()
                     .name(name)
                     .timestamp(Instant.now())
                     .build();
@@ -65,7 +65,7 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
         var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
         var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
         if (support != null) {
-            TelemetryHolder top = support.currentHolder();
+            TelemetryEvent top = support.currentHolder();
             if (top != null) {
                 top.attributes().map().putAll(attrs);
                 top.eventContext().putAll(ctx);
@@ -88,7 +88,7 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
         if (error != null) attrs.putIfAbsent("error", error.getClass().getSimpleName());
         var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
         if (support != null) {
-            TelemetryHolder top = support.currentHolder();
+            TelemetryEvent top = support.currentHolder();
             if (top != null) {
                 top.attributes().map().putAll(attrs);
                 top.eventContext().putAll(ctx);

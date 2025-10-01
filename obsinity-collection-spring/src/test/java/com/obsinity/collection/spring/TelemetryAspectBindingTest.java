@@ -8,7 +8,7 @@ import com.obsinity.collection.api.annotations.Kind;
 import com.obsinity.collection.api.annotations.PushAttribute;
 import com.obsinity.collection.api.annotations.PushContextValue;
 import com.obsinity.collection.core.receivers.TelemetryReceiver;
-import com.obsinity.telemetry.model.TelemetryHolder;
+import com.obsinity.telemetry.model.TelemetryEvent;
 import io.opentelemetry.api.trace.SpanKind;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,10 +55,10 @@ class TelemetryAspectBindingTest {
 
         /** Simple receiver bean that captures TelemetryHolder fan-out. */
         static class CapturingReceiver implements TelemetryReceiver {
-            final List<TelemetryHolder> holders = new ArrayList<>();
+            final List<TelemetryEvent> holders = new ArrayList<>();
 
             @Override
-            public void handle(TelemetryHolder holder) {
+            public void handle(TelemetryEvent holder) {
                 holders.add(holder);
             }
         }
@@ -82,7 +82,7 @@ class TelemetryAspectBindingTest {
                 Thread.sleep(100);
             } catch (InterruptedException ignored) {
             }
-            List<TelemetryHolder> seen = capturingReceiver.holders;
+            List<TelemetryEvent> seen = capturingReceiver.holders;
             assertThat(seen).hasSize(2);
             TelemetryHolder started = seen.get(0);
             TelemetryHolder finished = seen.get(1);
