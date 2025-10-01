@@ -11,8 +11,8 @@ import org.slf4j.LoggerFactory;
  */
 @EventReceiver
 @OnEventScope("demo.") // handle demo.* flows by default
-public class SampleReceivers {
-    private static final Logger log = LoggerFactory.getLogger(SampleReceivers.class);
+public class DemoFlowReceivers {
+    private static final Logger log = LoggerFactory.getLogger(DemoFlowReceivers.class);
 
     /**
      * Handle start of all demo.* flows.

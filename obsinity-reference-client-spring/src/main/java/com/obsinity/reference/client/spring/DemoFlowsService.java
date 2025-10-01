@@ -1,8 +1,11 @@
 package com.obsinity.reference.client.spring;
 
+import com.obsinity.collection.api.annotations.Domain;
+import com.obsinity.collection.api.annotations.Kind;
 import com.obsinity.collection.api.annotations.OrphanAlert;
 import com.obsinity.collection.api.annotations.PushAttribute;
 import com.obsinity.collection.api.annotations.Step;
+import io.opentelemetry.api.trace.SpanKind;
 import org.springframework.stereotype.Component;
 
 /**
@@ -16,6 +19,8 @@ public class DemoFlowsService {
      * Demonstrates: @Step with attribute enrichment.
      */
     @Step("demo.reserve")
+    @Kind(SpanKind.INTERNAL)
+    @Domain("internal")
     public void reserveInventory(@PushAttribute("sku") String sku) {
         // pretend to reserve inventory
     }
@@ -25,6 +30,8 @@ public class DemoFlowsService {
      * Demonstrates: @Step auto-promoted to Flow + failure path.
      */
     @Step("demo.orphan.fail")
+    @Kind(SpanKind.INTERNAL)
+    @Domain("internal")
     @OrphanAlert(OrphanAlert.Level.WARN)
     public void orphanFail(@PushAttribute("reason") String reason) {
         throw new IllegalArgumentException("orphan-fail: " + reason);
