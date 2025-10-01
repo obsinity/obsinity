@@ -11,6 +11,10 @@
   <packaging>jar</packaging>
 
   <dependencies>
+    <dependency>
+      <groupId>com.obsinity</groupId>
+      <artifactId>obsinity-client-core</artifactId>
+    </dependency>
     <!-- Spring Boot app + WebFlux just for demo startup -->
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter</artifactId><version>${spring-boot.version}</version></dependency>
     <dependency><groupId>org.springframework</groupId><artifactId>spring-webflux</artifactId></dependency>

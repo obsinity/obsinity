@@ -22,3 +22,4 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
         HandlerAutoConfiguration.class
 })
 public @interface ObsinityApplication {}
+
