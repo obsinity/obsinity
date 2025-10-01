@@ -25,7 +25,7 @@ public class DemoFlowsService {
      * Demonstrates: @Step auto-promoted to Flow + failure path.
      */
     @Step("demo.orphan.fail")
-    @OrphanAlert(OrphanAlert.Level.WARN)
+    @OrphanAlert(level = OrphanAlert.Level.WARN)
     public void orphanFail(@PushAttribute("reason") String reason) {
         throw new IllegalArgumentException("orphan-fail: " + reason);
     }

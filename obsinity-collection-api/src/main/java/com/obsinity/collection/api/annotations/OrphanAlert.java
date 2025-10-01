@@ -22,12 +22,6 @@ public @interface OrphanAlert {
      */
     Level level() default Level.ERROR;
 
-    /**
-     * Back-compat alias to support usages like {@code @OrphanAlert(Level.WARN)}.
-     */
-    @Deprecated
-    Level value() default Level.ERROR;
-
     /** Simple log level enum decoupled from specific logging frameworks. */
     enum Level {
         NONE,
