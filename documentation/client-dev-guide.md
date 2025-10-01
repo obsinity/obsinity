@@ -471,35 +471,10 @@ Attributes saved; context is ephemeral
 
 ---
 
-## Non‑Spring Usage (manual wiring)
+## Domain Helper Enum
 
-```java
-var support = new com.obsinity.telemetry.processor.TelemetryProcessorSupport();
-var registry = new com.obsinity.collection.core.receivers.TelemetryHandlerRegistry();
-var bus = new com.obsinity.collection.core.dispatch.AsyncDispatchBus(registry);
-var processor = new com.obsinity.collection.core.processor.DefaultTelemetryProcessor(bus, support);
-
-// Register receivers
-registry.register(h -> System.out.println("EVENT " + h.name()));
-
-processor.onFlowStarted("demo.cli", java.util.Map.of("user.id","alice"), java.util.Map.of());
-try {
-  // work
-  processor.onFlowCompleted("demo.cli", java.util.Map.of(), java.util.Map.of());
-} catch (Throwable t) {
-  processor.onFlowFailed("demo.cli", t, java.util.Map.of(), java.util.Map.of());
-}
-```
-
-To send to Obsinity without Spring, instantiate a transport and reuse `TelemetryObsinityReceivers`:
-
-```java
-var sender = new com.obsinity.client.transport.jdkhttp.JdkHttpEventSender();
-var obsinity = new com.obsinity.collection.receiver.obsinity.TelemetryObsinityReceivers(sender);
-registry.register(obsinity::onStarted);
-registry.register(obsinity::onCompleted);
-registry.register(obsinity::onFailed);
-```
+`@Domain` accepts either a free-form string (e.g., `"http"`) or `@Domain(type = Domain.Type.HTTP)` for common domains.
+Available enum constants: `HTTP`, `MESSAGING`, `DB`, `RPC`, `INTERNAL`.
 
 ---
 

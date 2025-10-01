@@ -145,8 +145,22 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
             if (bindings.get(i) == null) return null; // unsupported signature
         }
 
+        boolean flowFailureHandler = isFailure;
+        boolean failureFinishHandler = isCompleted && onOutcome != null && onOutcome.value() == Outcome.FAILURE;
+
         return new CompiledHandler(
-                bean, m, classScopes, methodScopes, lifecycles, onOutcome, reqAttrs, reqCtx, bindings, fallback);
+                bean,
+                m,
+                classScopes,
+                methodScopes,
+                lifecycles,
+                onOutcome,
+                reqAttrs,
+                reqCtx,
+                bindings,
+                fallback,
+                flowFailureHandler,
+                failureFinishHandler);
     }
 
     private static Function<TelemetryHolder, Object> buildParamBinding(
@@ -185,14 +199,30 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
     private record CompiledReceiver(List<CompiledHandler> handlers, List<CompiledHandler> fallbacks) {
         void dispatch(TelemetryHolder h) throws Exception {
             boolean any = false;
+            String lcStr = String.valueOf(h.eventContext().get("lifecycle"));
+            boolean isFailed = "FAILED".equals(lcStr);
+
+            boolean anyFlowFailureMatched = false;
+            if (isFailed) {
+                for (CompiledHandler c : handlers) {
+                    if (c.flowFailure && c.matches(h)) {
+                        c.invoke(h);
+                        any = true;
+                        anyFlowFailureMatched = true;
+                    }
+                }
+            }
+
             for (CompiledHandler c : handlers) {
+                if (isFailed && c.flowFailure) continue; // already handled
+                if (isFailed && c.failureFinish && anyFlowFailureMatched) continue; // suppress finish if failure matched
                 if (c.matches(h)) {
                     c.invoke(h);
                     any = true;
                 }
             }
+
             if (!any) {
-                // Component-scoped fallback: invoke regardless of scope/lifecycle
                 for (CompiledHandler f : fallbacks) f.invoke(h);
             }
         }
@@ -209,6 +239,8 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
         final RequiredEventContext reqCtx;
         final List<Function<TelemetryHolder, Object>> bindings;
         final boolean fallback;
+        final boolean flowFailure;
+        final boolean failureFinish;
 
         CompiledHandler(
                 Object bean,
@@ -220,7 +252,9 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
                 RequiredAttributes reqAttrs,
                 RequiredEventContext reqCtx,
                 List<Function<TelemetryHolder, Object>> bindings,
-                boolean fallback) {
+                boolean fallback,
+                boolean flowFailure,
+                boolean failureFinish) {
             this.bean = bean;
             this.method = method;
             this.classScopes = classScopes;
@@ -231,6 +265,8 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
             this.reqCtx = reqCtx;
             this.bindings = bindings;
             this.fallback = fallback;
+            this.flowFailure = flowFailure;
+            this.failureFinish = failureFinish;
         }
 
         boolean matches(TelemetryHolder h) {

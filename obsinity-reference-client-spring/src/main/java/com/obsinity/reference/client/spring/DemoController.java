@@ -110,7 +110,7 @@ public class DemoController {
     @GetMapping(path = "/api/produce", produces = MediaType.APPLICATION_JSON_VALUE)
     @Flow(name = "demo.produce")
     @Kind(SpanKind.PRODUCER)
-    @Domain("messaging")
+    @Domain(type = Domain.Type.MESSAGING)
     public java.util.Map<String, Object> produce(@RequestParam(value = "topic", defaultValue = "demo-topic")
             @PushAttribute("messaging.topic") String topic) {
         // pretend to publish to a topic

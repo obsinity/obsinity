@@ -127,7 +127,18 @@ public class TelemetryAspect {
         Kind k = m.getAnnotation(Kind.class);
         if (k != null && k.value() != null) b.kind(k.value().name());
         Domain d = m.getAnnotation(Domain.class);
-        if (d != null && !d.value().isBlank()) b.domain(d.value());
+        if (d != null) {
+            try {
+                if (d.type() != null && d.type() != Domain.Type.CUSTOM) {
+                    b.domain(d.type().name().toLowerCase(java.util.Locale.ROOT));
+                } else if (d.value() != null && !d.value().isBlank()) {
+                    b.domain(d.value());
+                }
+            } catch (Throwable ignore) {
+                // Backward compatibility if compiled without 'type' element
+                if (d.value() != null && !d.value().isBlank()) b.domain(d.value());
+            }
+        }
         if (status != null) b.status(status.code(), status.message());
         String traceId = null;
         String spanId = null;
