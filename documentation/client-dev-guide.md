@@ -124,7 +124,11 @@ Transports are discovered via classpath. If both WebClient and OkHttp are presen
 Annotate methods with `@Flow` (and optionally `@Step` inside flows) to emit lifecycle events. Use `@PushAttribute` and `@PushContextValue` to enrich attributes and context.
 
 ```java
+import com.obsinity.client.core.ObsinityClientApplication;
+import io.opentelemetry.api.trace.SpanKind;
+
 @SpringBootApplication
+@ObsinityClientApplication
 class DemoApp {
   public static void main(String[] args) {
     org.springframework.boot.SpringApplication.run(DemoApp.class, args);
@@ -141,7 +145,7 @@ class DemoApp {
 @Component
 class SampleFlows {
   @Flow(name = "demo.checkout")
-  @Kind(io.opentelemetry.api.trace.SpanKind.SERVER)
+  @Kind(SpanKind.SERVER)
   @Domain("http")
   void checkout(@PushAttribute("user.id") String userId,
                 @PushContextValue("cart.size") int items) {
@@ -149,7 +153,7 @@ class SampleFlows {
   }
 
   @Flow(name = "demo.checkout")
-  @Kind(io.opentelemetry.api.trace.SpanKind.SERVER) @Domain("http")
+  @Kind(SpanKind.SERVER) @Domain("http")
   void checkoutFail(@PushAttribute("user.id") String userId,
                     @PushContextValue("cart.size") int items) {
     throw new RuntimeException("boom");
@@ -341,8 +345,10 @@ Note: The August 2025 guide removes a standalone “COMPLETED” concept in favo
 ### Flow & Steps
 
 ```java
+import io.opentelemetry.api.trace.SpanKind;
+
 @Flow("checkout.start")                     // Start a checkout flow
-@Kind(io.opentelemetry.api.trace.SpanKind.SERVER)
+@Kind(SpanKind.SERVER)
 public void startCheckout(
     @PushAttribute("user.id") String userId,
     @PushContextValue("session.id") String sessionId
@@ -359,7 +365,6 @@ public void processPayment(@PushAttribute("payment.method") String method) { /* 
 ### Receiver with lifecycle + outcomes + scope
 
 ```java
-@EventReceiver
 @EventReceiver
 @OnEventScope("checkout")
 public class CheckoutReceiver {
@@ -455,7 +460,7 @@ Attributes saved; context is ephemeral
 1) Add dependencies: `obsinity-collection-api`, `obsinity-collection-core`, `obsinity-collection-spring`, at least one receiver (`-receiver-logging`, `-receiver-obsinity`), and one transport (`obsinity-client-transport-*`).
 2) Annotate methods with `@Flow` / `@Step` and `@Push*`.
 3) Enable telemetry (AOP + auto-config):
-   - Preferred: annotate your app with `@com.obsinity.collection.spring.annotation.EnableObsinityTelemetry`.
+   - Preferred: annotate your app with `@ObsinityClientApplication`.
    - Or add `spring-boot-starter-aop` and enable `@EnableAspectJAutoProxy(proxyTargetClass = true, exposeProxy = true)` yourself.
 4) Configure properties:
    - `obsinity.collection.logging.enabled=true|false`

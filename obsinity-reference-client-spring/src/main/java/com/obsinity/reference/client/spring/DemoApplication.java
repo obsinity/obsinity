@@ -5,13 +5,15 @@ import com.obsinity.collection.api.annotations.Flow;
 import com.obsinity.collection.api.annotations.Kind;
 import com.obsinity.collection.api.annotations.PushAttribute;
 import com.obsinity.collection.api.annotations.PushContextValue;
+import com.obsinity.client.core.ObsinityClientApplication;
+import io.opentelemetry.api.trace.SpanKind;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 
 @SpringBootApplication
-@com.obsinity.collection.spring.annotation.EnableObsinityTelemetry
+@ObsinityClientApplication
 public class DemoApplication {
     public static void main(String[] args) {
         org.springframework.boot.SpringApplication.run(DemoApplication.class, args);
@@ -33,14 +35,14 @@ public class DemoApplication {
 @Component
 class SampleFlows {
     @Flow(name = "demo.checkout")
-    @Kind(io.opentelemetry.api.trace.SpanKind.SERVER)
+    @Kind(SpanKind.SERVER)
     @Domain("http")
     public void checkout(@PushAttribute("user.id") String userId, @PushContextValue("cart.size") int items) {
         // business logic ...
     }
 
     @Flow(name = "demo.checkout")
-    @Kind(io.opentelemetry.api.trace.SpanKind.SERVER)
+    @Kind(SpanKind.SERVER)
     @Domain("http")
     public void checkoutFail(@PushAttribute("user.id") String userId, @PushContextValue("cart.size") int items) {
         throw new RuntimeException("boom");

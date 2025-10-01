@@ -9,6 +9,7 @@ import com.obsinity.collection.api.annotations.PushAttribute;
 import com.obsinity.collection.api.annotations.PushContextValue;
 import com.obsinity.collection.core.receivers.TelemetryReceiver;
 import com.obsinity.telemetry.model.TelemetryHolder;
+import io.opentelemetry.api.trace.SpanKind;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
@@ -45,7 +46,7 @@ class TelemetryAspectBindingTest {
 
         static class SampleFlows {
             @Flow(name = "demo.checkout")
-            @Kind(io.opentelemetry.api.trace.SpanKind.SERVER)
+            @Kind(SpanKind.SERVER)
             @Domain("http")
             public void checkout(@PushAttribute("user.id") String userId, @PushContextValue("cart.size") int items) {
                 // no-op

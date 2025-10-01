@@ -1,4 +1,4 @@
-package com.obsinity.collection.spring.annotation;
+package com.obsinity.client.core;
 
 import com.obsinity.collection.spring.autoconfigure.CollectionAutoConfiguration;
 import com.obsinity.collection.spring.autoconfigure.HandlerAutoConfiguration;
@@ -9,9 +9,9 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
 
 /**
- * Convenience meta-annotation to enable Obsinity client-side telemetry in Spring apps.
- * - Enables AspectJ proxies for the AOP aspect that captures @Flow/@Step.
- * - Imports core auto-configurations for the collection SDK and trace propagation filters.
+ * Annotate your Spring Boot application with this to enable Obsinity client telemetry.
+ * - Turns on AspectJ proxies for the AOP aspect capturing @Flow/@Step
+ * - Imports core auto-config for collection and trace propagation
  */
 @EnableAspectJAutoProxy(proxyTargetClass = true, exposeProxy = true)
 @ImportAutoConfiguration({
@@ -21,5 +21,5 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
         WebfluxTraceAutoConfiguration.class,
         HandlerAutoConfiguration.class
 })
-public @interface EnableObsinityTelemetry {}
+public @interface ObsinityClientApplication {}
 

@@ -12,6 +12,15 @@
 
   <dependencies>
   <dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-autoconfigure</artifactId>
+    <version>${spring-boot.version}</version>
+  </dependency>
+  <dependency>
+    <groupId>com.obsinity</groupId>
+    <artifactId>obsinity-collection-spring</artifactId>
+  </dependency>
+  <dependency>
     <groupId>com.obsinity</groupId>
     <artifactId>obsinity-collection-core</artifactId>
   </dependency>
