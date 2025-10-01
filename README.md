@@ -12,6 +12,7 @@ A transport-agnostic SDK to collect app telemetry via annotations and AOP and em
 
 - Quick start, JSON schema, and configuration are documented here:
   - `documentation/collection-sdk.md`
+  - `documentation/client-dev-guide.md` (developer guide with setup, transports, testing)
 - Default Obsinity ingest endpoint used by the SDK: `http://localhost:8080/events/publish`
   - Override with `-Dobsinity.ingest.url=...` or env `OBSINITY_INGEST_URL`.
 
@@ -19,8 +20,8 @@ Modules:
 - `obsinity-collection-api` (annotations)
 - `obsinity-collection-core` (OEvent model, TelemetryContext, DispatchBus, EventSink)
 - `obsinity-collection-spring` (auto-config + aspect)
-- `obsinity-collection-sink-logging` (logging sink)
-- `obsinity-collection-sink-obsinity` (adapter to Obsinity REST ingest)
+- `obsinity-collection-receiver-logging` (logging sink)
+- `obsinity-collection-receiver-obsinity` (adapter to Obsinity REST ingest)
 
 See `obsinity-reference-client-spring` for a runnable demo using `@Flow` and both sinks.
 

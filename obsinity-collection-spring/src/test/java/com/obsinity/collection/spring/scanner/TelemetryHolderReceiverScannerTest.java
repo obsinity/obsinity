@@ -3,8 +3,8 @@ package com.obsinity.collection.spring.scanner;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.obsinity.collection.api.annotations.EventReceiver;
-import com.obsinity.collection.api.annotations.OnFlowCompleted;
 import com.obsinity.collection.api.annotations.FlowException;
+import com.obsinity.collection.api.annotations.OnFlowCompleted;
 import com.obsinity.collection.api.annotations.OnFlowFailure;
 import com.obsinity.collection.api.annotations.RequiredAttributes;
 import com.obsinity.collection.core.receivers.TelemetryHandlerRegistry;

@@ -5,7 +5,4 @@ import java.lang.annotation.*;
 @Documented
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
-@Repeatable(OnEventScopes.class)
-public @interface OnEventScope {
-    String value();
-}
+public @interface OnAllLifecycles {}
