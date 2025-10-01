@@ -125,7 +125,7 @@ public class TelemetryAspect {
         Method m = ms.getMethod();
         TelemetryMeta.Builder b = TelemetryMeta.builder();
         Kind k = m.getAnnotation(Kind.class);
-        if (k != null && !k.value().isBlank()) b.kind(k.value());
+        if (k != null && k.value() != null) b.kind(k.value().name());
         Domain d = m.getAnnotation(Domain.class);
         if (d != null && !d.value().isBlank()) b.domain(d.value());
         if (status != null) b.status(status.code(), status.message());

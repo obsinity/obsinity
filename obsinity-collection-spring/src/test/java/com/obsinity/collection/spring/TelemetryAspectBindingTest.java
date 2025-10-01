@@ -45,7 +45,7 @@ class TelemetryAspectBindingTest {
 
         static class SampleFlows {
             @Flow(name = "demo.checkout")
-            @Kind("SERVER")
+            @Kind(io.opentelemetry.api.trace.SpanKind.SERVER)
             @Domain("http")
             public void checkout(@PushAttribute("user.id") String userId, @PushContextValue("cart.size") int items) {
                 // no-op

@@ -141,7 +141,7 @@ class DemoApp {
 @Component
 class SampleFlows {
   @Flow(name = "demo.checkout")
-  @Kind("SERVER")
+  @Kind(io.opentelemetry.api.trace.SpanKind.SERVER)
   @Domain("http")
   void checkout(@PushAttribute("user.id") String userId,
                 @PushContextValue("cart.size") int items) {
@@ -149,7 +149,7 @@ class SampleFlows {
   }
 
   @Flow(name = "demo.checkout")
-  @Kind("SERVER") @Domain("http")
+  @Kind(io.opentelemetry.api.trace.SpanKind.SERVER) @Domain("http")
   void checkoutFail(@PushAttribute("user.id") String userId,
                     @PushContextValue("cart.size") int items) {
     throw new RuntimeException("boom");
@@ -376,7 +376,7 @@ Note: The August 2025 guide removes a standalone “COMPLETED” concept in favo
 
 ```java
 @Flow("checkout.start")                     // Start a checkout flow
-@Kind("SERVER")
+@Kind(io.opentelemetry.api.trace.SpanKind.SERVER)
 public void startCheckout(
     @PushAttribute("user.id") String userId,
     @PushContextValue("session.id") String sessionId

@@ -32,14 +32,14 @@ public class DemoApplication {
 @Component
 class SampleFlows {
     @Flow(name = "demo.checkout")
-    @Kind("SERVER")
+    @Kind(io.opentelemetry.api.trace.SpanKind.SERVER)
     @Domain("http")
     public void checkout(@PushAttribute("user.id") String userId, @PushContextValue("cart.size") int items) {
         // business logic ...
     }
 
     @Flow(name = "demo.checkout")
-    @Kind("SERVER")
+    @Kind(io.opentelemetry.api.trace.SpanKind.SERVER)
     @Domain("http")
     public void checkoutFail(@PushAttribute("user.id") String userId, @PushContextValue("cart.size") int items) {
         throw new RuntimeException("boom");
