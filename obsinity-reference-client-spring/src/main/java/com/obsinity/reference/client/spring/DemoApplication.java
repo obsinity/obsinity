@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 
 @SpringBootApplication
+@com.obsinity.collection.spring.annotation.EnableObsinityTelemetry
 public class DemoApplication {
     public static void main(String[] args) {
         org.springframework.boot.SpringApplication.run(DemoApplication.class, args);

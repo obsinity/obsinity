@@ -167,41 +167,7 @@ What happens at runtime:
 
 ---
 
-## Non-Spring Usage (Manual)
-
-You can emit events without Spring/AOP by calling the processor directly. This is useful for CLI tools or light services.
-
-```java
-// Wire the pieces
-var support = new com.obsinity.telemetry.processor.TelemetryProcessorSupport();
-var registry = new com.obsinity.collection.core.receivers.TelemetryHandlerRegistry();
-var bus = new com.obsinity.collection.core.dispatch.AsyncDispatchBus(registry);
-var processor = new com.obsinity.collection.core.processor.DefaultTelemetryProcessor(bus, support);
-
-// Register your own receiver (example: log to console)
-registry.register(h -> System.out.println("EVENT " + h.name() + " attrs=" + h.attributes().map()));
-
-// Emit
-processor.onFlowStarted("demo.cli", Map.of("user.id", "alice"), Map.of());
-try {
-  // work
-  processor.onFlowCompleted("demo.cli", Map.of(), Map.of());
-} catch (Throwable t) {
-  processor.onFlowFailed("demo.cli", t, Map.of(), Map.of());
-}
-```
-
-For HTTP delivery to Obsinity without Spring, instantiate a transport and reuse `TelemetryObsinityReceivers`:
-
-```java
-var sender = new com.obsinity.client.transport.jdkhttp.JdkHttpEventSender();
-var obsinity = new com.obsinity.collection.receiver.obsinity.TelemetryObsinityReceivers(sender);
-registry.register(obsinity::onStarted);
-registry.register(obsinity::onCompleted);
-registry.register(obsinity::onFailed);
-```
-
----
+ 
 
 ## Choosing a Transport
 
@@ -488,15 +454,9 @@ Attributes saved; context is ephemeral
 
 1) Add dependencies: `obsinity-collection-api`, `obsinity-collection-core`, `obsinity-collection-spring`, at least one receiver (`-receiver-logging`, `-receiver-obsinity`), and one transport (`obsinity-client-transport-*`).
 2) Annotate methods with `@Flow` / `@Step` and `@Push*`.
-3) Enable Spring AOP proxies (required for `@Aspect` advice to run):
-   - Preferred: add `org.springframework.boot:spring-boot-starter-aop` to your app.
-   - Or explicitly annotate a configuration class:
-     
-     ```java
-     @org.springframework.context.annotation.EnableAspectJAutoProxy(proxyTargetClass = true, exposeProxy = true)
-     @org.springframework.boot.autoconfigure.SpringBootApplication
-     class App { /* … */ }
-     ```
+3) Enable telemetry (AOP + auto-config):
+   - Preferred: annotate your app with `@com.obsinity.collection.spring.annotation.EnableObsinityTelemetry`.
+   - Or add `spring-boot-starter-aop` and enable `@EnableAspectJAutoProxy(proxyTargetClass = true, exposeProxy = true)` yourself.
 4) Configure properties:
    - `obsinity.collection.logging.enabled=true|false`
    - `obsinity.collection.obsinity.enabled=true|false`
