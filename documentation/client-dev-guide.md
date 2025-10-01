@@ -124,11 +124,11 @@ Transports are discovered via classpath. If both WebClient and OkHttp are presen
 Annotate methods with `@Flow` (and optionally `@Step` inside flows) to emit lifecycle events. Use `@PushAttribute` and `@PushContextValue` to enrich attributes and context.
 
 ```java
-import com.obsinity.client.core.ObsinityClientApplication;
+import com.obsinity.client.core.ObsinityApplication;
 import io.opentelemetry.api.trace.SpanKind;
 
 @SpringBootApplication
-@ObsinityClientApplication
+@ObsinityApplication
 class DemoApp {
   public static void main(String[] args) {
     org.springframework.boot.SpringApplication.run(DemoApp.class, args);
@@ -460,7 +460,7 @@ Attributes saved; context is ephemeral
 1) Add dependencies: `obsinity-collection-api`, `obsinity-collection-core`, `obsinity-collection-spring`, at least one receiver (`-receiver-logging`, `-receiver-obsinity`), and one transport (`obsinity-client-transport-*`).
 2) Annotate methods with `@Flow` / `@Step` and `@Push*`.
 3) Enable telemetry (AOP + auto-config):
-   - Preferred: annotate your app with `@ObsinityClientApplication`.
+   - Preferred: annotate your app with `@ObsinityApplication`.
    - Or add `spring-boot-starter-aop` and enable `@EnableAspectJAutoProxy(proxyTargetClass = true, exposeProxy = true)` yourself.
 4) Configure properties:
    - `obsinity.collection.logging.enabled=true|false`

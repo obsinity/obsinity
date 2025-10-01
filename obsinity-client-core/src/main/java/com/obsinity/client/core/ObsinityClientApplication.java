@@ -21,5 +21,4 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
         WebfluxTraceAutoConfiguration.class,
         HandlerAutoConfiguration.class
 })
-public @interface ObsinityClientApplication {}
-
+public @interface ObsinityApplication {}

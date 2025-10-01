@@ -5,7 +5,7 @@ import com.obsinity.collection.api.annotations.Flow;
 import com.obsinity.collection.api.annotations.Kind;
 import com.obsinity.collection.api.annotations.PushAttribute;
 import com.obsinity.collection.api.annotations.PushContextValue;
-import com.obsinity.client.core.ObsinityClientApplication;
+import com.obsinity.client.core.ObsinityApplication;
 import io.opentelemetry.api.trace.SpanKind;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 
 @SpringBootApplication
-@ObsinityClientApplication
+@ObsinityApplication
 public class DemoApplication {
     public static void main(String[] args) {
         org.springframework.boot.SpringApplication.run(DemoApplication.class, args);
