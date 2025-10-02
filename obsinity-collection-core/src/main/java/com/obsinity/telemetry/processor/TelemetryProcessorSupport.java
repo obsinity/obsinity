@@ -63,8 +63,8 @@ public class TelemetryProcessorSupport {
         return !ctx.get().isEmpty();
     }
 
-    public void push(final TelemetryEvent h) {
-        if (h != null) ctx.get().addLast(h);
+    public void push(final TelemetryEvent event) {
+        if (event != null) ctx.get().addLast(event);
     }
 
     public void pop(final TelemetryEvent expectedTop) {
@@ -87,9 +87,9 @@ public class TelemetryProcessorSupport {
     }
 
     /** Add a holder to the current root batch if present. */
-    public void addToBatch(final TelemetryEvent holder) {
+    public void addToBatch(final TelemetryEvent event) {
         final List<TelemetryEvent> list = batch.get();
-        if (list != null && holder != null) list.add(holder);
+        if (list != null && event != null) list.add(event);
     }
 
     /**
@@ -114,8 +114,8 @@ public class TelemetryProcessorSupport {
 
     /* --------------------- mutation helpers --------------------- */
 
-    public void setEndTime(final TelemetryEvent h, final Instant end) {
-        if (h != null) h.setEndTimestamp(end);
+    public void setEndTime(final TelemetryEvent event, final Instant end) {
+        if (event != null) event.setEndTimestamp(end);
     }
 
     /* --------------------- utility --------------------- */

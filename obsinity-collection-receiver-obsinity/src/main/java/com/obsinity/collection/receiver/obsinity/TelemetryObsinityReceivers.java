@@ -27,57 +27,57 @@ public class TelemetryObsinityReceivers {
     }
 
     @OnFlowStarted
-    public void onStarted(TelemetryEvent h) throws IOException {
-        send(h);
+    public void onStarted(TelemetryEvent event) throws IOException {
+        send(event);
     }
 
     @OnFlowCompleted
-    public void onCompleted(TelemetryEvent h) throws IOException {
-        send(h);
+    public void onCompleted(TelemetryEvent event) throws IOException {
+        send(event);
     }
 
     @OnFlowFailure
-    public void onFailed(TelemetryEvent h) throws IOException {
-        send(h);
+    public void onFailed(TelemetryEvent event) throws IOException {
+        send(event);
     }
 
-    private void send(TelemetryHolder h) throws IOException {
-        byte[] body = json.writeValueAsBytes(toUnifiedPublishBody(h));
+    private void send(TelemetryEvent event) throws IOException {
+        byte[] body = json.writeValueAsBytes(toUnifiedPublishBody(event));
         sender.send(body);
     }
 
-    static Map<String, Object> toUnifiedPublishBody(TelemetryEvent h) {
+    static Map<String, Object> toUnifiedPublishBody(TelemetryEvent event) {
         Map<String, Object> root = new LinkedHashMap<>();
-        root.put("occurredAt", h.timestamp());
+        root.put("occurredAt", event.timestamp());
 
         Map<String, Object> eventObj = new LinkedHashMap<>();
-        eventObj.put("name", h.name());
-        if (h.kind() != null) eventObj.put("kind", h.kind().name());
+        eventObj.put("name", event.name());
+        if (event.kind() != null) eventObj.put("kind", event.kind().name());
         root.put("event", eventObj);
 
-        if (h.traceId() != null || h.spanId() != null || h.parentSpanId() != null) {
+        if (event.traceId() != null || event.spanId() != null || event.parentSpanId() != null) {
             Map<String, Object> trace = new LinkedHashMap<>();
-            if (h.traceId() != null) trace.put("traceId", h.traceId());
-            if (h.spanId() != null) trace.put("spanId", h.spanId());
-            if (h.parentSpanId() != null) trace.put("parentSpanId", h.parentSpanId());
+            if (event.traceId() != null) trace.put("traceId", event.traceId());
+            if (event.spanId() != null) trace.put("spanId", event.spanId());
+            if (event.parentSpanId() != null) trace.put("parentSpanId", event.parentSpanId());
             root.put("trace", trace);
         }
 
-        if (h.status() != null && (h.status().getCode() != null || h.status().getMessage() != null)) {
+        if (event.status() != null && (event.status().getCode() != null || event.status().getMessage() != null)) {
             Map<String, Object> status = new LinkedHashMap<>();
-            if (h.status().getCode() != null)
-                status.put("code", String.valueOf(h.status().getCode()));
-            if (h.status().getMessage() != null)
-                status.put("message", h.status().getMessage());
+            if (event.status().getCode() != null)
+                status.put("code", String.valueOf(event.status().getCode()));
+            if (event.status().getMessage() != null)
+                status.put("message", event.status().getMessage());
             root.put("status", status);
         }
 
         Map<String, Object> attrs = new LinkedHashMap<>(
-                h.attributes() == null ? Map.of() : h.attributes().map());
+                event.attributes() == null ? Map.of() : event.attributes().map());
         root.put("attributes", attrs);
 
         Map<String, Object> resource = new LinkedHashMap<>();
-        OResource r = h.resource();
+        OResource r = event.resource();
         if (r != null) {
             if (r.attributes() != null
                     && r.attributes().map() != null
@@ -85,7 +85,7 @@ public class TelemetryObsinityReceivers {
                 resource.put("attributes", r.attributes().map());
             }
         }
-        if (!h.eventContext().isEmpty()) resource.put("context", h.eventContext());
+        if (!event.eventContext().isEmpty()) resource.put("context", event.eventContext());
         root.put("resource", resource);
         return root;
     }

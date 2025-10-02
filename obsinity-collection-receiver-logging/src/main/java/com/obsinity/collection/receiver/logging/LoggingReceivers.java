@@ -13,17 +13,17 @@ public class LoggingReceivers {
     private static final Logger log = LoggerFactory.getLogger(LoggingReceivers.class);
 
     @OnFlowStarted
-    public void onStart(TelemetryEvent h) {
-        log.info("START {} attrs={} ctx={}", h.name(), h.attributes().map(), h.eventContext());
+    public void onStart(TelemetryEvent event) {
+        log.info("START {} attrs={} ctx={}", event.name(), event.attributes().map(), event.eventContext());
     }
 
     @OnFlowCompleted
-    public void onCompleted(TelemetryEvent h) {
-        log.info("DONE  {} attrs={} ctx={}", h.name(), h.attributes().map(), h.eventContext());
+    public void onCompleted(TelemetryEvent event) {
+        log.info("DONE  {} attrs={} ctx={}", event.name(), event.attributes().map(), event.eventContext());
     }
 
     @OnFlowFailure
-    public void onFailed(TelemetryEvent h) {
-        log.warn("FAIL  {} attrs={} ctx={}", h.name(), h.attributes().map(), h.eventContext());
+    public void onFailed(TelemetryEvent event) {
+        log.warn("FAIL  {} attrs={} ctx={}", event.name(), event.attributes().map(), event.eventContext());
     }
 }

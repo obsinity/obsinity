@@ -54,8 +54,8 @@ public final class AsyncDispatchBus implements AutoCloseable {
             this.thread.start();
         }
 
-        void offer(TelemetryEvent h) {
-            queue.offer(h);
+        void offer(TelemetryEvent event) {
+            queue.offer(event);
         }
 
         void shutdown() {
@@ -67,8 +67,8 @@ public final class AsyncDispatchBus implements AutoCloseable {
         public void run() {
             while (running.get()) {
                 try {
-                    TelemetryEvent h = queue.poll(250, TimeUnit.MILLISECONDS);
-                    if (h != null) receiver.handle(h);
+                    TelemetryEvent event = queue.poll(250, TimeUnit.MILLISECONDS);
+                    if (event != null) receiver.handle(event);
                 } catch (InterruptedException ie) {
                     // shutdown
                     Thread.currentThread().interrupt();

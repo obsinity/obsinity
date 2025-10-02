@@ -35,8 +35,8 @@ public class DemoFlowReceivers {
      * Binds: full attributes map via {@code @PullAllAttributes}.
      */
     @OnFlowStarted
-    public void onStart(TelemetryEvent h, @PullAllAttributes Map<String, Object> attrs) {
-        log.info("START {} attrs={} ctx={}", h.name(), attrs, h.eventContext());
+    public void onStart(TelemetryEvent event, @PullAllAttributes Map<String, Object> attrs) {
+        log.info("START {} attrs={} ctx={}", event.name(), attrs, event.eventContext());
     }
 
     /**
@@ -75,8 +75,8 @@ public class DemoFlowReceivers {
      * Binds: the specific IllegalArgumentException and the full TelemetryEvent.
      */
     @OnFlowFailure
-    public void onIllegalArg(IllegalArgumentException ex, TelemetryEvent h) {
-        log.warn("FAIL-IAE {} ex={}", h.name(), ex.getMessage());
+    public void onIllegalArg(IllegalArgumentException ex, TelemetryEvent event) {
+        log.warn("FAIL-IAE {} ex={}", event.name(), ex.getMessage());
     }
 
     /**
@@ -98,7 +98,7 @@ public class DemoFlowReceivers {
      * - Runs regardless of lifecycle/name (used as a last resort within this bean only)
      */
     @OnFlowNotMatched
-    public void notMatched(TelemetryEvent h) {
-        log.debug("FALLBACK {} attrs={} ctx={}", h.name(), h.attributes().map(), h.eventContext());
+    public void notMatched(TelemetryEvent event) {
+        log.debug("FALLBACK {} attrs={} ctx={}", event.name(), event.attributes().map(), event.eventContext());
     }
 }
