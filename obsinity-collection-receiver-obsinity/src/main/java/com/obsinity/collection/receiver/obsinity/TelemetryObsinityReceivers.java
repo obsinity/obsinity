@@ -63,7 +63,8 @@ public class TelemetryObsinityReceivers {
             root.put("trace", trace);
         }
 
-        if (event.status() != null && (event.status().getCode() != null || event.status().getMessage() != null)) {
+        if (event.status() != null
+                && (event.status().getCode() != null || event.status().getMessage() != null)) {
             Map<String, Object> status = new LinkedHashMap<>();
             if (event.status().getCode() != null)
                 status.put("code", String.valueOf(event.status().getCode()));

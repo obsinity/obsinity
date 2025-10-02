@@ -25,7 +25,7 @@ class DefaultTelemetryProcessorTest {
 
     @Test
     void onFlowFailed_propagates_throwable_to_holder() throws Exception {
-        BlockingQueue<TelemetryHolder> seen = new ArrayBlockingQueue<>(4);
+        BlockingQueue<TelemetryEvent> seen = new ArrayBlockingQueue<>(4);
         registry.register(seen::offer);
 
         var support = new com.obsinity.telemetry.processor.TelemetryProcessorSupport();
@@ -36,7 +36,7 @@ class DefaultTelemetryProcessorTest {
         RuntimeException err = new RuntimeException("boom");
         proc.onFlowFailed("demo.flow", err, Map.of(), Map.of());
 
-        TelemetryHolder h = seen.poll(Duration.ofSeconds(2).toMillis(), TimeUnit.MILLISECONDS);
+        TelemetryEvent h = seen.poll(Duration.ofSeconds(2).toMillis(), TimeUnit.MILLISECONDS);
         assertNotNull(h);
         assertEquals("FAILED", h.eventContext().get("lifecycle"));
         assertSame(err, h.throwable());

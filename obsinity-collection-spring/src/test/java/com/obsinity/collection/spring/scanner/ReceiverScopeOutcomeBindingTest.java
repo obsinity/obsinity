@@ -83,12 +83,12 @@ class ReceiverScopeOutcomeBindingTest {
     }
 
     private TelemetryHandlerRegistry registry;
-    private TelemetryHolderReceiverScanner scanner;
+    private TelemetryEventReceiverScanner scanner;
 
     @BeforeEach
     void setUp() {
         registry = new TelemetryHandlerRegistry();
-        scanner = new TelemetryHolderReceiverScanner(registry);
+        scanner = new TelemetryEventReceiverScanner(registry);
 
         scanner.postProcessAfterInitialization(new CheckoutReceiver(), "checkoutReceiver");
         scanner.postProcessAfterInitialization(new DotChopReceiver(), "dotChopReceiver");

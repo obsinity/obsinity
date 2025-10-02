@@ -99,6 +99,7 @@ public class DemoFlowReceivers {
      */
     @OnFlowNotMatched
     public void notMatched(TelemetryEvent event) {
-        log.debug("FALLBACK {} attrs={} ctx={}", event.name(), event.attributes().map(), event.eventContext());
+        log.debug(
+                "FALLBACK {} attrs={} ctx={}", event.name(), event.attributes().map(), event.eventContext());
     }
 }

@@ -16,13 +16,13 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.util.ReflectionUtils;
 
-public class TelemetryHolderReceiverScanner implements BeanPostProcessor, ApplicationContextAware {
-    private static final Logger log = LoggerFactory.getLogger(TelemetryHolderReceiverScanner.class);
+public class TelemetryEventReceiverScanner implements BeanPostProcessor, ApplicationContextAware {
+    private static final Logger log = LoggerFactory.getLogger(TelemetryEventReceiverScanner.class);
 
     private final TelemetryHandlerRegistry registry;
     private ApplicationContext applicationContext;
 
-    public TelemetryHolderReceiverScanner(TelemetryHandlerRegistry registry) {
+    public TelemetryEventReceiverScanner(TelemetryHandlerRegistry registry) {
         this.registry = Objects.requireNonNull(registry, "registry");
     }
 
@@ -135,7 +135,7 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
         ReflectionUtils.makeAccessible(m);
         Parameter[] params = m.getParameters();
         java.lang.annotation.Annotation[][] pann = m.getParameterAnnotations();
-        List<Function<TelemetryHolder, Object>> bindings = new ArrayList<>(params.length);
+        List<Function<TelemetryEvent, Object>> bindings = new ArrayList<>(params.length);
 
         boolean allowThrowable = isFailure
                 || (methodLifecycle != null && methodLifecycle.value() == OnFlowLifecycle.Lifecycle.FAILED)
@@ -163,7 +163,7 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
                 failureFinishHandler);
     }
 
-    private static Function<TelemetryHolder, Object> buildParamBinding(
+    private static Function<TelemetryEvent, Object> buildParamBinding(
             Parameter p, Annotation[] anns, boolean allowThrowable) {
         Class<?> type = p.getType();
 
@@ -197,16 +197,16 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
     /* ----------------- dispatch model ----------------- */
 
     private record CompiledReceiver(List<CompiledHandler> handlers, List<CompiledHandler> fallbacks) {
-        void dispatch(TelemetryHolder h) throws Exception {
+        void dispatch(TelemetryEvent event) throws Exception {
             boolean any = false;
-            String lcStr = String.valueOf(h.eventContext().get("lifecycle"));
+            String lcStr = String.valueOf(event.eventContext().get("lifecycle"));
             boolean isFailed = "FAILED".equals(lcStr);
 
             boolean anyFlowFailureMatched = false;
             if (isFailed) {
                 for (CompiledHandler c : handlers) {
-                    if (c.flowFailure && c.matches(h)) {
-                        c.invoke(h);
+                    if (c.flowFailure && c.matches(event)) {
+                        c.invoke(event);
                         any = true;
                         anyFlowFailureMatched = true;
                     }
@@ -217,14 +217,14 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
                 if (isFailed && c.flowFailure) continue; // already handled
                 if (isFailed && c.failureFinish && anyFlowFailureMatched)
                     continue; // suppress finish if failure matched
-                if (c.matches(h)) {
-                    c.invoke(h);
+                if (c.matches(event)) {
+                    c.invoke(event);
                     any = true;
                 }
             }
 
             if (!any) {
-                for (CompiledHandler f : fallbacks) f.invoke(h);
+                for (CompiledHandler f : fallbacks) f.invoke(event);
             }
         }
     }
@@ -238,7 +238,7 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
         final OnOutcome onOutcome;
         final RequiredAttributes reqAttrs;
         final RequiredEventContext reqCtx;
-        final List<Function<TelemetryHolder, Object>> bindings;
+        final List<Function<TelemetryEvent, Object>> bindings;
         final boolean fallback;
         final boolean flowFailure;
         final boolean failureFinish;
@@ -252,7 +252,7 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
                 OnOutcome onOutcome,
                 RequiredAttributes reqAttrs,
                 RequiredEventContext reqCtx,
-                List<Function<TelemetryHolder, Object>> bindings,
+                List<Function<TelemetryEvent, Object>> bindings,
                 boolean fallback,
                 boolean flowFailure,
                 boolean failureFinish) {
@@ -270,8 +270,8 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
             this.failureFinish = failureFinish;
         }
 
-        boolean matches(TelemetryHolder h) {
-            String lcStr = String.valueOf(h.eventContext().get("lifecycle"));
+        boolean matches(TelemetryEvent event) {
+            String lcStr = String.valueOf(event.eventContext().get("lifecycle"));
             OnFlowLifecycle.Lifecycle lc;
             if ("STARTED".equals(lcStr)) lc = OnFlowLifecycle.Lifecycle.STARTED;
             else if ("FAILED".equals(lcStr)) lc = OnFlowLifecycle.Lifecycle.FAILED;
@@ -292,35 +292,35 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
                 }
             }
 
-            String name = h.name();
+            String name = event.name();
             if (!scopeMatches(classScopes, name)) return false;
             if (!scopeMatches(methodScopes, name)) return false;
 
-            if (reqAttrs != null && !attrsPresent(h, reqAttrs.value())) return false;
-            if (reqCtx != null && !ctxPresent(h, reqCtx.value())) return false;
+            if (reqAttrs != null && !attrsPresent(event, reqAttrs.value())) return false;
+            if (reqCtx != null && !ctxPresent(event, reqCtx.value())) return false;
             return true;
         }
 
-        void invoke(TelemetryHolder h) throws Exception {
+        void invoke(TelemetryEvent event) throws Exception {
             Object[] args = new Object[bindings.size()];
-            for (int i = 0; i < bindings.size(); i++) args[i] = bindings.get(i).apply(h);
+            for (int i = 0; i < bindings.size(); i++) args[i] = bindings.get(i).apply(event);
             ReflectionUtils.invokeMethod(method, bean, args);
         }
     }
 
     /* ----------------- helpers ----------------- */
 
-    private static boolean attrsPresent(TelemetryHolder h, String[] required) {
+    private static boolean attrsPresent(TelemetryEvent event, String[] required) {
         if (required == null || required.length == 0) return true;
-        Map<String, Object> m = h.attributes() != null ? h.attributes().map() : null;
+        Map<String, Object> m = event.attributes() != null ? event.attributes().map() : null;
         if (m == null) return false;
         for (String k : required) if (k == null || k.isBlank() || !m.containsKey(k)) return false;
         return true;
     }
 
-    private static boolean ctxPresent(TelemetryHolder h, String[] required) {
+    private static boolean ctxPresent(TelemetryEvent event, String[] required) {
         if (required == null || required.length == 0) return true;
-        Map<String, Object> m = h.eventContext();
+        Map<String, Object> m = event.eventContext();
         if (m == null) return false;
         for (String k : required) if (k == null || k.isBlank() || !m.containsKey(k)) return false;
         return true;
@@ -352,8 +352,8 @@ public class TelemetryHolderReceiverScanner implements BeanPostProcessor, Applic
         return false;
     }
 
-    private static Throwable chooseThrowable(TelemetryHolder holder, boolean root) {
-        Throwable t = holder != null ? holder.throwable() : null;
+    private static Throwable chooseThrowable(TelemetryEvent event, boolean root) {
+        Throwable t = event != null ? event.throwable() : null;
         if (!root || t == null) return t;
         while (t.getCause() != null) t = t.getCause();
         return t;

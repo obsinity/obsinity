@@ -403,7 +403,7 @@ public class TelemetryEvent {
         return throwable;
     }
 
-    public TelemetryHolder setThrowable(Throwable throwable) {
+    public TelemetryEvent setThrowable(Throwable throwable) {
         this.throwable = throwable;
         return this;
     }

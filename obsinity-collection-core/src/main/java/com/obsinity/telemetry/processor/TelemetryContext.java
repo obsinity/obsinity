@@ -72,7 +72,7 @@ public class TelemetryContext {
     /** Adds all entries to the EventContext of the current holder. */
     public void putAllContext(Map<String, ?> map) {
         if (map == null || map.isEmpty()) return;
-        TelemetryHolder holder = support.currentHolder();
+        TelemetryEvent holder = support.currentHolder();
         if (holder == null) return;
 
         map.forEach((k, v) -> {

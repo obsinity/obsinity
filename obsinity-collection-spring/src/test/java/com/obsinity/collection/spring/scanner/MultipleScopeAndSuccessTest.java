@@ -41,12 +41,12 @@ class MultipleScopeAndSuccessTest {
     }
 
     private TelemetryHandlerRegistry registry;
-    private TelemetryHolderReceiverScanner scanner;
+    private TelemetryEventReceiverScanner scanner;
 
     @BeforeEach
     void setUp() {
         registry = new TelemetryHandlerRegistry();
-        scanner = new TelemetryHolderReceiverScanner(registry);
+        scanner = new TelemetryEventReceiverScanner(registry);
         scanner.postProcessAfterInitialization(new OrdersOrPayments(), "rcv");
         OrdersOrPayments.successOrders.set(0);
         OrdersOrPayments.successPayments.set(0);

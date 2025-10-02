@@ -54,12 +54,12 @@ class TelemetryHolderReceiverScannerTest {
     }
 
     private TelemetryHandlerRegistry registry;
-    private TelemetryHolderReceiverScanner scanner;
+    private TelemetryEventReceiverScanner scanner;
 
     @BeforeEach
     void setUp() {
         registry = new TelemetryHandlerRegistry();
-        scanner = new TelemetryHolderReceiverScanner(registry);
+        scanner = new TelemetryEventReceiverScanner(registry);
         // simulate Spring initialization
         scanner.postProcessAfterInitialization(new MyReceivers(), "myReceivers");
 

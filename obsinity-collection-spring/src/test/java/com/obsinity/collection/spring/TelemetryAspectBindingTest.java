@@ -84,8 +84,8 @@ class TelemetryAspectBindingTest {
             }
             List<TelemetryEvent> seen = capturingReceiver.holders;
             assertThat(seen).hasSize(2);
-            TelemetryHolder started = seen.get(0);
-            TelemetryHolder finished = seen.get(1);
+            TelemetryEvent started = seen.get(0);
+            TelemetryEvent finished = seen.get(1);
 
             assertThat(started.name()).isEqualTo("demo.checkout");
             assertThat(finished.name()).isEqualTo("demo.checkout");

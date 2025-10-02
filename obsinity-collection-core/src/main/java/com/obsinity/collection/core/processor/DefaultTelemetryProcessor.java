@@ -45,10 +45,8 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
         var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
         var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
         if (support != null) {
-            TelemetryEvent holder = TelemetryEvent.builder()
-                    .name(name)
-                    .timestamp(Instant.now())
-                    .build();
+            TelemetryEvent holder =
+                    TelemetryEvent.builder().name(name).timestamp(Instant.now()).build();
             holder.attributes().map().putAll(attrs);
             holder.eventContext().putAll(ctx);
             holder.eventContext().put("lifecycle", "STARTED");
