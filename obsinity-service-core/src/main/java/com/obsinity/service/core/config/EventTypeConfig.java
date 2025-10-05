@@ -10,6 +10,9 @@ import java.util.UUID;
 public record EventTypeConfig(
         UUID eventId,
         String eventType,
+        String eventNorm,
+        String category,
+        String subCategory,
         Instant updatedAt,
         List<IndexConfig> indexes,
         List<CounterConfig> counters,

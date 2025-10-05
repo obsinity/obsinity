@@ -30,10 +30,22 @@ Class `DemoFlowReceivers` is scoped to `demo.*` via `@OnEventScope("demo.")` and
 ## Running
 
 - `mvn -pl obsinity-reference-client-spring spring-boot:run`
+- Provide a service identifier with `OBSINITY_SERVICE` (or `-Dobsinity.collection.service=<service>`); the ingest rejects events without `resource.service.name`.
 - Call the endpoints above, and watch logs for START/DONE/FAIL lines (logging receiver).
 - To send events to an Obsinity controller ingest, enable:
   - `obsinity.collection.obsinity.enabled=true`
-  - `obsinity.ingest.url=http://localhost:8080/events/publish` (or your endpoint)
+  - `obsinity.ingest.url=http://obsinity-reference-server:8086/events/publish` (auto-detects Docker host IP when containerized; override as needed)
+
+## Container
+
+- `./obsinity-reference-client-spring/build.sh` — formats, builds, and packages a Docker image (`IMAGE_NAME`, default `obsinity-demo-client`).
+- `./obsinity-reference-client-spring/run.sh [--clean] [docker args...]` — starts the container on port 8080 and tails logs (container defaults to `obsinity-demo-client`). Use `--clean` to rebuild before starting.
+- Pass additional `docker run` arguments after `run.sh`, e.g. `./run.sh -e OBSINITY_INGEST_URL=http://host.docker.internal:8086/events/publish`.
+
+## Developer Aids
+
+- `obsinity-reference-client-spring/insomnia.yaml` — import into Insomnia to exercise each endpoint with pre-filled parameters.
+- A lightweight UI is served at `/` (e.g. <http://localhost:8080/>) that calls the demo endpoints directly from the browser.
 
 ## Notes
 

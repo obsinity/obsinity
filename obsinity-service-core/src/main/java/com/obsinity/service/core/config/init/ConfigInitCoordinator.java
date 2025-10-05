@@ -1,8 +1,19 @@
 package com.obsinity.service.core.config.init;
 
-import com.obsinity.service.core.config.ConfigIngestService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.obsinity.service.core.config.ConfigMaterializer;
+import com.obsinity.service.core.config.ConfigMaterializer.ServiceConfigView;
+import com.obsinity.service.core.config.ConfigRegistry;
+import com.obsinity.service.core.config.RegistrySnapshot;
 import com.obsinity.service.core.model.config.ServiceConfig;
+import com.obsinity.service.core.repo.ServicesCatalogRepository;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,14 +30,20 @@ public class ConfigInitCoordinator {
 
     private final boolean enabled;
     private final String location; // e.g. "classpath:/init-config/" OR "file:/path/to/init-config/"
-    private final ConfigIngestService ingestService;
+    private final ServicesCatalogRepository servicesRepo;
+    private final ConfigRegistry registry;
+    private final ConfigMaterializer materializer;
     private final ReentrantLock lock = new ReentrantLock();
 
     public ConfigInitCoordinator(
-            ConfigIngestService ingestService,
+            ServicesCatalogRepository servicesRepo,
+            ConfigRegistry registry,
+            ObjectMapper objectMapper,
             @Value("${obsinity.config.init.enabled:true}") boolean enabled,
             @Value("${obsinity.config.init.location:classpath:/init-config/}") String location) {
-        this.ingestService = ingestService;
+        this.servicesRepo = servicesRepo;
+        this.registry = registry;
+        this.materializer = new ConfigMaterializer(objectMapper);
         this.enabled = enabled;
         this.location = location;
         if (log.isDebugEnabled()) {
@@ -36,13 +53,11 @@ public class ConfigInitCoordinator {
 
     @EventListener(ApplicationReadyEvent.class)
     public void onStartup() {
-        if (log.isInfoEnabled()) {
-            log.info(
-                    "Config init startup: enabled={}, location={}, cron={}",
-                    enabled,
-                    location,
-                    System.getProperty("obsinity.config.init.cron", "0 * * * * *"));
-        }
+        log.info(
+                "Config init startup: enabled={}, location={}, cron={}",
+                enabled,
+                location,
+                System.getProperty("obsinity.config.init.cron", "0 * * * * *"));
         runOnce("startup");
     }
 
@@ -66,29 +81,28 @@ public class ConfigInitCoordinator {
         }
         long t0 = System.nanoTime();
         try {
-            log.debug("Config init lock acquired (reason={})", reason);
             log.debug("Config init starting (reason={}, location={})", reason, location);
-            List<ServiceConfig> services = loadServices(location);
-            log.debug("Config init discovered {} service configs", services.size());
-            if (services.isEmpty()) {
+            List<ServiceConfig> models = loadServices(location);
+            if (models.isEmpty()) {
                 log.debug("No ServiceConfig found at {}", location);
                 return;
             }
-            int ok = 0;
-            for (ServiceConfig sc : services) {
-                try {
-                    log.debug(
-                            "Applying ServiceConfig: service={}, events={} (snapshotId={})",
-                            sc.service(),
-                            sc.events() == null ? 0 : sc.events().size(),
-                            sc.snapshotId());
-                    ingestService.applyConfigUpdate(sc);
-                    ok++;
-                } catch (Exception ex) {
-                    log.warn("Config apply failed for {}: {}", sc.service(), ex.getMessage());
-                }
+
+            Map<java.util.UUID, com.obsinity.service.core.config.ServiceConfig> merged = new HashMap<>();
+            for (ServiceConfig model : models) {
+                if (model == null || model.service() == null || model.service().isBlank()) continue;
+                ServiceMeta meta = ensureService(model.service());
+                ServiceConfigView view =
+                        materializer.materializeService(model, meta.serviceId(), meta.serviceKey(), Instant.now());
+                merged.put(
+                        meta.serviceId(),
+                        new com.obsinity.service.core.config.ServiceConfig(
+                                meta.serviceId(), meta.serviceKey(), view.updatedAt(), view.eventTypes()));
             }
-            log.info("Config init ({}) applied {} service configs from {}", reason, ok, location);
+
+            RegistrySnapshot snapshot = new RegistrySnapshot(Map.copyOf(merged), Instant.now());
+            registry.swap(snapshot);
+            log.info("Config init ({}) loaded {} service definitions", reason, merged.size());
         } catch (Exception ex) {
             log.warn("Config init failed ({}): {}", reason, ex.getMessage());
             log.debug("Config init failure stacktrace", ex);
@@ -100,18 +114,42 @@ public class ConfigInitCoordinator {
     }
 
     private List<ServiceConfig> loadServices(String loc) throws Exception {
-        // Ensure the resolver gets an explicit prefix; default to classpath if none given.
-        String l = loc;
-        log.debug("Config init: incoming base location={}", l);
-        if (!l.matches("^[a-zA-Z]+:.*")) { // no scheme
-            // treat bare paths as file system locations
-            java.nio.file.Path p = java.nio.file.Paths.get(l).toAbsolutePath().normalize();
-            l = "file:" + p.toString();
+        String resolved = loc;
+        if (!resolved.matches("^[a-zA-Z]+:.*")) {
+            java.nio.file.Path p =
+                    java.nio.file.Paths.get(resolved).toAbsolutePath().normalize();
+            resolved = "file:" + p;
         }
-        // Ensure trailing slash for the "**/*.yml" pattern
-        if (!l.endsWith("/")) l = l + "/";
-        log.info("Config init: resolved base location={}", l);
-        log.debug("Config init: invoking ResourceConfigSource for base={}", l);
-        return new ResourceConfigSource(l).load();
+        if (!resolved.endsWith("/")) resolved = resolved + "/";
+        log.info("Config init: resolved base location={}", resolved);
+        return new ResourceConfigSource(resolved).load();
     }
+
+    private ServiceMeta ensureService(String serviceKey) {
+        String key = serviceKey.trim();
+        java.util.UUID serviceId = servicesRepo.findIdByServiceKey(key);
+        if (serviceId == null) {
+            String shortKey = shortHash8(key);
+            servicesRepo.upsertService(key, shortKey, "Loaded from init-config");
+            serviceId = servicesRepo.findIdByServiceKey(key);
+            if (serviceId == null) {
+                throw new IllegalStateException("Unable to register service " + key);
+            }
+        }
+        return new ServiceMeta(serviceId, key);
+    }
+
+    private static String shortHash8(String input) {
+        try {
+            byte[] sha = MessageDigest.getInstance("SHA-256")
+                    .digest(input.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(8 * 2);
+            for (int i = 0; i < 8; i++) sb.append(String.format("%02x", sha[i]));
+            return sb.toString();
+        } catch (Exception e) {
+            throw new IllegalStateException("Unable to compute hash for service key", e);
+        }
+    }
+
+    private record ServiceMeta(java.util.UUID serviceId, String serviceKey) {}
 }

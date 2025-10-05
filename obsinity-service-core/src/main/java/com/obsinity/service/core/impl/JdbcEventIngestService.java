@@ -1,5 +1,7 @@
 package com.obsinity.service.core.impl;
 
+import com.obsinity.service.core.config.ConfigLookup;
+import com.obsinity.service.core.config.EventTypeConfig;
 import com.obsinity.service.core.index.AttributeIndexingService;
 import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.spi.EventIngestService;
@@ -22,13 +24,18 @@ public class JdbcEventIngestService implements EventIngestService {
 
     private final NamedParameterJdbcTemplate jdbc;
     private final AttributeIndexingService attributeIndexingService;
+    private final ConfigLookup configLookup;
 
     // tiny in-memory cache to avoid re-hashing/upserting each time
     private final Map<String, String> serviceShortCache = new ConcurrentHashMap<>();
 
-    public JdbcEventIngestService(NamedParameterJdbcTemplate jdbc, AttributeIndexingService attributeIndexingService) {
+    public JdbcEventIngestService(
+            NamedParameterJdbcTemplate jdbc,
+            AttributeIndexingService attributeIndexingService,
+            ConfigLookup configLookup) {
         this.jdbc = jdbc;
         this.attributeIndexingService = attributeIndexingService;
+        this.configLookup = configLookup;
     }
 
     @Override
@@ -38,26 +45,18 @@ public class JdbcEventIngestService implements EventIngestService {
         final OffsetDateTime receivedAt = OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC);
         final String eventType = e.getName();
 
-        // Resolve service_key from envelope (full name/key)
         final String serviceKey = e.getServiceId();
         if (serviceKey == null || serviceKey.isBlank()) {
             throw new IllegalArgumentException("EventEnvelope.serviceId is required");
         }
 
-        // Ensure service exists; get short key for partition routing
         final String serviceShort = serviceShortCache.computeIfAbsent(serviceKey, this::ensureServiceAndGetShortKey);
-
-        // Also lookup the service_id (UUID) for indexing rows
         final UUID serviceId = resolveServiceId(serviceKey);
 
-        // span-level attributes (may be null)
         final Map<String, Object> attrs = e.getAttributes();
 
-        // Resolve event type registry id; enforce linkage
-        final UUID eventTypeId = resolveEventTypeId(serviceKey, eventType);
-        if (eventTypeId == null) {
-            throw new IllegalStateException("Unknown event type '" + eventType + "' for service '" + serviceKey + "'");
-        }
+        EventTypeConfig eventConfig = resolveEventConfig(serviceId, eventType, serviceKey);
+        final UUID eventTypeId = eventConfig.eventId();
 
         final String sql =
                 """
@@ -83,7 +82,6 @@ public class JdbcEventIngestService implements EventIngestService {
 
         final int wrote = jdbc.update(sql, p);
 
-        // Only index if this insert created a new row (idempotent on conflict)
         if (wrote == 1 && serviceId != null) {
             attributeIndexingService.indexEvent(new AttributeIndexingService.EventForIndex() {
                 @Override
@@ -99,6 +97,11 @@ public class JdbcEventIngestService implements EventIngestService {
                 @Override
                 public UUID eventTypeId() {
                     return eventTypeId;
+                }
+
+                @Override
+                public String eventType() {
+                    return eventType;
                 }
 
                 @Override
@@ -130,7 +133,13 @@ public class JdbcEventIngestService implements EventIngestService {
         return stored;
     }
 
-    /** Ensure services row exists (upsert) and return its 8-char short_key. */
+    private EventTypeConfig resolveEventConfig(UUID serviceId, String eventType, String serviceKey) {
+        return configLookup
+                .get(serviceId, eventType)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Unknown event type '" + eventType + "' for service '" + serviceKey + "'"));
+    }
+
     private String ensureServiceAndGetShortKey(String serviceKey) {
         String shortKey = shortHash8(serviceKey);
 
@@ -146,12 +155,10 @@ public class JdbcEventIngestService implements EventIngestService {
                             .addValue("short_key", shortKey)
                             .addValue("description", "auto-registered"));
         } catch (DataAccessException ignore) {
-            // harmless if races occur; uniqueness handles it
         }
         return shortKey;
     }
 
-    /** Look up the service's UUID id from services by service_key. */
     private UUID resolveServiceId(String serviceKey) {
         try {
             return jdbc.queryForObject(
@@ -159,31 +166,10 @@ public class JdbcEventIngestService implements EventIngestService {
                     new MapSqlParameterSource().addValue("service_key", serviceKey),
                     (rs, rowNum) -> (UUID) rs.getObject(1));
         } catch (Exception ex) {
-            return null; // not fatal; indexing will be skipped
+            return null;
         }
     }
 
-    private UUID resolveEventTypeId(String serviceKey, String eventType) {
-        try {
-            return jdbc.queryForObject(
-                    """
-                select er.id
-                from event_registry er
-                join service_registry s on s.id = er.service_id
-                where s.service_key = :service_key
-                  and er.event_name  = :event_type
-                limit 1
-                """,
-                    new MapSqlParameterSource()
-                            .addValue("service_key", serviceKey)
-                            .addValue("event_type", eventType),
-                    (rs, rowNum) -> (UUID) rs.getObject(1));
-        } catch (Exception ex) {
-            return null; // skip indexing if not registered yet
-        }
-    }
-
-    /** 8-char lowercase hex SHA-256 of the service key (deterministic). */
     private static String shortHash8(String s) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");

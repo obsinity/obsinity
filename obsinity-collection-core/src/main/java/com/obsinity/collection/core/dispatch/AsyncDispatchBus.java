@@ -3,6 +3,8 @@ package com.obsinity.collection.core.dispatch;
 import com.obsinity.collection.core.receivers.TelemetryHandlerRegistry;
 import com.obsinity.collection.core.receivers.TelemetryReceiver;
 import com.obsinity.telemetry.model.TelemetryEvent;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.UndeclaredThrowableException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -66,16 +68,40 @@ public final class AsyncDispatchBus implements AutoCloseable {
         @Override
         public void run() {
             while (running.get()) {
+                TelemetryEvent event = null;
                 try {
-                    TelemetryEvent event = queue.poll(250, TimeUnit.MILLISECONDS);
+                    event = queue.poll(250, TimeUnit.MILLISECONDS);
                     if (event != null) receiver.handle(event);
                 } catch (InterruptedException ie) {
                     // shutdown
                     Thread.currentThread().interrupt();
                 } catch (Throwable t) {
-                    log.warn("Telemetry receiver failure: {}", t.toString());
+                    Throwable root = unwrap(t);
+                    log.warn(
+                            "Telemetry receiver {} failed to handle event {} due to {}",
+                            receiver.getClass().getName(),
+                            describe(event),
+                            root.getMessage(),
+                            root);
                 }
             }
+        }
+
+        private static String describe(TelemetryEvent event) {
+            if (event == null) return "<none>";
+            return event.getClass().getName();
+        }
+
+        private static Throwable unwrap(Throwable throwable) {
+            Throwable current = throwable;
+            while (current instanceof InvocationTargetException || current instanceof UndeclaredThrowableException) {
+                Throwable next = current instanceof InvocationTargetException
+                        ? ((InvocationTargetException) current).getTargetException()
+                        : ((UndeclaredThrowableException) current).getUndeclaredThrowable();
+                if (next == null || next == current) break;
+                current = next;
+            }
+            return current;
         }
     }
 }

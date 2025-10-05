@@ -103,7 +103,7 @@ Essential properties (Spring Boot `application.properties` or env/system props):
 - `obsinity.collection.logging.enabled=true|false` — enable SLF4J logging sink (default true).
 - `obsinity.collection.obsinity.enabled=true|false` — enable Obsinity REST sink (default true when an `EventSender` bean exists).
 - `obsinity.collection.trace.enabled=true|false` — register inbound trace propagation filters (default true).
-- `obsinity.ingest.url` or `OBSINITY_INGEST_URL` — HTTP endpoint for Obsinity ingest; defaults to `http://localhost:8080/events/publish`.
+- `obsinity.ingest.url` or `OBSINITY_INGEST_URL` — HTTP endpoint for Obsinity ingest; defaults to `http://localhost:8086/events/publish` (auto-resolves Docker host IP when running in a container).
 
 Example:
 
@@ -112,7 +112,7 @@ Example:
 obsinity.collection.logging.enabled=true
 obsinity.collection.obsinity.enabled=true
 # Point to your ingest endpoint (local controller example)
-obsinity.ingest.url=http://localhost:8080/events/publish
+obsinity.ingest.url=http://localhost:8086/events/publish
 ```
 
 Transports are discovered via classpath. If both WebClient and OkHttp are present, WebClient wins (see `obsinity-reference-client-spring`). If none are present, the JDK HttpClient transport is used.
@@ -184,7 +184,7 @@ What happens at runtime:
 Endpoint resolution order for all senders:
 - System property `obsinity.ingest.url`
 - Env var `OBSINITY_INGEST_URL`
-- Default `http://localhost:8080/events/publish`
+- Default `http://localhost:8086/events/publish` (container builds auto-switch to the Docker host IP)
 
 ---
 
@@ -483,7 +483,7 @@ Available enum constants: `HTTP`, `MESSAGING`, `DB`, `RPC`, `INTERNAL`.
 - `obsinity.collection.logging.enabled=true|false` — enable SLF4J logging sink (default true).
 - `obsinity.collection.obsinity.enabled=true|false` — enable Obsinity REST sink (default true when an `EventSender` bean exists).
 - `obsinity.collection.trace.enabled=true|false` — register inbound trace propagation filters (default true).
-- `obsinity.ingest.url` or `OBSINITY_INGEST_URL` — HTTP endpoint for Obsinity ingest (default `http://localhost:8080/events/publish`).
+- `obsinity.ingest.url` or `OBSINITY_INGEST_URL` — HTTP endpoint for Obsinity ingest (default `http://localhost:8086/events/publish`).
 
 Transports (`EventSender`) available: WebClient, RestTemplate, OkHttp, JDK HttpClient. Endpoint resolution: System property → Env var → Default.
 

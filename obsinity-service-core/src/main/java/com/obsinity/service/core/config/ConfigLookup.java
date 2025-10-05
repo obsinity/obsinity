@@ -18,6 +18,16 @@ public class ConfigLookup {
         var snap = registry.current();
         var svc = snap.services().get(serviceId);
         if (svc == null) return Optional.empty();
-        return Optional.ofNullable(svc.eventTypes().get(eventType));
+        EventTypeConfig direct = svc.eventTypes().get(eventType);
+        if (direct != null) return Optional.of(direct);
+        if (eventType != null) {
+            String norm = eventType.toLowerCase(java.util.Locale.ROOT);
+            for (EventTypeConfig cfg : svc.eventTypes().values()) {
+                if (norm.equals(cfg.eventNorm())) {
+                    return Optional.of(cfg);
+                }
+            }
+        }
+        return Optional.empty();
     }
 }

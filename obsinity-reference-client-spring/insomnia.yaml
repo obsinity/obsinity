@@ -1,0 +1,143 @@
+_type: export
+__export_format: 4
+__export_date: 2025-01-10T10:00:00.000Z
+__export_source: insomnia.desktop.app:v11.4.0
+
+resources:
+  - _id: wrk_obsinity_demo_client
+    parentId: null
+    modified: 1704883200000
+    created: 1704883200000
+    name: Obsinity Demo Client
+    description: >-
+      Requests targeting the demo endpoints exposed by obsinity-reference-client-spring.
+    scope: collection
+    _type: workspace
+
+  - _id: env_obsinity_demo_client
+    parentId: wrk_obsinity_demo_client
+    modified: 1704883200000
+    created: 1704883200000
+    name: Base Environment
+    data:
+      base_url: http://localhost:8080
+      checkout_user: alice
+      checkout_items: 3
+      checkout_sku: sku-123
+      orphan_note: hello
+      client_target: service-x
+      produce_topic: demo-topic
+    _type: environment
+
+  - _id: jar_obsinity_demo_client
+    parentId: wrk_obsinity_demo_client
+    created: 1704883200000
+    modified: 1704883200000
+    name: Default Jar
+    cookies: []
+    _type: cookie_jar
+
+  - _id: fld_demo_endpoints
+    parentId: wrk_obsinity_demo_client
+    created: 1704883200000
+    modified: 1704883200000
+    name: Demo Endpoints
+    _type: request_group
+
+  - _id: req_checkout_ok
+    parentId: fld_demo_endpoints
+    created: 1704883200000
+    modified: 1704883200000
+    name: Checkout Success
+    method: GET
+    url: "{{ base_url }}/api/checkout"
+    parameters:
+      - name: user
+        value: "{{ checkout_user }}"
+      - name: items
+        value: "{{ checkout_items }}"
+    headers:
+      - name: Accept
+        value: application/json
+    _type: request
+
+  - _id: req_checkout_fail
+    parentId: fld_demo_endpoints
+    created: 1704883200000
+    modified: 1704883200000
+    name: Checkout Failure
+    method: GET
+    url: "{{ base_url }}/api/checkout/fail"
+    parameters:
+      - name: user
+        value: bob
+      - name: items
+        value: "1"
+    headers:
+      - name: Accept
+        value: application/json
+    _type: request
+
+  - _id: req_checkout_with_step
+    parentId: fld_demo_endpoints
+    created: 1704883200000
+    modified: 1704883200000
+    name: Checkout With Step
+    method: GET
+    url: "{{ base_url }}/api/checkout/with-step"
+    parameters:
+      - name: user
+        value: "{{ checkout_user }}"
+      - name: items
+        value: "{{ checkout_items }}"
+      - name: sku
+        value: "{{ checkout_sku }}"
+    headers:
+      - name: Accept
+        value: application/json
+    _type: request
+
+  - _id: req_orphan_step
+    parentId: fld_demo_endpoints
+    created: 1704883200000
+    modified: 1704883200000
+    name: Orphan Step
+    method: GET
+    url: "{{ base_url }}/api/orphan-step"
+    parameters:
+      - name: note
+        value: "{{ orphan_note }}"
+    headers:
+      - name: Accept
+        value: text/plain
+    _type: request
+
+  - _id: req_client_call
+    parentId: fld_demo_endpoints
+    created: 1704883200000
+    modified: 1704883200000
+    name: Client Call
+    method: GET
+    url: "{{ base_url }}/api/client-call"
+    parameters:
+      - name: target
+        value: "{{ client_target }}"
+    headers:
+      - name: Accept
+        value: application/json
+    _type: request
+
+  - _id: req_produce
+    parentId: fld_demo_endpoints
+    created: 1704883200000
+    modified: 1704883200000
+    name: Produce Message
+    method: GET
+    url: "{{ base_url }}/api/produce"
+    parameters:
+      - name: topic
+        value: "{{ produce_topic }}"
+    headers:
+      - name: Accept
+        value: application/json
+    _type: request

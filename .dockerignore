@@ -1,0 +1,14 @@
+# General VCS and IDE noise
+.git
+.gitignore
+.idea
+*.iml
+
+# Build outputs
+target
+**/target
+
+# Local tooling / temp dirs
+tmp
+design
+documentation

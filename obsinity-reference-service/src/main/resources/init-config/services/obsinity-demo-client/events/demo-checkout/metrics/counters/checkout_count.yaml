@@ -1,0 +1,23 @@
+apiVersion: obsinity/v1
+kind: MetricCounter
+metadata:
+  service: obsinity-demo-client
+  event: demo.checkout
+  name: checkout.count
+  displayName: Demo Checkout Count
+spec:
+  sourceEvent:
+    service: obsinity-demo-client
+    name: demo.checkout
+  key:
+    dimensions:
+      - user.id
+      - outcome
+  aggregation:
+    windowing:
+      granularities: [1m, 5m, 1h, 1d]
+  retention:
+    ttl: "30d"
+  attributeMapping:
+    user_id: user.id
+    outcome: outcome

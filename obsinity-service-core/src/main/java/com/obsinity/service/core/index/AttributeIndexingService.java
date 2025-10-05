@@ -1,7 +1,13 @@
 package com.obsinity.service.core.index;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.obsinity.service.core.config.ConfigLookup;
+import com.obsinity.service.core.config.EventTypeConfig;
 import java.time.OffsetDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -11,17 +17,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Indexes per-event attributes into the DATA table event_attr_index (partitioned).
- * This service reads the list of attribute paths from AttributeIndexSpecCfgRepository.
+ * Configuration is sourced from the in-memory ConfigRegistry via ConfigLookup.
  */
 @Service
 public class AttributeIndexingService {
 
     private final NamedParameterJdbcTemplate jdbc;
-    private final AttributeIndexSpecCfgRepository specRepo;
+    private final ConfigLookup configLookup;
 
-    public AttributeIndexingService(NamedParameterJdbcTemplate jdbc, AttributeIndexSpecCfgRepository specRepo) {
+    public AttributeIndexingService(NamedParameterJdbcTemplate jdbc, ConfigLookup configLookup) {
         this.jdbc = jdbc;
-        this.specRepo = specRepo;
+        this.configLookup = configLookup;
     }
 
     @Transactional
@@ -35,8 +41,14 @@ public class AttributeIndexingService {
     }
 
     private List<String> loadIndexedPaths(EventForIndex evt) {
-        List<String> paths = specRepo.findIndexedAttributePaths(evt.serviceId(), evt.eventTypeId());
-        return (paths == null) ? List.of() : paths;
+        return configLookup
+                .get(evt.serviceId(), evt.eventType())
+                .map(EventTypeConfig::indexes)
+                .map(list -> list.stream()
+                        .flatMap(idx -> extractPaths(idx.definition()).stream())
+                        .distinct()
+                        .toList())
+                .orElse(List.of());
     }
 
     private List<IndexRow> buildIndexRows(EventForIndex evt, List<String> paths) {
@@ -63,7 +75,10 @@ public class AttributeIndexingService {
     }
 
     private void injectEventMeta(EventForIndex evt, List<IndexRow> rows) {
-        Map<String, String> meta = loadEventCategories(evt.eventTypeId());
+        Map<String, String> meta = configLookup
+                .get(evt.serviceId(), evt.eventType())
+                .map(this::extractCategories)
+                .orElse(Map.of());
         if (meta.isEmpty()) return;
         for (Map.Entry<String, String> en : meta.entrySet()) {
             rows.add(new IndexRow(
@@ -106,7 +121,7 @@ public class AttributeIndexingService {
     private void upsertDistinctValues(List<IndexRow> rows) {
         if (rows == null || rows.isEmpty()) return;
         record Key(String s, String n, String v) {}
-        Map<Key, OffsetDateTime> uniques = new java.util.LinkedHashMap<>();
+        Map<Key, OffsetDateTime> uniques = new HashMap<>();
         for (IndexRow r : rows) {
             Key k = new Key(r.serviceKey, r.attrName, r.attrValue);
             uniques.merge(k, r.occurredAt, (a, b) -> a.isAfter(b) ? a : b);
@@ -140,6 +155,8 @@ public class AttributeIndexingService {
 
         java.util.UUID eventTypeId();
 
+        String eventType();
+
         java.util.UUID eventId();
 
         OffsetDateTime occurredAt();
@@ -156,9 +173,39 @@ public class AttributeIndexingService {
             String attrName,
             String attrValue) {}
 
+    private Map<String, String> extractCategories(EventTypeConfig config) {
+        Map<String, String> map = new HashMap<>(2);
+        if (config.category() != null && !config.category().isBlank()) {
+            map.put("event.category", config.category());
+        }
+        if (config.subCategory() != null && !config.subCategory().isBlank()) {
+            map.put("event.subCategory", config.subCategory());
+        }
+        return map;
+    }
+
+    private List<String> extractPaths(JsonNode definition) {
+        if (definition == null || definition.isNull()) return List.of();
+        JsonNode node = definition.path("indexed");
+        if (node.isMissingNode()) return List.of();
+        List<String> paths = new ArrayList<>();
+        if (node.isArray()) {
+            node.forEach(n -> {
+                if (n.isTextual()) paths.add(n.asText());
+            });
+        } else if (node.isTextual()) {
+            paths.add(node.asText());
+        }
+        return paths;
+    }
+
     @SuppressWarnings("unchecked")
     private static List<Object> extractValuesByPath(Map<String, Object> root, String dotPath) {
         if (root == null || dotPath == null || dotPath.isBlank()) return List.of();
+        if (root.containsKey(dotPath)) {
+            Object direct = root.get(dotPath);
+            return direct == null ? List.of() : List.of(direct);
+        }
         List<Object> current = List.of(root);
         for (String part : dotPath.split("\\.")) {
             List<Object> next = new ArrayList<>();
@@ -192,26 +239,6 @@ public class AttributeIndexingService {
         if (v == null) return;
         if (v instanceof List<?> l) out.addAll(l);
         else out.add(v);
-    }
-
-    private Map<String, String> loadEventCategories(java.util.UUID eventTypeId) {
-        final String sql = "select category, sub_category from event_registry where id = ?";
-        try {
-            return jdbc.getJdbcTemplate()
-                    .queryForObject(
-                            sql,
-                            (rs, rowNum) -> {
-                                String cat = rs.getString(1);
-                                String sub = rs.getString(2);
-                                java.util.Map<String, String> m = new java.util.HashMap<>();
-                                if (cat != null && !cat.isBlank()) m.put("event.category", cat);
-                                if (sub != null && !sub.isBlank()) m.put("event.subCategory", sub);
-                                return m;
-                            },
-                            eventTypeId);
-        } catch (Exception e) {
-            return java.util.Map.of();
-        }
     }
 
     private static String normalizeToText(Object v) {

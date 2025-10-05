@@ -20,7 +20,7 @@ services:
     build:
       context: ..
       dockerfile: obsinity-reference-service/Dockerfile
-    container_name: obsinity-app
+    container_name: obsinity-reference-server
     restart: unless-stopped
     environment:
       SERVER_PORT: 8086

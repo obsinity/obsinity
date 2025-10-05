@@ -13,7 +13,7 @@ A transport-agnostic SDK to collect app telemetry via annotations and AOP and em
 - Quick start, JSON schema, and configuration are documented here:
   - `documentation/collection-sdk.md`
   - `documentation/client-dev-guide.md` (developer guide with setup, transports, testing)
-- Default Obsinity ingest endpoint used by the SDK: `http://localhost:8080/events/publish`
+- Default Obsinity ingest endpoint used by the SDK: `http://localhost:8086/events/publish` (detects Docker host IP automatically when containerized)
   - Override with `-Dobsinity.ingest.url=...` or env `OBSINITY_INGEST_URL`.
 
 Modules:

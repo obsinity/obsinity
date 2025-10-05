@@ -26,7 +26,7 @@ Quick Start (Spring)
 
 3) Configure service and endpoint:
    - obsinity.collection.service = payments (system property) or OBSINITY_SERVICE env
-   - obsinity.ingest.url (optional; defaults to http://localhost:8080/events/publish)
+   - obsinity.ingest.url (optional; defaults to http://localhost:8086/events/publish and auto-detects Docker host IP when containerized)
      - system property: obsinity.ingest.url
      - environment variable: OBSINITY_INGEST_URL
    - obsinity.collection.logging.enabled = true|false

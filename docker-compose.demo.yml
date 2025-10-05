@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: obsinity-demo-db
+    environment:
+      POSTGRES_DB: obsinity
+      POSTGRES_USER: obsinity
+      POSTGRES_PASSWORD: obsinity
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - obsinity_pg_demo:/var/lib/postgresql/data
+
+  obsinity-reference-server:
+    build:
+      context: .
+      dockerfile: obsinity-reference-service/Dockerfile
+    container_name: obsinity-reference-server
+    environment:
+      SERVER_PORT: 8086
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/obsinity
+      SPRING_DATASOURCE_USERNAME: obsinity
+      SPRING_DATASOURCE_PASSWORD: obsinity
+      SPRING_PROFILES_ACTIVE: default
+      SPRING_FLYWAY_ENABLED: "true"
+      LOGGING_LEVEL_ROOT: INFO
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8086:8086"
+
+  obsinity-demo-client:
+    build:
+      context: .
+      dockerfile: obsinity-reference-client-spring/Dockerfile
+    container_name: obsinity-demo-client
+    environment:
+      OBSINITY_INGEST_URL: http://obsinity-reference-server:8086/events/publish
+      SPRING_PROFILES_ACTIVE: local
+    depends_on:
+      - obsinity-reference-server
+    ports:
+      - "8080:8080"
+
+volumes:
+  obsinity_pg_demo:
+    driver: local

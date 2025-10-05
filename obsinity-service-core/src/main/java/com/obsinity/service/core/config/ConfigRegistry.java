@@ -16,8 +16,8 @@ public class ConfigRegistry {
         return ref.get();
     }
 
-    /** Atomically replaces the current snapshot. Package-private on purpose. */
-    void swap(RegistrySnapshot next) {
+    /** Atomically replaces the current snapshot. */
+    public void swap(RegistrySnapshot next) {
         ref.set(next);
     }
 }

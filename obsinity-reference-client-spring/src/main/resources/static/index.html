@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Obsinity Demo Client</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body {
+        margin: 0 auto;
+        padding: 1.5rem;
+        max-width: 900px;
+        line-height: 1.5;
+      }
+
+      h1 {
+        margin-bottom: 0.25rem;
+      }
+
+      section {
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      form {
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      label {
+        display: flex;
+        flex-direction: column;
+        font-weight: 600;
+        gap: 0.25rem;
+      }
+
+      input[type="text"],
+      input[type="number"] {
+        font: inherit;
+        padding: 0.35rem 0.5rem;
+      }
+
+      button {
+        justify-self: start;
+        font: inherit;
+        padding: 0.4rem 0.9rem;
+        border-radius: 4px;
+        border: 1px solid #0d6efd;
+        background: #0d6efd;
+        color: #fff;
+        cursor: pointer;
+      }
+
+      button:hover {
+        filter: brightness(1.1);
+      }
+
+      pre {
+        background: rgba(0, 0, 0, 0.05);
+        padding: 1rem;
+        border-radius: 8px;
+        overflow-x: auto;
+      }
+
+      .endpoint-title {
+        margin: 0;
+        font-size: 1.15rem;
+      }
+
+      .endpoint-desc {
+        margin: 0 0 0.75rem;
+        font-size: 0.95rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Obsinity Demo Client</h1>
+    <p>
+      Use the forms below to exercise the demo endpoints. Responses appear in the log panel at the bottom.
+      Run through the different flows to watch the logging receiver react in the application logs.
+    </p>
+
+    <section>
+      <h2 class="endpoint-title">Checkout Success</h2>
+      <p class="endpoint-desc">Triggers <code>/api/checkout</code> (SERVER flow).</p>
+      <form action="/api/checkout" data-accept="application/json">
+        <label>
+          User
+          <input type="text" name="user" value="alice" required />
+        </label>
+        <label>
+          Items
+          <input type="number" name="items" value="3" min="1" required />
+        </label>
+        <button type="submit">Invoke</button>
+      </form>
+    </section>
+
+    <section>
+      <h2 class="endpoint-title">Checkout Failure</h2>
+      <p class="endpoint-desc">Triggers <code>/api/checkout/fail</code> (failure handlers).</p>
+      <form action="/api/checkout/fail" data-accept="application/json">
+        <label>
+          User
+          <input type="text" name="user" value="bob" required />
+        </label>
+        <label>
+          Items
+          <input type="number" name="items" value="1" min="1" required />
+        </label>
+        <button type="submit">Invoke</button>
+      </form>
+    </section>
+
+    <section>
+      <h2 class="endpoint-title">Checkout With Step</h2>
+      <p class="endpoint-desc">Triggers <code>/api/checkout/with-step</code> (service step + flow).</p>
+      <form action="/api/checkout/with-step" data-accept="application/json">
+        <label>
+          User
+          <input type="text" name="user" value="carol" required />
+        </label>
+        <label>
+          Items
+          <input type="number" name="items" value="2" min="1" required />
+        </label>
+        <label>
+          SKU
+          <input type="text" name="sku" value="sku-123" required />
+        </label>
+        <button type="submit">Invoke</button>
+      </form>
+    </section>
+
+    <section>
+      <h2 class="endpoint-title">Orphan Step</h2>
+      <p class="endpoint-desc">Triggers <code>/api/orphan-step</code> (Orphan @Step promotion).</p>
+      <form action="/api/orphan-step" data-accept="text/plain">
+        <label>
+          Note
+          <input type="text" name="note" value="hello" />
+        </label>
+        <button type="submit">Invoke</button>
+      </form>
+    </section>
+
+    <section>
+      <h2 class="endpoint-title">Client Call</h2>
+      <p class="endpoint-desc">Triggers <code>/api/client-call</code> (CLIENT flow).</p>
+      <form action="/api/client-call" data-accept="application/json">
+        <label>
+          Target
+          <input type="text" name="target" value="service-x" required />
+        </label>
+        <button type="submit">Invoke</button>
+      </form>
+    </section>
+
+    <section>
+      <h2 class="endpoint-title">Produce Message</h2>
+      <p class="endpoint-desc">Triggers <code>/api/produce</code> (PRODUCER flow).</p>
+      <form action="/api/produce" data-accept="application/json">
+        <label>
+          Topic
+          <input type="text" name="topic" value="demo-topic" required />
+        </label>
+        <button type="submit">Invoke</button>
+      </form>
+    </section>
+
+    <h2>Response Log</h2>
+    <pre id="response-log">Invoke an endpoint to see the response...</pre>
+
+    <script>
+      const log = document.getElementById('response-log');
+
+      async function handleSubmit(event) {
+        event.preventDefault();
+        const form = event.target;
+        const params = new URLSearchParams(new FormData(form));
+        const suffix = params.toString();
+        const url = `${form.action}${suffix ? `?${suffix}` : ''}`;
+        const accept = form.dataset.accept || 'application/json';
+        log.textContent = `➡️  ${url}\nWaiting for response...`;
+
+        try {
+          const response = await fetch(url, {
+            method: 'GET',
+            headers: { Accept: accept },
+          });
+          const contentType = response.headers.get('content-type') || '';
+          const text = await response.text();
+          let pretty = text;
+          let parsed;
+
+          if (contentType.includes('application/json')) {
+            try {
+              parsed = JSON.parse(text);
+              pretty = JSON.stringify(parsed, null, 2);
+            } catch (ignored) {
+              parsed = undefined;
+            }
+          }
+
+          const prefix = response.ok ? '⬅️' : '⚠️';
+          let message = `${prefix}  ${response.status} ${response.statusText}`;
+
+          if (!response.ok && parsed && typeof parsed === 'object') {
+            const details = [];
+            if (parsed.title) details.push(`Title: ${parsed.title}`);
+            if (parsed.detail) details.push(`Detail: ${parsed.detail}`);
+            if (parsed.code) details.push(`Code: ${parsed.code}`);
+            if (parsed.hint) details.push(`Hint: ${parsed.hint}`);
+            if (parsed.path) details.push(`Path: ${parsed.path}`);
+            if (parsed.timestamp) details.push(`Timestamp: ${parsed.timestamp}`);
+            if (details.length > 0) {
+              message += `\n${details.join('\n')}`;
+            }
+            message += `\n\nRaw body:\n${pretty}`;
+          } else {
+            message += `\n${pretty}`;
+          }
+
+          log.textContent = message;
+        } catch (error) {
+          log.textContent = `❌ Request failed: ${error}`;
+        }
+      }
+
+      document.querySelectorAll('form').forEach((form) => {
+        form.addEventListener('submit', handleSubmit);
+      });
+    </script>
+  </body>
+</html>
