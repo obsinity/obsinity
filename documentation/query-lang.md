@@ -6,12 +6,12 @@
 
 ```json
 {
-  "service": "payment",                 // REQUIRED: service short name
+  "service": "payment",                 // REQUIRED: service partition key (or service key)
   "event":   "http_request",            // REQUIRED: event type/name
   "period":  { "previous": "1h" },     // REQUIRED: primary time window
   "match":   { /* indexed-attribute predicates (fast) */ },
   "filter":  { /* full-row predicates (envelope/attributes) */ },
-  "order":   [ { "field": "occurred_at", "dir": "desc" } ],
+  "order":   [ { "field": "started_at", "dir": "desc" } ],
   "limit":   100,
   "offset":  0,
   "tz": "Europe/Dublin"                 // OPTIONAL: response timezone only (output rendering)
@@ -27,7 +27,7 @@ FIND EVENTS
   PERIOD  PREVIOUS 1h
   MATCH ( /* indexed-attribute predicates (fast) */ )
   FILTER ( /* full-row predicates (envelope/attributes) */ )
-  ORDER BY occurred_at DESC
+  ORDER BY started_at DESC
   LIMIT 100 OFFSET 0
   TZ 'Europe/Dublin';
 ```
@@ -36,12 +36,12 @@ FIND EVENTS
 
 | Field     | Type    | Required | Description                                                                                                |
 | --------- | ------- | -------- | ---------------------------------------------------------------------------------------------------------- |
-| `service` | string  | ✓        | Maps to `events_raw.service_name`. Used to prune LIST partitions.                                          |
+| `service` | string  | ✓        | Maps to `events_raw.service_partition_key`. Used to prune LIST partitions.                                 |
 | `event`   | string  | ✓        | Maps to `events_raw.event_name`.                                                                           |
 | `period`  | object  | ✓        | Primary time window (see §2).                                                                              |
 | `match`   | object  | –        | **Indexed attribute** query. Evaluated via `event_attr_index` and `INTERSECT`. See §3.                     |
 | `filter`  | object  | –        | **Full‑row** filter evaluated on the selected rows (envelope and/or attributes). See §4.                   |
-| `order`   | array   | –        | Sort list. Default: `occurred_at desc` (backend adds `event_id asc` tiebreak).                             |
+| `order`   | array   | –        | Sort list. Default: `started_at desc` (backend adds `event_id asc` tiebreak).                             |
 | `limit`   | integer | –        | Page size (default varies).                                                                                |
 | `offset`  | integer | –        | Offset‑based pagination.                                                                                   |
 | `tz`      | string  | –        | **Response rendering timezone only**. Examples: `UTC`, `Europe/Dublin`, `+01:00`, `-05:30`. Default `UTC`. |
@@ -185,11 +185,11 @@ FILTER (
 
 ## 5) Sorting & Paging
 
-For time‑series queries, results are **always ordered by ****************************************************`occurred_at`**************************************************** (time) first**, with `event_id` as a tiebreaker. This ordering is applied by default, even if not specified.
+For time‑series queries, results are **always ordered by ****************************************************`started_at`**************************************************** (time) first**, with `event_id` as a tiebreaker. This ordering is applied by default, even if not specified.
 
-* Clients **may** include `order` in the request, but `occurred_at` will always be the primary sort key.
-* If `order` includes `occurred_at`, it must be consistent with the default direction (`desc`).
-* Additional secondary sorts may be provided but will always come **after** `occurred_at` and `event_id`.
+* Clients **may** include `order` in the request, but `started_at` will always be the primary sort key.
+* If `order` includes `started_at`, it must be consistent with the default direction (`desc`).
+* Additional secondary sorts may be provided but will always come **after** `started_at` and `event_id`.
 
 Paging:
 
@@ -201,7 +201,7 @@ Paging:
 **OB‑SQL:**
 
 ```sql
-ORDER BY occurred_at DESC
+ORDER BY started_at DESC
 LIMIT 25 OFFSET 25;
 ```
 
@@ -265,7 +265,7 @@ All query responses are returned in **JSON/HAL** format (Hypertext Application L
 				},
 				"order": [
 					{
-						"field": "occurred_at",
+						"field": "started_at",
 						"dir": "desc"
 					}
 				],
@@ -317,7 +317,7 @@ All query responses are returned in **JSON/HAL** format (Hypertext Application L
 				},
 				"order": [
 					{
-						"field": "occurred_at",
+						"field": "started_at",
 						"dir": "desc"
 					}
 				],
@@ -369,7 +369,7 @@ All query responses are returned in **JSON/HAL** format (Hypertext Application L
 				},
 				"order": [
 					{
-						"field": "occurred_at",
+						"field": "started_at",
 						"dir": "desc"
 					}
 				],

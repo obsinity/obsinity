@@ -15,8 +15,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * Maintains partition trees for:
- *  - events_raw                PARTITION BY LIST(service_short) -> RANGE(occurred_at weekly)
- *  - event_attr_index          PARTITION BY LIST(service_short) -> RANGE(occurred_at weekly)
+ *  - events_raw                PARTITION BY LIST(service_partition_key) -> RANGE(started_at weekly)
+ *  - event_attr_index          PARTITION BY LIST(service_partition_key) -> RANGE(started_at weekly)
  *
  * Rolling window: create weekly partitions from N weeks back to M weeks ahead.
  */
@@ -24,7 +24,7 @@ import org.springframework.stereotype.Service;
 public class PartitionMaintenanceService {
 
     private static final Logger log = LoggerFactory.getLogger(PartitionMaintenanceService.class);
-    private static final Pattern SHORT_KEY_RE = Pattern.compile("^[0-9a-f]{8}$");
+    private static final Pattern PARTITION_KEY_RE = Pattern.compile("^[0-9a-f]{16}$");
 
     private final JdbcTemplate jdbc;
 
@@ -50,8 +50,8 @@ public class PartitionMaintenanceService {
     }
 
     public void ensurePartitions() {
-        List<String> serviceShorts = fetchAllServiceShorts();
-        if (serviceShorts.isEmpty()) {
+        List<String> servicePartitionKeys = fetchAllServicePartitionKeys();
+        if (servicePartitionKeys.isEmpty()) {
             log.info("No services found yet; skipping partition creation.");
             return;
         }
@@ -61,37 +61,37 @@ public class PartitionMaintenanceService {
         LocalDate start = today.minusWeeks(weeksBack).with(wf.dayOfWeek(), 1); // Monday (or your week start)
         LocalDate end = today.plusWeeks(weeksAhead).with(wf.dayOfWeek(), 1);
 
-        for (String s : serviceShorts) {
-            if (!SHORT_KEY_RE.matcher(s).matches()) {
-                log.warn("Skipping non-shortkey service_short: {}", s);
+        for (String partitionKey : servicePartitionKeys) {
+            if (!PARTITION_KEY_RE.matcher(partitionKey).matches()) {
+                log.warn("Skipping non-partition key value: {}", partitionKey);
                 continue;
             }
 
             // Ensure LIST partitions exist in both parents
-            ensureServiceListPartition("events_raw", s);
-            ensureServiceListPartition("event_attr_index", s);
+            ensureServiceListPartition("events_raw", partitionKey);
+            ensureServiceListPartition("event_attr_index", partitionKey);
 
             // Then weekly RANGE partitions under each LIST child
             LocalDate cursor = start;
             while (!cursor.isAfter(end)) {
                 LocalDate next = cursor.plusWeeks(1);
-                ensureWeeklyRangePartition("events_raw", s, cursor, next);
-                ensureWeeklyRangePartition("event_attr_index", s, cursor, next);
+                ensureWeeklyRangePartition("events_raw", partitionKey, cursor, next);
+                ensureWeeklyRangePartition("event_attr_index", partitionKey, cursor, next);
 
                 // For the attr index, ensure helpful local indexes on each weekly child
-                ensureAttrIndexChildIndexes(s, weekName(cursor), "event_attr_index");
+                ensureAttrIndexChildIndexes(partitionKey, weekName(cursor), "event_attr_index");
                 cursor = next;
             }
         }
     }
 
-    private List<String> fetchAllServiceShorts() {
+    private List<String> fetchAllServicePartitionKeys() {
         // Source of truth: the services table (whatever you already upsert)
-        return jdbc.queryForList("SELECT short_key FROM service_registry", String.class);
+        return jdbc.queryForList("SELECT service_partition_key FROM service_registry", String.class);
     }
 
-    private void ensureServiceListPartition(String parentTable, String serviceShort) {
-        String childTable = parentTable + "_s_" + serviceShort;
+    private void ensureServiceListPartition(String parentTable, String servicePartitionKey) {
+        String childTable = parentTable + "_s_" + servicePartitionKey;
         jdbc.execute(
                 """
             DO $$
@@ -102,7 +102,7 @@ public class PartitionMaintenanceService {
                 WHERE n.nspname = 'public' AND c.relname = %s
               ) THEN
                 EXECUTE format(
-                  'CREATE TABLE %%I PARTITION OF %%I FOR VALUES IN (%%L) PARTITION BY RANGE (occurred_at)',
+                  'CREATE TABLE %%I PARTITION OF %%I FOR VALUES IN (%%L) PARTITION BY RANGE (started_at)',
                   %s, %s, %s
                 );
               END IF;
@@ -111,16 +111,16 @@ public class PartitionMaintenanceService {
             """
                         .formatted(
                                 literal(childTable),
-                                // params for format: child, parent, 'service_short'
+                                // params for format: child, parent, 'service_partition_key'
                                 literal(childTable),
                                 literal(parentTable),
-                                literal(serviceShort)));
+                                literal(servicePartitionKey)));
     }
 
     private void ensureWeeklyRangePartition(
-            String parentTable, String serviceShort, LocalDate fromIncl, LocalDate toExcl) {
+            String parentTable, String servicePartitionKey, LocalDate fromIncl, LocalDate toExcl) {
         String week = weekName(fromIncl);
-        String listChild = parentTable + "_s_" + serviceShort;
+        String listChild = parentTable + "_s_" + servicePartitionKey;
         String rangeChild = listChild + "_w_" + week;
 
         String fromTs = fromIncl.atStartOfDay().toString(); // UTC assumed for simplicity
@@ -152,8 +152,8 @@ public class PartitionMaintenanceService {
                                 literal(toTs)));
     }
 
-    private void ensureAttrIndexChildIndexes(String serviceShort, String week, String baseParent) {
-        String child = baseParent + "_s_" + serviceShort + "_w_" + week;
+    private void ensureAttrIndexChildIndexes(String servicePartitionKey, String week, String baseParent) {
+        String child = baseParent + "_s_" + servicePartitionKey + "_w_" + week;
 
         // attr_name + attr_value composite
         jdbc.execute(
@@ -171,11 +171,11 @@ public class PartitionMaintenanceService {
             $$;
             """
                         .formatted(
-                                literal("eai_attr_name_val_" + serviceShort + "_" + week),
-                                literal("eai_attr_name_val_" + serviceShort + "_" + week),
+                                literal("eai_attr_name_val_" + servicePartitionKey + "_" + week),
+                                literal("eai_attr_name_val_" + servicePartitionKey + "_" + week),
                                 literal(child)));
 
-        // occurred_at desc
+        // started_at desc
         jdbc.execute(
                 """
             DO $$
@@ -185,14 +185,14 @@ public class PartitionMaintenanceService {
                 JOIN pg_namespace n ON n.oid = c.relnamespace
                 WHERE n.nspname = 'public' AND c.relname = %s
               ) THEN
-                EXECUTE format('CREATE INDEX %%I ON %%I(occurred_at DESC)', %s, %s);
+                EXECUTE format('CREATE INDEX %%I ON %%I(started_at DESC)', %s, %s);
               END IF;
             END
             $$;
             """
                         .formatted(
-                                literal("eai_time_desc_" + serviceShort + "_" + week),
-                                literal("eai_time_desc_" + serviceShort + "_" + week),
+                                literal("eai_time_desc_" + servicePartitionKey + "_" + week),
+                                literal("eai_time_desc_" + servicePartitionKey + "_" + week),
                                 literal(child)));
 
         // service_id + event_type_id (handy for resolving types quickly)
@@ -211,8 +211,8 @@ public class PartitionMaintenanceService {
             $$;
             """
                         .formatted(
-                                literal("eai_svc_evt_" + serviceShort + "_" + week),
-                                literal("eai_svc_evt_" + serviceShort + "_" + week),
+                                literal("eai_svc_evt_" + servicePartitionKey + "_" + week),
+                                literal("eai_svc_evt_" + servicePartitionKey + "_" + week),
                                 literal(child)));
     }
 

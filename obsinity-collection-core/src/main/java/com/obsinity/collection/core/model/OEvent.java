@@ -12,13 +12,13 @@ import java.util.Map;
  * Collection-side telemetry event model aligned with design/basic-structure.json.
  *
  * Notes:
- * - Convenience getters (occurredAt, name, attributes, context) are provided for existing code.
+ * - Convenience getters (startedAt, name, attributes, context) are provided for existing code.
  * - Use Builder to construct instances; all nested objects are optional.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public final class OEvent {
     private final Time time; // start/end times (ISO + nanos)
-    private final Event event; // identity (name/domain/kind)
+    private final Event event; // identity (name/kind)
     private final Resource resource; // service/host/telemetry/cloud (+ context)
     private final Trace trace; // trace/span IDs
     private final Map<String, Object> attributes; // business attributes
@@ -50,8 +50,13 @@ public final class OEvent {
     }
 
     // ---- Convenience accessors for existing code ----
-    public Instant occurredAt() {
+    public Instant startedAt() {
         return (time == null) ? null : time.startedAt;
+    }
+
+    @Deprecated(forRemoval = true)
+    public Instant occurredAt() {
+        return startedAt();
     }
 
     public String name() {
@@ -115,10 +120,15 @@ public final class OEvent {
         private Status status;
         private Boolean synthetic;
 
-        public Builder occurredAt(Instant ts) {
+        public Builder startedAt(Instant ts) {
             if (this.time == null) this.time = new Time();
             this.time.startedAt = ts;
             return this;
+        }
+
+        @Deprecated(forRemoval = true)
+        public Builder occurredAt(Instant ts) {
+            return startedAt(ts);
         }
 
         public Builder endedAt(Instant ts) {
@@ -130,12 +140,6 @@ public final class OEvent {
         public Builder name(String n) {
             if (this.event == null) this.event = new Event();
             this.event.name = n;
-            return this;
-        }
-
-        public Builder domain(String d) {
-            if (this.event == null) this.event = new Event();
-            this.event.domain = d;
             return this;
         }
 
@@ -253,7 +257,6 @@ public final class OEvent {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static final class Event {
         public String name;
-        public String domain;
         public String kind;
     }
 

@@ -7,7 +7,7 @@ import java.util.*;
  *
  *  1) filters base events by service/event/time/envelope predicates,
  *  2) resolves attribute matches from event_attr_index via INTERSECT (all predicates must match),
- *  3) pages with OFFSET/LIMIT in a stable order (occurred_at desc, event_id tiebreaker),
+ *  3) pages with OFFSET/LIMIT in a stable order (started_at desc, event_id tiebreaker),
  *  4) returns rows from events_raw for the paged event_id set,
  *  5) also computes matched_count for UI pagination.
  *
@@ -33,11 +33,11 @@ public final class OBJqlCteBuilder {
         StringBuilder sql = new StringBuilder(2048);
         // Base filtered IDs (envelope fields only)
         sql.append("WITH base AS (\n")
-                .append("  SELECT e.event_id, e.occurred_at\n")
+                .append("  SELECT e.event_id, e.started_at\n")
                 .append("  FROM ")
                 .append(eventsTable)
                 .append(" e\n")
-                .append("  WHERE e.service_short = :svc\n");
+                .append("  WHERE e.service_partition_key = :svc\n");
         p.put("svc", q.service());
 
         if (q.event() != null && !q.event().isBlank()) {
@@ -45,7 +45,7 @@ public final class OBJqlCteBuilder {
             p.put("evt", q.event());
         }
 
-        sql.append("    AND e.occurred_at >= :ts_start AND e.occurred_at < :ts_end\n");
+        sql.append("    AND e.started_at >= :ts_start AND e.started_at < :ts_end\n");
         // Bind as SQL TIMESTAMP to avoid driver type inference issues for java.time.Instant
         p.put("ts_start", java.sql.Timestamp.from(q.time().start()));
         p.put("ts_end", java.sql.Timestamp.from(q.time().end()));
@@ -107,18 +107,18 @@ public final class OBJqlCteBuilder {
         }
 
         // Stable ordering for paging
-        String orderField = (q.sort() != null ? q.sort().field() : "occurred_at");
+        String orderField = (q.sort() != null ? q.sort().field() : "started_at");
         boolean asc = (q.sort() != null && q.sort().asc());
         String order =
                 switch (orderField.toLowerCase(Locale.ROOT)) {
-                    case "occurred_at" -> "b.occurred_at " + (asc ? "asc" : "desc") + ", b.event_id";
+                    case "started_at" -> "b.started_at " + (asc ? "asc" : "desc") + ", b.event_id";
                     case "received_at" -> "e.received_at " + (asc ? "asc" : "desc") + ", b.event_id";
-                    default -> "b.occurred_at " + (asc ? "asc" : "desc") + ", b.event_id";
+                    default -> "b.started_at " + (asc ? "asc" : "desc") + ", b.event_id";
                 };
 
         // Join back to base for ordering; compute total count; page
         sql.append("ordered AS (\n")
-                .append("  SELECT b.event_id, b.occurred_at\n")
+                .append("  SELECT b.event_id, b.started_at\n")
                 .append("  FROM base b\n")
                 .append("  JOIN matched m ON m.event_id = b.event_id\n")
                 .append("  ORDER BY ")
@@ -248,7 +248,7 @@ public final class OBJqlCteBuilder {
                     "span_id",
                     "correlation_id",
                     "kind",
-                    "occurred_at",
+                    "started_at",
                     "received_at" -> true;
             default -> false;
         };
@@ -258,14 +258,14 @@ public final class OBJqlCteBuilder {
         String lhs = pred.lhs().toLowerCase(Locale.ROOT);
         String col =
                 switch (lhs) {
-                    case "service" -> "e.service_short";
+                    case "service" -> "e.service_partition_key";
                     case "event" -> "e.event_type";
                     case "event_id" -> "e.event_id";
                     case "trace_id" -> "e.trace_id";
                     case "span_id" -> "e.span_id";
                     case "correlation_id" -> "e.correlation_id";
                     case "kind" -> "e.kind";
-                    case "occurred_at" -> "e.occurred_at";
+                    case "started_at" -> "e.started_at";
                     case "received_at" -> "e.received_at";
                     default -> lhs; // custom column
                 };

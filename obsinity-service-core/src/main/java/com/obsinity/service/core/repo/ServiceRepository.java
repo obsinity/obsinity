@@ -13,10 +13,10 @@ public interface ServiceRepository extends JpaRepository<ServiceEntity, UUID> {
 
     /**
      * Lightweight projection for config loader —
-     * fetches id, short name, and updatedAt only.
+     * fetches id, partition key, and updatedAt only.
      */
     @Query("select s from ServiceEntity s")
     List<ServiceEntity> findAllLite();
 
-    Optional<ServiceEntity> findByServiceShort(String serviceShort);
+    Optional<ServiceEntity> findByServicePartitionKey(String servicePartitionKey);
 }

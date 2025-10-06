@@ -1,6 +1,5 @@
 package com.obsinity.collection.spring.aspect;
 
-import com.obsinity.collection.api.annotations.Domain;
 import com.obsinity.collection.api.annotations.Flow;
 import com.obsinity.collection.api.annotations.Kind;
 import com.obsinity.collection.api.annotations.OrphanAlert;
@@ -12,6 +11,7 @@ import com.obsinity.collection.spring.processor.AttributeParamExtractor.AttrCtx;
 import com.obsinity.telemetry.model.OAttributes;
 import com.obsinity.telemetry.model.TelemetryEvent;
 import com.obsinity.telemetry.processor.TelemetryProcessorSupport;
+import io.opentelemetry.api.trace.SpanKind;
 import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -83,7 +83,11 @@ public class TelemetryAspect {
         long startNano = System.nanoTime();
         long startEpochNanos = support != null ? support.unixNanos(Instant.now()) : 0L;
         OAttributes initial = new OAttributes(new LinkedHashMap<>(ac.attributes()));
-        holder.beginStepEvent(name, startEpochNanos, startNano, initial);
+        Kind stepKind = ((MethodSignature) pjp.getSignature()).getMethod().getAnnotation(Kind.class);
+        String kindValue = (stepKind != null && stepKind.value() != null)
+                ? stepKind.value().name()
+                : SpanKind.INTERNAL.name();
+        holder.beginStepEvent(name, startEpochNanos, startNano, initial, kindValue);
         try {
             Object result = pjp.proceed();
             holder.endStepEvent(support != null ? support.unixNanos(Instant.now()) : 0L, System.nanoTime(), null);
@@ -126,19 +130,6 @@ public class TelemetryAspect {
         TelemetryMeta.Builder b = TelemetryMeta.builder();
         Kind k = m.getAnnotation(Kind.class);
         if (k != null && k.value() != null) b.kind(k.value().name());
-        Domain d = m.getAnnotation(Domain.class);
-        if (d != null) {
-            try {
-                if (d.type() != null && d.type() != Domain.Type.CUSTOM) {
-                    b.domain(d.type().name().toLowerCase(java.util.Locale.ROOT));
-                } else if (d.value() != null && !d.value().isBlank()) {
-                    b.domain(d.value());
-                }
-            } catch (Throwable ignore) {
-                // Backward compatibility if compiled without 'type' element
-                if (d.value() != null && !d.value().isBlank()) b.domain(d.value());
-            }
-        }
         if (status != null) b.status(status.code(), status.message());
         String traceId = null;
         String spanId = null;

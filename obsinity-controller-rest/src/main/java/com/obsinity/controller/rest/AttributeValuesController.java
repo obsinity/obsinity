@@ -50,8 +50,8 @@ public class AttributeValuesController {
         if (limit <= 0 || limit > 1000) limit = 50;
         if (offset < 0) offset = 0;
 
-        String shortKey = services.findShortKeyByServiceKey(service);
-        String svc = (shortKey == null || shortKey.isBlank()) ? service : shortKey;
+        String partitionKey = services.findPartitionKeyByServiceKey(service);
+        String svc = (partitionKey == null || partitionKey.isBlank()) ? service : partitionKey;
 
         if (log.isInfoEnabled()) {
             log.info(
@@ -90,8 +90,8 @@ public class AttributeValuesController {
         if (limit <= 0 || limit > 1000) limit = 100;
         if (offset < 0) offset = 0;
 
-        String shortKey = services.findShortKeyByServiceKey(service);
-        String svc = (shortKey == null || shortKey.isBlank()) ? service : shortKey;
+        String partitionKey = services.findPartitionKeyByServiceKey(service);
+        String svc = (partitionKey == null || partitionKey.isBlank()) ? service : partitionKey;
 
         if (log.isInfoEnabled()) {
             log.info("GET attribute names: service={}, prefix={}, offset={}, limit={}", service, prefix, offset, limit);

@@ -64,8 +64,8 @@ public class AttributeIndexingService {
             String canon = normalizeToText(v);
             if (canon == null || canon.isBlank()) continue;
             rows.add(new IndexRow(
-                    evt.serviceKey(),
-                    evt.occurredAt(),
+                    evt.servicePartitionKey(),
+                    evt.startedAt(),
                     evt.serviceId(),
                     evt.eventTypeId(),
                     evt.eventId(),
@@ -82,8 +82,8 @@ public class AttributeIndexingService {
         if (meta.isEmpty()) return;
         for (Map.Entry<String, String> en : meta.entrySet()) {
             rows.add(new IndexRow(
-                    evt.serviceKey(),
-                    evt.occurredAt(),
+                    evt.servicePartitionKey(),
+                    evt.startedAt(),
                     evt.serviceId(),
                     evt.eventTypeId(),
                     evt.eventId(),
@@ -96,9 +96,9 @@ public class AttributeIndexingService {
         final String sql =
                 """
             INSERT INTO event_attr_index
-              (service_short, occurred_at, service_id, event_type_id, event_id, attr_name, attr_value)
+              (service_partition_key, started_at, service_id, event_type_id, event_id, attr_name, attr_value)
             VALUES
-              (:service_short, :occurred_at, :service_id, :event_type_id, :event_id, :attr_name, :attr_value)
+              (:service_partition_key, :started_at, :service_id, :event_type_id, :event_id, :attr_name, :attr_value)
             ON CONFLICT DO NOTHING
             """;
 
@@ -109,13 +109,13 @@ public class AttributeIndexingService {
 
     private MapSqlParameterSource toParams(IndexRow r) {
         return new MapSqlParameterSource()
-                .addValue("service_short", r.serviceKey)
-                .addValue("occurred_at", r.occurredAt)
-                .addValue("service_id", r.serviceId)
-                .addValue("event_type_id", r.eventTypeId)
-                .addValue("event_id", r.eventId)
-                .addValue("attr_name", r.attrName)
-                .addValue("attr_value", r.attrValue);
+                .addValue("service_partition_key", r.servicePartitionKey())
+                .addValue("started_at", r.startedAt())
+                .addValue("service_id", r.serviceId())
+                .addValue("event_type_id", r.eventTypeId())
+                .addValue("event_id", r.eventId())
+                .addValue("attr_name", r.attrName())
+                .addValue("attr_value", r.attrValue());
     }
 
     private void upsertDistinctValues(List<IndexRow> rows) {
@@ -123,22 +123,22 @@ public class AttributeIndexingService {
         record Key(String s, String n, String v) {}
         Map<Key, OffsetDateTime> uniques = new HashMap<>();
         for (IndexRow r : rows) {
-            Key k = new Key(r.serviceKey, r.attrName, r.attrValue);
-            uniques.merge(k, r.occurredAt, (a, b) -> a.isAfter(b) ? a : b);
+            Key k = new Key(r.servicePartitionKey(), r.attrName(), r.attrValue());
+            uniques.merge(k, r.startedAt(), (a, b) -> a.isAfter(b) ? a : b);
         }
 
         final String sql =
                 """
-            INSERT INTO attribute_distinct_values (service_short, attr_name, attr_value, first_seen, last_seen, seen_count)
-            VALUES (:service_short, :attr_name, :attr_value, :first_seen, :last_seen, :delta)
-            ON CONFLICT (service_short, attr_name, attr_value) DO UPDATE
+            INSERT INTO attribute_distinct_values (service_partition_key, attr_name, attr_value, first_seen, last_seen, seen_count)
+            VALUES (:service_partition_key, :attr_name, :attr_value, :first_seen, :last_seen, :delta)
+            ON CONFLICT (service_partition_key, attr_name, attr_value) DO UPDATE
               SET last_seen = GREATEST(attribute_distinct_values.last_seen, EXCLUDED.last_seen),
                   seen_count = attribute_distinct_values.seen_count + EXCLUDED.seen_count
             """;
 
         MapSqlParameterSource[] batch = uniques.entrySet().stream()
                 .map(e -> new MapSqlParameterSource()
-                        .addValue("service_short", e.getKey().s())
+                        .addValue("service_partition_key", e.getKey().s())
                         .addValue("attr_name", e.getKey().n())
                         .addValue("attr_value", e.getKey().v())
                         .addValue("first_seen", e.getValue())
@@ -149,7 +149,7 @@ public class AttributeIndexingService {
     }
 
     public interface EventForIndex {
-        String serviceKey();
+        String servicePartitionKey();
 
         java.util.UUID serviceId();
 
@@ -159,14 +159,14 @@ public class AttributeIndexingService {
 
         java.util.UUID eventId();
 
-        OffsetDateTime occurredAt();
+        OffsetDateTime startedAt();
 
         Map<String, Object> attributes();
     }
 
     private record IndexRow(
-            String serviceKey,
-            OffsetDateTime occurredAt,
+            String servicePartitionKey,
+            OffsetDateTime startedAt,
             java.util.UUID serviceId,
             java.util.UUID eventTypeId,
             java.util.UUID eventId,

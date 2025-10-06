@@ -17,7 +17,7 @@ public class PublishEventRequest {
     @NotBlank
     private String eventId;
 
-    /** Producer start time (occurredAt). */
+    /** Producer start time (startedAt). */
     @NotNull private Instant timestamp;
 
     /** Producer end time (optional, for span duration). */

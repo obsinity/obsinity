@@ -24,4 +24,4 @@ spec:
     traceId: trace.id
     spanId: span.id
     parentSpanId: span.parent_id
-  timeField: occurred_at
+  timeField: started_at

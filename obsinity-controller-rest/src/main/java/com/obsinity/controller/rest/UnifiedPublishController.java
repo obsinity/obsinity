@@ -61,10 +61,12 @@ public class UnifiedPublishController {
 
         String eventId = coalesce(stringAt(root, "eventId"), UUID.randomUUID().toString());
 
-        // Require camelCase inputs (allow 'timestamp' as fallback for occurredAt)
-        Instant occurredAt = parseInstantOrNanos(root, "time", "startedAt", "startUnixNano");
-        if (occurredAt == null)
-            occurredAt = parseInstant(coalesce(stringAt(root, "occurredAt"), stringAt(root, "timestamp")));
+        // Require camelCase inputs (allow legacy 'occurredAt' or 'timestamp' as fallback)
+        Instant startedAt = parseInstantOrNanos(root, "time", "startedAt", "startUnixNano");
+        if (startedAt == null) {
+            String legacyStart = coalesce(stringAt(root, "occurredAt"), stringAt(root, "timestamp"));
+            startedAt = parseInstant(coalesce(stringAt(root, "startedAt"), legacyStart));
+        }
         Instant endAt = parseInstantOrNanos(root, "time", "endedAt", "endUnixNano");
         Instant receivedAt = parseInstant(orNull(stringAt(root, "receivedAt")));
         if (receivedAt == null) receivedAt = Instant.now();
@@ -83,7 +85,7 @@ public class UnifiedPublishController {
                 .serviceId(serviceId)
                 .eventType(eventType)
                 .eventId(eventId)
-                .timestamp(occurredAt)
+                .timestamp(startedAt)
                 .endTimestamp(endAt)
                 .ingestedAt(receivedAt)
                 .name(name)
@@ -110,14 +112,7 @@ public class UnifiedPublishController {
         // Optional events[] mapping
         var eventsNode = root.path("events");
         if (eventsNode.isArray() && eventsNode.size() > 0) {
-            java.util.List<EventEnvelope.OtelEvent> evts = new java.util.ArrayList<>(eventsNode.size());
-            for (var n : eventsNode) {
-                String ename = stringAt(n, "name");
-                Instant ets = parseInstantOrNanos(n, null, "timestamp", "timeUnixNano");
-                Map<String, Object> eattrs = toMap(n.path("attributes"));
-                evts.add(new EventEnvelope.OtelEvent(ename, ets, eattrs));
-            }
-            b.events(evts);
+            b.events(parseOtelEvents(eventsNode));
         }
 
         // Optional links[] mapping
@@ -169,9 +164,15 @@ public class UnifiedPublishController {
             JsonNode node = (timeKey == null) ? root : root.path(timeKey);
             // Prefer ISO field if present
             String iso = stringAt(node, isoField);
+            if (iso == null && timeKey != null) {
+                iso = stringAt(root, isoField); // legacy payloads without time{}
+            }
             if (iso != null) return parseInstant(iso);
             // Fall back to Unix nanos
             JsonNode nanos = node.path(nanosField);
+            if ((nanos == null || !nanos.isNumber()) && timeKey != null) {
+                nanos = root.path(nanosField);
+            }
             if (nanos != null && nanos.isNumber()) {
                 long ns = nanos.asLong();
                 long secs = ns / 1_000_000_000L;
@@ -187,5 +188,44 @@ public class UnifiedPublishController {
     private Map<String, Object> toMap(JsonNode node) {
         if (node == null || node.isNull() || node.isMissingNode()) return Map.of();
         return mapper.convertValue(node, MAP_TYPE);
+    }
+
+    private java.util.List<EventEnvelope.OtelEvent> parseOtelEvents(JsonNode arrayNode) {
+        java.util.List<EventEnvelope.OtelEvent> evts = new java.util.ArrayList<>(arrayNode.size());
+        for (JsonNode n : arrayNode) {
+            String ename = stringAt(n, "name");
+            Instant started = parseInstantOrNanos(n, "time", "startedAt", "startUnixNano");
+            Instant ended = parseInstantOrNanos(n, "time", "endedAt", "endUnixNano");
+            Long startNanos = numberValue(n, "time", "startUnixNano");
+            Long endNanos = numberValue(n, "time", "endUnixNano");
+            String kind = stringAt(n, "kind");
+            Map<String, Object> attrs = toMap(n.path("attributes"));
+            java.util.List<EventEnvelope.OtelEvent> children = java.util.List.of();
+            JsonNode childrenNode = n.path("events");
+            if (childrenNode.isArray() && childrenNode.size() > 0) {
+                children = parseOtelEvents(childrenNode);
+            }
+            EventEnvelope.Status status = parseStatus(n.path("status"));
+            evts.add(new EventEnvelope.OtelEvent(
+                    ename, started, ended, startNanos, endNanos, kind, attrs, children, status));
+        }
+        return evts;
+    }
+
+    private Long numberValue(JsonNode node, String timeKey, String field) {
+        JsonNode context = (timeKey == null) ? node : node.path(timeKey);
+        JsonNode candidate = context.path(field);
+        if ((candidate == null || !candidate.isNumber()) && timeKey != null) {
+            candidate = node.path(field);
+        }
+        return (candidate != null && candidate.isNumber()) ? candidate.longValue() : null;
+    }
+
+    private EventEnvelope.Status parseStatus(JsonNode node) {
+        if (node == null || node.isMissingNode() || node.isNull()) return null;
+        String code = stringAt(node, "code");
+        String message = stringAt(node, "message");
+        if (code == null && message == null) return null;
+        return new EventEnvelope.Status(code, message);
     }
 }

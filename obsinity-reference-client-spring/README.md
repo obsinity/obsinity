@@ -5,7 +5,8 @@ This demo app exposes HTTP endpoints that exercise the Obsinity client annotatio
 ## Endpoints
 
 - GET `/api/checkout?user=alice&items=3`
-  - @Flow("demo.checkout") + @Kind(SERVER) + @Domain("http")
+  - @Flow("demo.checkout") + @Kind(SERVER)
+  - Nested @Step hierarchy (`demo.reserve` → `demo.reserve.stock`)
   - Demonstrates push annotations: @PushAttribute("user.id"), @PushContextValue("cart.size")
 - GET `/api/checkout/fail?user=bob&items=1`
   - Same as above but throws to produce FAILED lifecycle
@@ -50,4 +51,4 @@ Class `DemoFlowReceivers` is scoped to `demo.*` via `@OnEventScope("demo.")` and
 ## Notes
 
 - `@Kind` uses OTEL `SpanKind` enum.
-- `@Domain` can accept a free-form string (e.g., `"http"`) or the enum `Domain.Type` for common values (`HTTP`, `MESSAGING`, `DB`, `RPC`, `INTERNAL`).
+- `@Kind` sets the span role (SERVER, CLIENT, PRODUCER, CONSUMER, INTERNAL).

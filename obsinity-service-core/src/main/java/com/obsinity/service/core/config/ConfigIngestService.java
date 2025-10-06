@@ -69,8 +69,8 @@ public class ConfigIngestService {
     private ServiceMeta ensureService(String serviceKey) {
         UUID serviceId = servicesRepo.findIdByServiceKey(serviceKey);
         if (serviceId == null) {
-            String shortKey = shortHash8(serviceKey);
-            servicesRepo.upsertService(serviceKey, shortKey, "registered via config ingest");
+            String partitionKey = partitionKeyFor(serviceKey);
+            servicesRepo.upsertService(serviceKey, partitionKey, "registered via config ingest");
             serviceId = servicesRepo.findIdByServiceKey(serviceKey);
             if (serviceId == null) {
                 throw new IllegalStateException("Failed to resolve service id for " + serviceKey);
@@ -104,7 +104,7 @@ public class ConfigIngestService {
         return new Counts(events, counters, histograms, indexes);
     }
 
-    private static String shortHash8(String input) {
+    private static String partitionKeyFor(String input) {
         try {
             byte[] sha = MessageDigest.getInstance("SHA-256")
                     .digest(input.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8));

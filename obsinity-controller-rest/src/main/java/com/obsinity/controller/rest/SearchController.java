@@ -139,7 +139,7 @@ public class SearchController {
     }
 
     public static class Order {
-        public String field; // occurredAt | receivedAt (column names may still be snake_case)
+        public String field; // startedAt | receivedAt (column names may still be snake_case)
         public String dir; // asc|desc
     }
 
@@ -170,11 +170,11 @@ public class SearchController {
     }
 
     private OBJql toOBJql(SearchBody b) {
-        // Resolve service short key (partition key)
+        // Resolve service partition key from catalog when given full service key
         String svc = b.service;
         if (svc != null && !svc.isBlank()) {
-            String shortKey = servicesRepo.findShortKeyByServiceKey(svc);
-            if (shortKey != null && !shortKey.isBlank()) svc = shortKey;
+            String partitionKey = servicesRepo.findPartitionKeyByServiceKey(svc);
+            if (partitionKey != null && !partitionKey.isBlank()) svc = partitionKey;
         }
 
         // Time range
@@ -200,7 +200,7 @@ public class SearchController {
         if (b.order != null && !b.order.isEmpty()) {
             Order o = b.order.get(0);
             boolean asc = o != null && "asc".equalsIgnoreCase(String.valueOf(o.dir));
-            String field = (o != null && o.field != null) ? o.field : "occurred_at";
+            String field = (o != null && o.field != null) ? o.field : "started_at";
             sort = new OBJql.Sort(field, asc);
         }
 
@@ -226,6 +226,8 @@ public class SearchController {
 
         // event.* (limited)
         Map<String, Object> event = new LinkedHashMap<>();
+        putIfPresent(event, "name", row.get("event_type"));
+        putIfPresent(event, "kind", row.get("kind"));
         env.put("event", event);
 
         // attributes JSONB -> Map
@@ -234,9 +236,9 @@ public class SearchController {
         env.put("attributes", attributes);
 
         // envelope roots for convenience
-        env.put("occurredAt", row.get("occurred_at"));
+        env.put("startedAt", row.get("started_at"));
         env.put("receivedAt", row.get("received_at"));
-        env.put("service", row.get("service_short"));
+        env.put("service", row.get("service_partition_key"));
         env.put("eventType", row.get("event_type"));
 
         return env;

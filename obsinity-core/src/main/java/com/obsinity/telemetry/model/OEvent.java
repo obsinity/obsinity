@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import io.opentelemetry.api.common.Attributes; // API (safe)
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import lombok.Getter;
@@ -21,9 +22,13 @@ public final class OEvent {
     /** Optional wall-clock end time in epoch nanos. */
     private Long endEpochNanos;
 
+    private String kind;
     private OAttributes attributes;
     /** Count of attributes dropped when creating this event (for telemetry parity). */
     private Integer droppedAttributesCount;
+
+    private OStatus status;
+    private List<OEvent> events;
 
     /** Monotonic start (for duration math); not serialized. */
     @JsonIgnore
@@ -42,7 +47,16 @@ public final class OEvent {
             OAttributes attributes,
             Integer droppedAttributesCount,
             long startNanoTime) {
-        this(name, epochNanos, endEpochNanos, attributes, droppedAttributesCount, startNanoTime, new LinkedHashMap<>());
+        this(
+                name,
+                epochNanos,
+                endEpochNanos,
+                attributes,
+                droppedAttributesCount,
+                startNanoTime,
+                new LinkedHashMap<>(),
+                null,
+                new java.util.ArrayList<>());
     }
 
     public OEvent(
@@ -52,7 +66,9 @@ public final class OEvent {
             OAttributes attributes,
             Integer droppedAttributesCount,
             long startNanoTime,
-            Map<String, Object> eventContext) {
+            Map<String, Object> eventContext,
+            OStatus status,
+            java.util.List<OEvent> events) {
         this.name = Objects.requireNonNull(name, "name");
         this.epochNanos = epochNanos;
         this.endEpochNanos = endEpochNanos;
@@ -60,6 +76,8 @@ public final class OEvent {
         this.droppedAttributesCount = droppedAttributesCount;
         this.startNanoTime = startNanoTime;
         this.eventContext = (eventContext != null ? eventContext : new LinkedHashMap<>());
+        this.status = status;
+        this.events = (events != null ? events : new java.util.ArrayList<>());
     }
 
     public String name() {
@@ -118,5 +136,11 @@ public final class OEvent {
         final Attributes a = attributes.toOtel();
         final int dropped = (droppedAttributesCount == null ? 0 : droppedAttributesCount);
         return a.size() + dropped;
+    }
+
+    @JsonIgnore
+    public List<OEvent> ensureEvents() {
+        if (events == null) events = new java.util.ArrayList<>();
+        return events;
     }
 }

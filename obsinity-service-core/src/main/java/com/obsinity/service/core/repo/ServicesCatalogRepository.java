@@ -12,15 +12,15 @@ public class ServicesCatalogRepository {
         this.jdbc = jdbc;
     }
 
-    public int upsertService(String serviceKey, String shortKey, String description) {
+    public int upsertService(String serviceKey, String partitionKey, String description) {
         return jdbc.update(
                 """
-                INSERT INTO service_registry (service_key, short_key, description)
+                INSERT INTO service_registry (service_key, service_partition_key, description)
                 VALUES (?, ?, ?)
                 ON CONFLICT (service_key) DO NOTHING
                 """,
                 serviceKey,
-                shortKey,
+                partitionKey,
                 description);
     }
 
@@ -35,11 +35,13 @@ public class ServicesCatalogRepository {
         }
     }
 
-    /** Returns the 8-char short_key for a given service_key, or null if unknown. */
-    public String findShortKeyByServiceKey(String serviceKey) {
+    /** Returns the 8-char partition key for a given service_key, or null if unknown. */
+    public String findPartitionKeyByServiceKey(String serviceKey) {
         try {
             return jdbc.queryForObject(
-                    "SELECT short_key FROM service_registry WHERE service_key = ?", String.class, serviceKey);
+                    "SELECT service_partition_key FROM service_registry WHERE service_key = ?",
+                    String.class,
+                    serviceKey);
         } catch (org.springframework.dao.EmptyResultDataAccessException e) {
             return null;
         }

@@ -146,15 +146,13 @@ class DemoApp {
 class SampleFlows {
   @Flow(name = "demo.checkout")
   @Kind(SpanKind.SERVER)
-  @Domain("http")
-  void checkout(@PushAttribute("user.id") String userId,
+    void checkout(@PushAttribute("user.id") String userId,
                 @PushContextValue("cart.size") int items) {
     // business logic
   }
 
   @Flow(name = "demo.checkout")
-  @Kind(SpanKind.SERVER) @Domain("http")
-  void checkoutFail(@PushAttribute("user.id") String userId,
+  @Kind(SpanKind.SERVER)   void checkoutFail(@PushAttribute("user.id") String userId,
                     @PushContextValue("cart.size") int items) {
     throw new RuntimeException("boom");
   }
@@ -270,6 +268,8 @@ Check logs for `START/DONE/FAIL` lines and verify events arrive at the controlle
 | `@OnEventScope`      | Method / Class | Declare name/prefix scope for matching events; supports dot‑chop fallback.                           |
 
 Note: Use class‑level annotations to apply defaults for all handlers within a receiver; method‑level annotations further refine.
+
+When a flow contains nested `@Step` calls, the resulting event payload includes a tree of `events[]`, each reusing the same `time` block (`startedAt` / `startUnixNano` / `endedAt` / `endUnixNano`) and, if available, a `status` object mirroring OTEL span status.
 
 ### Flow receivers (flow‑centric handlers)
 
@@ -468,13 +468,6 @@ Attributes saved; context is ephemeral
    - `obsinity.collection.trace.enabled=true|false`
    - `obsinity.ingest.url` or `OBSINITY_INGEST_URL`
 5) Run the demo: `mvn -pl obsinity-reference-client-spring spring-boot:run`.
-
----
-
-## Domain Helper Enum
-
-`@Domain` accepts either a free-form string (e.g., `"http"`) or `@Domain(type = Domain.Type.HTTP)` for common domains.
-Available enum constants: `HTTP`, `MESSAGING`, `DB`, `RPC`, `INTERNAL`.
 
 ---
 

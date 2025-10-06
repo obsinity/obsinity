@@ -13,5 +13,5 @@ obsinity:
   config:
     init:
       enabled: true
-      location: "classpath:/init-config/"
+      location: "classpath:/service-definitions/"
       cron: "0 * * * * *"   # every minute

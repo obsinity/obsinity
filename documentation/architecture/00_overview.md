@@ -12,7 +12,7 @@ This document presents an end‑to‑end view of Obsinity: client collection, ev
 
 ## 1) Client Collection & Sinks
 - Collection SDK (client‑side only)
-  - Annotations + AOP: `@Flow`, `@Kind`, `@Domain`, `@PushAttribute`, `@PushContextValue`.
+  - Annotations + AOP: `@Flow`, `@Kind`, `@PushAttribute`, `@PushContextValue`.
   - Thread‑local TelemetryContext; Servlet/WebFlux filters populate trace from W3C/B3 headers.
   - Pluggable `EventSink` implementations: logging, Obsinity REST ingest, or custom.
   - See `documentation/collection-sdk.md` for usage and configuration.
@@ -40,7 +40,7 @@ Design Rationale
 - REST Unified Publish (default) — `POST /events/publish`
   - Canonical JSON body includes:
     - `resource.service.name` (service key)
-    - `event.name` (type) with optional `event.kind` and `event.domain`
+    - `event.name` (type) with optional `event.kind`
     - `time.startedAt` (ISO) or `time.startUnixNano` (nanos)
     - `attributes` (nested Map)
     - Optional: `trace` (traceId/spanId/parentSpanId/tracestate), `status` (code/message), `events[]`, `links[]`
@@ -63,7 +63,7 @@ Availability & Scale
 
 ## 4) Storage & Partitioning (Postgres)
 - Tables
-  - `events_raw`: LIST partition by `service_short` → RANGE partition by `occurred_at` weekly.
+  - `events_raw`: LIST partition by `service_partition_key` → RANGE partition by `started_at` weekly.
   - `event_attr_index`: flattened attribute rows mirroring partition scheme for fast attribute search.
   - Catalog tables: `service_registry`, `event_registry` (with event TTL), `metric_registry`.
 - Partition Maintenance
@@ -116,7 +116,7 @@ Reliability & Performance
 - Controls
   - Input validation, audit logging for admin/config changes, RBAC on admin endpoints.
 - Multi‑Tenancy
-  - Partition by service short; dedicated DB schemas/nodes possible for strong isolation.
+  - Partition by service partition key; dedicated DB schemas/nodes possible for strong isolation.
 
 ## 8) Observability & Operations
 - Metrics
@@ -139,7 +139,7 @@ Reliability & Performance
 
 ## 10) Risks & Mitigations
 - Hot Partitions
-  - Mitigation: LIST by service_short; monitor and split services if needed.
+  - Mitigation: LIST by service_partition_key; monitor and split services if needed.
 - DLQ Growth
   - Mitigation: retention policy on DLQ; alerts on mismatch spikes.
 - Schema Drift

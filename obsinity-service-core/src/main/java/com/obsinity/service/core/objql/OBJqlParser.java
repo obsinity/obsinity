@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
  *  - where CLAUSES joined by AND (and/or optional)
  *    attr.path = 123 | != | > | >= | < | <= | =~ "regex" | contains "x"
  *  - since -1h | -7d | between 2025-09-01T00:00:00Z .. 2025-09-02T00:00:00Z
- *  - order by occurred_at desc|asc
+ *  - order by started_at desc|asc
  *  - limit 100
  *  - select field1, field2, attr.x.y
  *

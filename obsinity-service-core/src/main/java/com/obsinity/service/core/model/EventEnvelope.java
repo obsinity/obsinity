@@ -28,7 +28,7 @@ public final class EventEnvelope {
     private final String eventId; // from body (UUIDv7 recommended)
 
     // -------- Timing
-    private final Instant timestamp; // start/occurredAt (body)
+    private final Instant timestamp; // start/startedAt (body)
     private final Instant endTimestamp; // optional end time for span-like events
     private final Instant ingestedAt; // set by server at write time
 
@@ -225,12 +225,33 @@ public final class EventEnvelope {
     public static final class OtelEvent {
         private final String name;
         private final Instant timestamp;
+        private final Instant endTimestamp;
+        private final Long timeUnixNano;
+        private final Long endUnixNano;
+        private final String kind;
         private final Map<String, Object> attributes;
+        private final List<OtelEvent> events;
+        private final Status status;
 
-        public OtelEvent(String name, Instant timestamp, Map<String, Object> attributes) {
+        public OtelEvent(
+                String name,
+                Instant timestamp,
+                Instant endTimestamp,
+                Long timeUnixNano,
+                Long endUnixNano,
+                String kind,
+                Map<String, Object> attributes,
+                List<OtelEvent> events,
+                Status status) {
             this.name = name;
             this.timestamp = timestamp;
+            this.endTimestamp = endTimestamp;
+            this.timeUnixNano = timeUnixNano;
+            this.endUnixNano = endUnixNano;
+            this.kind = kind;
             this.attributes = attributes;
+            this.events = events;
+            this.status = status;
         }
 
         public String getName() {
@@ -241,8 +262,32 @@ public final class EventEnvelope {
             return timestamp;
         }
 
+        public Instant getEndTimestamp() {
+            return endTimestamp;
+        }
+
+        public Long getTimeUnixNano() {
+            return timeUnixNano;
+        }
+
+        public Long getEndUnixNano() {
+            return endUnixNano;
+        }
+
+        public String getKind() {
+            return kind;
+        }
+
         public Map<String, Object> getAttributes() {
             return attributes;
+        }
+
+        public List<OtelEvent> getEvents() {
+            return events;
+        }
+
+        public Status getStatus() {
+            return status;
         }
     }
 

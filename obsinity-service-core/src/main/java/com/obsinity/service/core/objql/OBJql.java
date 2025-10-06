@@ -11,7 +11,7 @@ import java.util.List;
  *   where attr.status_code =~ "5.."
  *   and   attr.latency_ms > 250
  *   since -1h
- *   order by occurred_at desc
+ *   order by started_at desc
  *   limit 200
  */
 public record OBJql(
@@ -19,7 +19,7 @@ public record OBJql(
         String event, // optional
         TimeRange time, // required or implied (since/ between)
         List<Predicate> predicates, // zero or more (envelope-only when attrExpr present)
-        Sort sort, // default by occurred_at desc
+        Sort sort, // default by started_at desc
         Integer limit, // default 100
         List<String> selectFields, // optional projection; null/empty -> default set
         AttrExpr attrExpr // optional boolean expression over attribute predicates
@@ -77,7 +77,7 @@ public record OBJql(
         if (service == null || service.isBlank()) throw new IllegalArgumentException("service is required");
         if (time == null) throw new IllegalArgumentException("time range is required (since/between)");
         if (limit == null || limit <= 0 || limit > 10_000) limit = 100; // cap safety
-        if (sort == null) sort = new Sort("occurred_at", false);
+        if (sort == null) sort = new Sort("started_at", false);
         return new OBJql(
                 service,
                 event,
@@ -102,7 +102,7 @@ public record OBJql(
         if (service == null || service.isBlank()) throw new IllegalArgumentException("service is required");
         if (time == null) throw new IllegalArgumentException("time range is required (since/between)");
         if (limit == null || limit <= 0 || limit > 10_000) limit = 100; // cap safety
-        if (sort == null) sort = new Sort("occurred_at", false);
+        if (sort == null) sort = new Sort("started_at", false);
         return new OBJql(
                 service,
                 event,

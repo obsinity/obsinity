@@ -16,4 +16,4 @@ spec:
       - path: auth.decision
         type: keyword
     allowAdditionalAttributes: true
-  timeField: occurred_at
+  timeField: started_at

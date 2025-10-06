@@ -1,6 +1,5 @@
 package com.obsinity.reference.client.spring;
 
-import com.obsinity.collection.api.annotations.Domain;
 import com.obsinity.collection.api.annotations.Flow;
 import com.obsinity.collection.api.annotations.Kind;
 import com.obsinity.collection.api.annotations.OrphanAlert;
@@ -35,12 +34,11 @@ public class DemoController {
 
     /**
      * Basic flow success.
-     * Demonstrates: @Flow, @Kind(SERVER), @Domain("http"), @PushAttribute, @PushContextValue.
+     * Demonstrates: @Flow, @Kind(SERVER), @PushAttribute, @PushContextValue.
      */
     @GetMapping(path = "/api/checkout", produces = MediaType.APPLICATION_JSON_VALUE)
     @Flow(name = "demo.checkout")
     @Kind(SpanKind.SERVER)
-    @Domain("http")
     public java.util.Map<String, Object> checkout(
             @RequestParam("user") @PushAttribute("user.id") String userId,
             @RequestParam("items") @PushContextValue("cart.size") int items) {
@@ -55,7 +53,6 @@ public class DemoController {
     @GetMapping(path = "/api/checkout/fail", produces = MediaType.APPLICATION_JSON_VALUE)
     @Flow(name = "demo.checkout")
     @Kind(SpanKind.SERVER)
-    @Domain("http")
     public java.util.Map<String, Object> checkoutFail(
             @RequestParam("user") @PushAttribute("user.id") String userId,
             @RequestParam("items") @PushContextValue("cart.size") int items) {
@@ -69,7 +66,6 @@ public class DemoController {
     @GetMapping(path = "/api/checkout/with-step", produces = MediaType.APPLICATION_JSON_VALUE)
     @Flow(name = "demo.checkout")
     @Kind(SpanKind.SERVER)
-    @Domain("http")
     public java.util.Map<String, Object> checkoutWithStep(
             @RequestParam("user") @PushAttribute("user.id") String userId,
             @RequestParam("items") @PushContextValue("cart.size") int items,
@@ -97,7 +93,6 @@ public class DemoController {
     @GetMapping(path = "/api/client-call", produces = MediaType.APPLICATION_JSON_VALUE)
     @Flow(name = "demo.client.call")
     @Kind(SpanKind.CLIENT)
-    @Domain("http")
     public java.util.Map<String, Object> clientCall(
             @RequestParam(value = "target", defaultValue = "service-x") @PushAttribute("client.target") String target) {
         // pretend to call an external service
@@ -111,7 +106,6 @@ public class DemoController {
     @GetMapping(path = "/api/produce", produces = MediaType.APPLICATION_JSON_VALUE)
     @Flow(name = "demo.produce")
     @Kind(SpanKind.PRODUCER)
-    @Domain(type = Domain.Type.MESSAGING)
     public java.util.Map<String, Object> produce(
             @RequestParam(value = "topic", defaultValue = "demo-topic") @PushAttribute("messaging.topic")
                     String topic) {

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import io.opentelemetry.api.trace.SpanKind;
+import io.opentelemetry.api.trace.StatusCode;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -312,6 +313,18 @@ public class TelemetryEvent {
         return kind;
     }
 
+    public TelemetryEvent kind(SpanKind value) {
+        this.kind = value;
+        return this;
+    }
+
+    public TelemetryEvent trace(String traceId, String spanId, String parentSpanId) {
+        if (traceId != null && !traceId.isBlank()) this.traceId = traceId;
+        if (spanId != null && !spanId.isBlank()) this.spanId = spanId;
+        if (parentSpanId != null && !parentSpanId.isBlank()) this.parentSpanId = parentSpanId;
+        return this;
+    }
+
     public OResource resource() {
         return resource;
     }
@@ -554,9 +567,32 @@ public class TelemetryEvent {
     /* ========================= Legacy step lifecycle helpers ========================= */
     public OEvent beginStepEvent(
             final String name, final long epochNanos, final long startNanoTime, final OAttributes initialAttrs) {
+        return beginStepEvent(name, epochNanos, startNanoTime, initialAttrs, null);
+    }
+
+    public OEvent beginStepEvent(
+            final String name,
+            final long epochNanos,
+            final long startNanoTime,
+            final OAttributes initialAttrs,
+            final String kind) {
         final OAttributes attrs = (initialAttrs != null) ? initialAttrs : new OAttributes(new LinkedHashMap<>());
-        final OEvent ev = new OEvent(name, epochNanos, 0L, attrs, 0, startNanoTime);
-        events().add(ev);
+        final OEvent ev = new OEvent(
+                name,
+                epochNanos,
+                null,
+                attrs,
+                0,
+                startNanoTime,
+                new LinkedHashMap<>(),
+                new OStatus(StatusCode.UNSET, null),
+                null);
+        ev.setKind(kind);
+        if (!eventStack.isEmpty()) {
+            eventStack.peekLast().ensureEvents().add(ev);
+        } else {
+            events().add(ev);
+        }
         eventStack.addLast(ev);
         return ev;
     }
@@ -571,21 +607,12 @@ public class TelemetryEvent {
         final long start = ev.getStartNanoTime();
         final long duration = (start > 0L && endNanoTime > 0L) ? (endNanoTime - start) : 0L;
         attrs.put("duration.nanos", duration);
-        attrs.put("phase", "finish");
-
-        final List<OEvent> list = events();
-        final int lastIdx = list.isEmpty() ? -1 : list.size() - 1;
-        if (lastIdx >= 0 && list.get(lastIdx) == ev) {
-            list.set(
-                    lastIdx,
-                    new OEvent(
-                            ev.name(),
-                            ev.epochNanos(),
-                            endEpochNanos,
-                            attrs,
-                            ev.droppedAttributesCount(),
-                            ev.getStartNanoTime(),
-                            ev.eventContext()));
+        ev.setEndEpochNanos(endEpochNanos);
+        if (updates != null && updates.containsKey("error")) {
+            String msg = String.valueOf(updates.get("error"));
+            ev.setStatus(new OStatus(StatusCode.ERROR, msg));
+        } else {
+            ev.setStatus(new OStatus(StatusCode.OK, null));
         }
     }
 

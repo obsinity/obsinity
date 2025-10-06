@@ -29,7 +29,7 @@ public class ConfigInitCoordinator {
     private static final Logger log = LoggerFactory.getLogger(ConfigInitCoordinator.class);
 
     private final boolean enabled;
-    private final String location; // e.g. "classpath:/init-config/" OR "file:/path/to/init-config/"
+    private final String location; // e.g. "classpath:/service-definitions/" OR "file:/path/to/service-definitions/"
     private final ServicesCatalogRepository servicesRepo;
     private final ConfigRegistry registry;
     private final ConfigMaterializer materializer;
@@ -40,7 +40,7 @@ public class ConfigInitCoordinator {
             ConfigRegistry registry,
             ObjectMapper objectMapper,
             @Value("${obsinity.config.init.enabled:true}") boolean enabled,
-            @Value("${obsinity.config.init.location:classpath:/init-config/}") String location) {
+            @Value("${obsinity.config.init.location:classpath:/service-definitions/}") String location) {
         this.servicesRepo = servicesRepo;
         this.registry = registry;
         this.materializer = new ConfigMaterializer(objectMapper);
@@ -129,8 +129,8 @@ public class ConfigInitCoordinator {
         String key = serviceKey.trim();
         java.util.UUID serviceId = servicesRepo.findIdByServiceKey(key);
         if (serviceId == null) {
-            String shortKey = shortHash8(key);
-            servicesRepo.upsertService(key, shortKey, "Loaded from init-config");
+            String partitionKey = partitionKeyFor(key);
+            servicesRepo.upsertService(key, partitionKey, "Loaded from service definitions");
             serviceId = servicesRepo.findIdByServiceKey(key);
             if (serviceId == null) {
                 throw new IllegalStateException("Unable to register service " + key);
@@ -139,7 +139,7 @@ public class ConfigInitCoordinator {
         return new ServiceMeta(serviceId, key);
     }
 
-    private static String shortHash8(String input) {
+    private static String partitionKeyFor(String input) {
         try {
             byte[] sha = MessageDigest.getInstance("SHA-256")
                     .digest(input.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8));

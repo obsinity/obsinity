@@ -1,6 +1,5 @@
 package com.obsinity.reference.client.spring;
 
-import com.obsinity.collection.api.annotations.Domain;
 import com.obsinity.collection.api.annotations.Kind;
 import com.obsinity.collection.api.annotations.OrphanAlert;
 import com.obsinity.collection.api.annotations.PushAttribute;
@@ -14,15 +13,21 @@ import org.springframework.stereotype.Component;
 @Component
 public class DemoFlowsService {
 
+    private final StockService stockService;
+
+    public DemoFlowsService(StockService stockService) {
+        this.stockService = stockService;
+    }
+
     /**
      * Nested step inside a flow.
      * Demonstrates: @Step with attribute enrichment.
      */
     @Step("demo.reserve")
     @Kind(SpanKind.INTERNAL)
-    @Domain("internal")
     public void reserveInventory(@PushAttribute("sku") String sku) {
         // pretend to reserve inventory
+        stockService.verifyStock(sku);
     }
 
     /**
@@ -31,7 +36,6 @@ public class DemoFlowsService {
      */
     @Step("demo.orphan.fail")
     @Kind(SpanKind.INTERNAL)
-    @Domain("internal")
     @OrphanAlert(OrphanAlert.Level.WARN)
     public void orphanFail(@PushAttribute("reason") String reason) {
         throw new IllegalArgumentException("orphan-fail: " + reason);

@@ -1,7 +1,6 @@
 package com.obsinity.collection.core.processor;
 
 public final class TelemetryMeta {
-    public final String domain;
     public final String kind;
     public final String statusCode;
     public final String statusMessage;
@@ -11,7 +10,6 @@ public final class TelemetryMeta {
     public final String tracestate;
 
     private TelemetryMeta(Builder b) {
-        this.domain = b.domain;
         this.kind = b.kind;
         this.statusCode = b.statusCode;
         this.statusMessage = b.statusMessage;
@@ -21,17 +19,40 @@ public final class TelemetryMeta {
         this.tracestate = b.tracestate;
     }
 
+    public String kind() {
+        return kind;
+    }
+
+    public String statusCode() {
+        return statusCode;
+    }
+
+    public String statusMessage() {
+        return statusMessage;
+    }
+
+    public String traceId() {
+        return traceId;
+    }
+
+    public String spanId() {
+        return spanId;
+    }
+
+    public String parentSpanId() {
+        return parentSpanId;
+    }
+
+    public String tracestate() {
+        return tracestate;
+    }
+
     public static Builder builder() {
         return new Builder();
     }
 
     public static final class Builder {
-        private String domain, kind, statusCode, statusMessage, traceId, spanId, parentSpanId, tracestate;
-
-        public Builder domain(String v) {
-            this.domain = v;
-            return this;
-        }
+        private String kind, statusCode, statusMessage, traceId, spanId, parentSpanId, tracestate;
 
         public Builder kind(String v) {
             this.kind = v;

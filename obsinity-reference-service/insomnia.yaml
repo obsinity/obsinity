@@ -40,6 +40,11 @@ resources:
       # Event defaults
       event_name: http_request
 
+      # Config defaults
+      config_snapshot_id: local-snapshot
+      config_metric_name: request_latency
+      config_metric_unit: milliseconds
+
       # Dynamic helpers
       nowIso: "{% now 'iso-8601', 'utc' %}"
       correlation_id: "{% uuid 'v4' %}"
@@ -84,6 +89,20 @@ resources:
     name: Catalog
     _type: request_group
 
+  - _id: fld_objql
+    parentId: wrk_68f2907246df440f96e2f024b4a89fee
+    created: 1754511488004
+    modified: 1754511488004
+    name: OBJQL
+    _type: request_group
+
+  - _id: fld_admin
+    parentId: wrk_68f2907246df440f96e2f024b4a89fee
+    created: 1754511488005
+    modified: 1754511488005
+    name: Admin
+    _type: request_group
+
   - _id: fld_system
     parentId: wrk_68f2907246df440f96e2f024b4a89fee
     created: 1754511488003
@@ -104,7 +123,7 @@ resources:
       mimeType: application/json
       text: |
         {
-          "event": { "name": "{{ event_name }}", "domain": "http", "kind": "SERVER" },
+          "event": { "name": "{{ event_name }}", "kind": "SERVER" },
           "resource": {
             "service": {
               "name": "{{ service_id }}",
@@ -150,7 +169,7 @@ resources:
       mimeType: application/json
       text: |
         {
-          "event": { "name": "{{ event_name }}", "domain": "http", "kind": "SERVER" },
+          "event": { "name": "{{ event_name }}", "kind": "SERVER" },
           "resource": {
             "service": {
               "name": "{{ service_id }}",
@@ -196,7 +215,7 @@ resources:
       text: |
         [
           {
-            "event": { "name": "{{ event_name }}", "domain": "http", "kind": "CLIENT" },
+            "event": { "name": "{{ event_name }}", "kind": "CLIENT" },
             "resource": {
               "service": {
                 "name": "{{ service_id }}",
@@ -221,7 +240,7 @@ resources:
             "synthetic": false
           },
           {
-            "event": { "name": "{{ event_name }}", "domain": "db", "kind": "INTERNAL" },
+            "event": { "name": "{{ event_name }}", "kind": "INTERNAL" },
             "resource": {
               "service": {
                 "name": "{{ service_id }}",
@@ -268,7 +287,7 @@ resources:
               { "attribute": "http.status_code", "op": "=", "value": 200 }
             ]
           },
-          "order": [{ "field": "occurred_at", "dir": "desc" }],
+          "order": [{ "field": "started_at", "dir": "desc" }],
           "limit": 100,
           "offset": 0
         }
@@ -298,7 +317,7 @@ resources:
               { "attribute": "http.method", "op": "=",     "value": "GET" }
             ]
           },
-          "order": [{ "field": "occurred_at", "dir": "desc" }],
+          "order": [{ "field": "started_at", "dir": "desc" }],
           "limit": 200
         }
     headers:
@@ -327,7 +346,7 @@ resources:
               { "attribute": "http.status_code", "op": "!=",   "value": 500 }
             ]
           },
-          "order": [{ "field": "occurred_at", "dir": "desc" }],
+          "order": [{ "field": "started_at", "dir": "desc" }],
           "limit": 100
         }
     headers:
@@ -351,7 +370,7 @@ resources:
           "event": "{{ event_name }}",
           "period": { "previous": "-1h" },
           "filter": { "path": "event.subCategory", "op": "=", "value": "http.server" },
-          "order": [{ "field": "occurred_at", "dir": "desc" }],
+          "order": [{ "field": "started_at", "dir": "desc" }],
           "limit": 50
         }
     headers:
@@ -375,7 +394,7 @@ resources:
           "event": "{{ event_name }}",
           "period": { "previous": "-15m" },
           "filter": { "path": "attributes.obsinity.correlation_id", "op": "=", "value": "{{ correlation_id }}" },
-          "order": [{ "field": "occurred_at", "dir": "desc" }],
+          "order": [{ "field": "started_at", "dir": "desc" }],
           "limit": 25
         }
     headers:
@@ -399,7 +418,7 @@ resources:
           "event": "{{ event_name }}",
           "period": { "previous": "-1h" },
           "match": { "attribute": "http.status_code", "op": "=", "value": 200 },
-          "order": [{ "field": "occurred_at", "dir": "desc" }],
+          "order": [{ "field": "started_at", "dir": "desc" }],
           "limit": 25,
           "offset": 25
         }
@@ -432,7 +451,7 @@ resources:
               { "path": "attributes.api.name", "op": "ilike", "value": "update%" }
             ]
           },
-          "order": [{ "field": "occurred_at", "dir": "desc" }],
+          "order": [{ "field": "started_at", "dir": "desc" }],
           "limit": 100
         }
     headers:
@@ -468,7 +487,7 @@ resources:
               }
             ]
           },
-          "order": [{ "field": "occurred_at", "dir": "desc" }],
+          "order": [{ "field": "started_at", "dir": "desc" }],
           "limit": 100
         }
     headers:
@@ -497,7 +516,7 @@ resources:
               { "attribute": "http.status_code", "op": "=", "value": 201 }
             ]
           },
-          "order": [{ "field": "occurred_at", "dir": "desc" }],
+          "order": [{ "field": "started_at", "dir": "desc" }],
           "limit": 100
         }
     headers:
@@ -531,7 +550,7 @@ resources:
               }
             ]
           },
-          "order": [ { "field": "occurred_at", "dir": "desc" } ],
+          "order": [ { "field": "started_at", "dir": "desc" } ],
           "limit": 100,
           "offset": 0
         }
@@ -540,7 +559,79 @@ resources:
         value: application/json
     _type: request
 
+  # ===================== OBJQL =====================
+  - _id: req_objql_query_basic
+    parentId: fld_objql
+    created: 1754511489150
+    modified: 1754511489150
+    name: OBJQL - Raw query
+    description: Execute a raw OB-JQL string (same DSL used by the search JSON surface).
+    method: POST
+    url: "{{ base_url }}/api/objql/query"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "q": "service:\"{{ service_id }}\" event:\"{{ event_name }}\"\nwhere attr.http.status_code = 200\nsince -1h\norder by started_at desc\nlimit 25",
+          "offset": 0,
+          "limit": 25
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
   # ===================== Catalog =====================
+  - _id: req_catalog_create_type
+    parentId: fld_catalog
+    created: 1754511489190
+    modified: 1754511489190
+    name: Catalog - Create event type
+    description: Ensure an event type exists with an optional description.
+    method: POST
+    url: "{{ base_url }}/api/catalog/event-type/{{ event_name }}"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "description": "Demo payments HTTP request event"
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_catalog_add_index
+    parentId: fld_catalog
+    created: 1754511489191
+    modified: 1754511489191
+    name: Catalog - Add attribute index path
+    description: Register an indexed attribute path for the event type.
+    method: POST
+    url: "{{ base_url }}/api/catalog/event-type/{{ event_name }}/index"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "path": "api.name"
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_catalog_list_types
+    parentId: fld_catalog
+    created: 1754511489192
+    modified: 1754511489192
+    name: Catalog - List event types
+    description: List all registered event types for the service catalog.
+    method: GET
+    url: "{{ base_url }}/api/catalog/event-type"
+    body: {}
+    headers: []
+    _type: request
+
   - _id: req_attr_values_api_name
     parentId: fld_catalog
     created: 1754511489200
@@ -586,6 +677,88 @@ resources:
     method: GET
     url: "{{ base_url }}/api/catalog/attributes/{{ service_id }}/names?prefix=http.&limit=100"
     body: {}
+    headers: []
+    _type: request
+
+  # ===================== Admin =====================
+  - _id: req_admin_ready
+    parentId: fld_admin
+    created: 1754511489250
+    modified: 1754511489250
+    name: Admin - Ready probe
+    description: Ping the admin config surface (returns plain text OK).
+    method: GET
+    url: "{{ base_url }}/api/admin/config/ready"
+    body: {}
+    headers: []
+    _type: request
+
+  - _id: req_admin_config_service
+    parentId: fld_admin
+    created: 1754511489251
+    modified: 1754511489251
+    name: Admin - Ingest service config (JSON)
+    description: Upload a full service configuration snapshot as JSON.
+    method: POST
+    url: "{{ base_url }}/api/admin/config/service"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "service": "{{ service_id }}",
+          "snapshotId": "{{ config_snapshot_id }}",
+          "createdAt": "{{ nowIso }}",
+          "defaults": {
+            "rollups": ["1m", "5m"],
+            "backfillWindow": "7d"
+          },
+          "events": [
+            {
+              "uuid": "{{ event_id }}",
+              "eventName": "{{ event_name }}",
+              "category": "payments",
+              "metrics": [
+                {
+                  "uuid": "{{ event_id_1 }}",
+                  "name": "{{ config_metric_name }}",
+                  "type": "HISTOGRAM",
+                  "specJson": {
+                    "unit": "{{ config_metric_unit }}",
+                    "buckets": [50, 100, 250, 500]
+                  },
+                  "rollups": ["p50", "p95"],
+                  "backfillWindow": "7d"
+                }
+              ],
+              "attributeIndex": {
+                "uuid": "{{ event_id_2 }}",
+                "specJson": {
+                  "indexed": ["api.name", "http.status_code"]
+                }
+              }
+            }
+          ]
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_admin_config_import
+    parentId: fld_admin
+    created: 1754511489252
+    modified: 1754511489252
+    name: Admin - Import service config archive
+    description: Multipart upload of a `.tar.gz` bundle (services/<svc>/events/...). Attach a local archive file.
+    method: POST
+    url: "{{ base_url }}/api/admin/configs/import?mode=upsert"
+    body:
+      mimeType: multipart/form-data
+      params:
+        - id: pair_admin_import_file
+          name: file
+          type: file
+          fileName: ./service-config.tar.gz
     headers: []
     _type: request
 

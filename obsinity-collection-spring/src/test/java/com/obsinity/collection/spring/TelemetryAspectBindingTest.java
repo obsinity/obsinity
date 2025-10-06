@@ -2,7 +2,6 @@ package com.obsinity.collection.spring;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.obsinity.collection.api.annotations.Domain;
 import com.obsinity.collection.api.annotations.Flow;
 import com.obsinity.collection.api.annotations.Kind;
 import com.obsinity.collection.api.annotations.PushAttribute;
@@ -47,7 +46,6 @@ class TelemetryAspectBindingTest {
         static class SampleFlows {
             @Flow(name = "demo.checkout")
             @Kind(SpanKind.SERVER)
-            @Domain("http")
             public void checkout(@PushAttribute("user.id") String userId, @PushContextValue("cart.size") int items) {
                 // no-op
             }

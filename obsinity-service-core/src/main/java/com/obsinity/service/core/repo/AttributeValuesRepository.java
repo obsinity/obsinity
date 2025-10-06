@@ -20,7 +20,7 @@ public class AttributeValuesRepository {
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT attr_value, seen_count, first_seen, last_seen "
                         + "FROM attribute_distinct_values "
-                        + "WHERE service_short = :svc AND attr_name = :attr ")
+                        + "WHERE service_partition_key = :svc AND attr_name = :attr ")
                 .append(prefix != null && !prefix.isEmpty() ? "AND attr_value ILIKE :pref " : "")
                 .append("ORDER BY seen_count DESC, attr_value ASC ")
                 .append("OFFSET :off LIMIT :lim");
@@ -39,7 +39,7 @@ public class AttributeValuesRepository {
     public long count(String serviceKey, String attrName, String prefix) {
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT COUNT(*) FROM attribute_distinct_values "
-                        + "WHERE service_short = :svc AND attr_name = :attr ")
+                        + "WHERE service_partition_key = :svc AND attr_name = :attr ")
                 .append(prefix != null && !prefix.isEmpty() ? "AND attr_value ILIKE :pref" : "");
 
         Map<String, Object> p = new HashMap<>();
@@ -56,7 +56,7 @@ public class AttributeValuesRepository {
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT attr_name, COUNT(*) AS value_count "
                         + "FROM attribute_distinct_values "
-                        + "WHERE service_short = :svc ")
+                        + "WHERE service_partition_key = :svc ")
                 .append(prefix != null && !prefix.isEmpty() ? "AND attr_name ILIKE :pref " : "")
                 .append("GROUP BY attr_name ORDER BY attr_name ASC ")
                 .append("OFFSET :off LIMIT :lim");
@@ -71,7 +71,8 @@ public class AttributeValuesRepository {
 
     public long countNames(String serviceKey, String prefix) {
         StringBuilder sql = new StringBuilder();
-        sql.append("SELECT COUNT(DISTINCT attr_name) FROM attribute_distinct_values " + "WHERE service_short = :svc ")
+        sql.append("SELECT COUNT(DISTINCT attr_name) FROM attribute_distinct_values "
+                        + "WHERE service_partition_key = :svc ")
                 .append(prefix != null && !prefix.isEmpty() ? "AND attr_name ILIKE :pref" : "");
         Map<String, Object> p = new HashMap<>();
         p.put("svc", serviceKey);

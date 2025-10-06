@@ -1,7 +1,6 @@
 {
   "event": {
     "name": "http_request",
-    "domain": "http",
     "kind": "SERVER"
   },
   "resource": {

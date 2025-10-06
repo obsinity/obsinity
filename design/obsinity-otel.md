@@ -4,7 +4,6 @@
 | ------------------------------------ | ---------------------------------------------------------------- | ----------------------------------------------------- |
 | `event.name`                         | `Span.name`                                                      | The span’s display name.                              |
 | `event.kind`                         | `Span.kind`                                                      | Enum: SERVER, CLIENT, PRODUCER, CONSUMER, INTERNAL.   |
-| `event.domain`                       | — (not in OTEL core)                                             | Keep as `attributes["obsinity.domain"]` if exporting. |
 |                                      |                                                                  |                                                       |
 | `resource.service.name`              | `Resource.attributes["service.name"]`                            | Canonical service identifier.                         |
 | `resource.service.namespace`         | `Resource.attributes["service.namespace"]`                       | Optional grouping (e.g. “payments”).                  |
@@ -60,6 +59,6 @@
 * **`events[]`** = OTEL span events.
 * **`links[]`** = OTEL links.
 * **`status`** = OTEL span status.
-* **Anything Obsinity-native** (e.g. `event.domain`, `correlationId`, `synthetic`) should be stored in `attributes.obsinity.*` when exported.
+* **Anything Obsinity-native** (e.g. `correlationId`, `correlationId`, `synthetic`) should be stored in `attributes.obsinity.*` when exported.
 
 ---

@@ -1,7 +1,6 @@
 {
   "event": {                // span identity
     "name": "...",
-    "domain": "...",
     "kind": "SERVER|CLIENT|..."
   },
 

@@ -37,20 +37,20 @@ Developers ship a compact, OTEL‑aligned envelope plus structured attributes:
 
 ```json
 {
-  "event":   { "name": "{{ event_name }}", "domain": "http", "kind": "SERVER" },
+  "event":   { "name": "{{ event_name }}", "kind": "SERVER" },
   "resource":{ "service": { "name": "{{ service_id }}" } },
   "trace":   { "correlation_id": "{{ correlation_id }}", "trace_id": "{{ trace_id }}", "span_id": "{{ span_id }}" },
   "attributes": {
     "api":  { "name": "getAccountHolders", "version": "v2" },
     "http": { "status": 201, "method": "GET" }
   },
-  "occurred_at": "{{ nowIso }}"
+  "started_at": "{{ nowIso }}"
 }
 ```
 
 ### Envelope at a glance
 
-* **event.name / event.domain / event.kind** — semantic identity and SpanKind‑style role.
+* **event.name / event.kind** — semantic identity and SpanKind‑style role.
 * **resource.service.name** — short, stable slug (e.g., `payment`). Primary partition key.
 * \**trace.* \*\*— correlation and tracing identifiers for stitching flows.
 * \**attributes.* \*\*— flexible nested payloads (e.g., `api.*`, `http.*`).
@@ -86,7 +86,7 @@ You supplied the following **OB‑JQL**. It looks for a specific service & event
       }
     ]
   },
-  "order": [{ "field": "occurred_at", "dir": "desc" }],
+  "order": [{ "field": "started_at", "dir": "desc" }],
   "limit": 100
 }
 ```
@@ -107,7 +107,7 @@ FIND EVENTS
       attributes.api.name ILIKE 'create%'
     )
   )
-  ORDER BY occurred_at DESC
+  ORDER BY started_at DESC
   LIMIT 100;
 ```
 
@@ -116,7 +116,7 @@ FIND EVENTS
 * **`period.between`** is UTC; presentation TZ can be controlled per request (e.g., `TZ 'Europe/Dublin'`).
 * **`match`** targets **indexed attributes** (fast). Prefer common paths there (`http.status`, `http.method`, `api.name`, …).
 * **`filter`** operates on the full row (envelope + attributes). Use it for expressive predicates that aren’t in the index.
-* **Ordering & paging**: stable ordering is by `occurred_at` with `event_id` tiebreakers under the hood; client uses `limit/offset` (or cursors in streaming mode).
+* **Ordering & paging**: stable ordering is by `started_at` with `event_id` tiebreakers under the hood; client uses `limit/offset` (or cursors in streaming mode).
 
 ---
 
@@ -176,7 +176,7 @@ Obsinity’s API responses are **HAL‑compliant**, making them navigable and se
 
 * **Name it once**: keep `event.name` stable (e.g., `http_request`). Specialize via attributes.
 * **Be generous with attributes**: anything you’ll need for slicing should be an attribute. Indexing makes it fast later.
-* **Time is first‑class**: always set `occurred_at` in UTC. Choose output TZ at query time.
+* **Time is first‑class**: always set `started_at` in UTC. Choose output TZ at query time.
 * **No schema migration tax**: adding attributes doesn’t require table changes; the index adapts.
 * **Readable queries**: OB‑SQL mirrors OB‑JQL but is optimized for human reading & dashboards.
 * **HAL everywhere**: responses are HAL‑compliant, making pagination and navigation consistent.
@@ -215,7 +215,7 @@ Obsinity’s API responses are **HAL‑compliant**, making them navigable and se
 ## 11) One‑page DX checklist
 
 * [ ] Stable `event.name` and `resource.service.name`.
-* [ ] `occurred_at` set in UTC (ISO‑8601).
+* [ ] `started_at` set in UTC (ISO‑8601).
 * [ ] Attributes for everything you’ll filter/aggregate by.
 * [ ] Common paths in the index (or requested for indexing).
 * [ ] Queries written in OB‑JQL and OB‑SQL (readable for dashboards).

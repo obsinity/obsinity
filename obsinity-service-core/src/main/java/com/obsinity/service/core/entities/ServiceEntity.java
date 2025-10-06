@@ -16,8 +16,8 @@ public class ServiceEntity {
     @Column(name = "service_id", nullable = false, updatable = false)
     private UUID serviceId;
 
-    @Column(name = "service_short", nullable = false, unique = true)
-    private String serviceShort;
+    @Column(name = "service_partition_key", nullable = false, unique = true)
+    private String servicePartitionKey;
 
     @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
     private Instant updatedAt;
@@ -25,9 +25,9 @@ public class ServiceEntity {
     // --- constructors ---
     public ServiceEntity() {}
 
-    public ServiceEntity(UUID serviceId, String serviceShort, Instant updatedAt) {
+    public ServiceEntity(UUID serviceId, String servicePartitionKey, Instant updatedAt) {
         this.serviceId = serviceId;
-        this.serviceShort = serviceShort;
+        this.servicePartitionKey = servicePartitionKey;
         this.updatedAt = updatedAt;
     }
 
@@ -40,12 +40,12 @@ public class ServiceEntity {
         this.serviceId = serviceId;
     }
 
-    public String getServiceShort() {
-        return serviceShort;
+    public String getServicePartitionKey() {
+        return servicePartitionKey;
     }
 
-    public void setServiceShort(String serviceShort) {
-        this.serviceShort = serviceShort;
+    public void setServicePartitionKey(String servicePartitionKey) {
+        this.servicePartitionKey = servicePartitionKey;
     }
 
     public Instant getUpdatedAt() {

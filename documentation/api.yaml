@@ -8,7 +8,7 @@ info:
     pagination and HATEOAS navigation.
 
     ### Design notes
-    - **Event model** mirrors OTEL concepts (`event`, `resource.service`, `trace`, `attributes`, `occurredAt`).
+    - **Event model** mirrors OTEL concepts (`event`, `resource.service`, `trace`, `attributes`, `startedAt`).
     - **Search** splits fast **indexed predicates** (`matches`) from expressive **row filters** (`filter`).
     - **Responses** use `links` (HAL-style). For strict HAL, rename `links` → `_links` and set `application/json`.'
   termsOfService: 'https://obsinity.dev/terms'
@@ -55,7 +55,6 @@ paths:
             example:
               event:
                 name: 'http_request'
-                domain: 'http'
                 kind: 'SERVER'
               resource:
                 service:
@@ -71,7 +70,7 @@ paths:
                 http:
                   status: '201'
                   method: 'GET'
-              occurredAt: 2025-09-15T12:00:00Z
+              startedAt: 2025-09-15T12:00:00Z
       responses:
         '201':
           description: 'Event created and persisted successfully. Returns the created resource.'
@@ -113,7 +112,7 @@ paths:
                       - { path: 'attributes.api.name', operator: 'like',  value: '%account%' }
                       - { path: 'attributes.api.name', operator: 'ilike', value: 'create%' }
               orders:
-                - { field: 'occurredAt', direction: 'desc' }
+                - { field: 'startedAt', direction: 'desc' }
               limit: 100
       responses:
         '200':
@@ -129,10 +128,10 @@ paths:
                 offset: 0
                 data:
                   events:
-                    - event: { name: 'http_request', domain: 'http', kind: 'SERVER' }
+                    - event: { name: 'http_request', kind: 'SERVER' }
                       resource: { service: { name: 'payments' } }
                       attributes: { http: { status: 201, method: 'GET' } }
-                      occurredAt: 2025-09-15T12:00:00Z
+                      startedAt: 2025-09-15T12:00:00Z
                 links:
                   self:
                     href: '/api/searches/events'
@@ -154,12 +153,6 @@ components:
               type: string
               description: 'Event name (e.g., `http_request`). Stable across producers.'
               example: 'http_request'
-              minLength: 1
-              maxLength: 63
-            domain:
-              type: string
-              description: 'Domain namespace for the event (e.g., `http`, `db`, `user`).'
-              example: 'http'
               minLength: 1
               maxLength: 63
             kind:
@@ -209,12 +202,12 @@ components:
           description: 'A flexible, namespaced map of producer-defined key/value pairs that enrich the event with queryable context (for example `api.name`, `api.version`, `http.status`, `http.method`, or `client.ip`). Attributes are indexed where possible for fast filtering and aggregation, and can be safely extended by producers without breaking consumers.'
           example:
             http: { status: 201, method: 'GET' }
-        occurredAt:
+        startedAt:
           type: string
           format: date-time
           description: 'Producer timestamp in UTC (RFC3339 date-time).'
           example: 2025-09-17T12:34:56Z
-      required: [event, resource, occurredAt]
+      required: [event, resource, startedAt]
 
     Query:
       type: object
@@ -362,7 +355,7 @@ components:
         field:
           type: string
           description: 'Field name to sort by.'
-          example: 'occurredAt'
+          example: 'startedAt'
           minLength: 3
           maxLength: 63
         direction:

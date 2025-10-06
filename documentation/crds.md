@@ -97,6 +97,8 @@ spec:
       type: string
 ```
 
+> **Note on flows vs. steps:** `@Flow` and `@Step` instrumentation each materialise as their **own Event definitions**. A step is not embedded inside the flow’s CRD; instead it becomes a distinct event (e.g., `checkout.step.payment`) that references the same service partition key. This keeps schemas small and lets you version or retire steps independently while still linking them at query-time via the parent/child relationship stored in the raw event payload.
+
 ---
 
 ## 🔢 2) MetricCounter CRD
@@ -349,7 +351,7 @@ assertEquals("4xx", out);
 
 | Field              | Req | Notes                                                      |
 | ------------------ | --- | ---------------------------------------------------------- |
-| `metadata.service` | ✔   | Service short name                                         |
+| `metadata.service` | ✔   | Service partition key                                      |
 | `metadata.name`    | ✔   | Event type                                                 |
 | `spec.schema`      | ✔   | JSON schema; set `index: true` on frequently queried paths |
 | `spec.derived[]`   |     | Event-level derivations (embedded scriptlets)              |

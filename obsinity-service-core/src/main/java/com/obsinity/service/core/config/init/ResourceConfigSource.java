@@ -21,7 +21,7 @@ public class ResourceConfigSource {
 
     private static final Logger log = LoggerFactory.getLogger(ResourceConfigSource.class);
 
-    private final String baseLocation; // e.g. "classpath:/init-config/"
+    private final String baseLocation; // e.g. "classpath:/service-definitions/"
 
     public ResourceConfigSource(String baseLocation) {
         this.baseLocation = baseLocation.endsWith("/") ? baseLocation : baseLocation + "/";

@@ -11,7 +11,11 @@ import com.obsinity.collection.api.annotations.OnFlowStarted;
 import com.obsinity.telemetry.model.OResource;
 import com.obsinity.telemetry.model.TelemetryEvent;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,18 +38,26 @@ public class TelemetryObsinityReceivers {
     }
 
     @OnFlowStarted
-    public void onStarted(TelemetryEvent event) throws IOException {
-        send(event);
+    public void onStarted(TelemetryEvent event) {
+        // Ignore STARTED lifecycle; we only emit terminal events.
     }
 
     @OnFlowCompleted
     public void onCompleted(TelemetryEvent event) throws IOException {
+        ensureEndTimestamp(event);
         send(event);
     }
 
     @OnFlowFailure
     public void onFailed(TelemetryEvent event) throws IOException {
+        ensureEndTimestamp(event);
         send(event);
+    }
+
+    private void ensureEndTimestamp(TelemetryEvent event) {
+        if (event.endTimestamp() == null) {
+            event.setEndTimestamp(Instant.now());
+        }
     }
 
     private void send(TelemetryEvent event) throws IOException {
@@ -55,19 +67,47 @@ public class TelemetryObsinityReceivers {
 
     static Map<String, Object> toUnifiedPublishBody(TelemetryEvent event) {
         Map<String, Object> root = new LinkedHashMap<>();
-        root.put("occurredAt", event.timestamp());
 
-        Map<String, Object> eventObj = new LinkedHashMap<>();
-        eventObj.put("name", event.name());
-        if (event.kind() != null) eventObj.put("kind", event.kind().name());
-        root.put("event", eventObj);
+        Map<String, Object> eventNode = new LinkedHashMap<>();
+        eventNode.put("name", event.name());
+        if (event.kind() != null) eventNode.put("kind", event.kind().name());
+        root.put("event", eventNode);
 
-        if (event.traceId() != null || event.spanId() != null || event.parentSpanId() != null) {
-            Map<String, Object> trace = new LinkedHashMap<>();
-            if (event.traceId() != null) trace.put("traceId", event.traceId());
-            if (event.spanId() != null) trace.put("spanId", event.spanId());
-            if (event.parentSpanId() != null) trace.put("parentSpanId", event.parentSpanId());
+        root.put("resource", buildResource(event));
+
+        Map<String, Object> trace = new LinkedHashMap<>();
+        if (event.traceId() != null) trace.put("traceId", event.traceId());
+        if (event.spanId() != null) trace.put("spanId", event.spanId());
+        if (!trace.isEmpty()) {
             root.put("trace", trace);
+        }
+
+        Map<String, Object> time = new LinkedHashMap<>();
+        Instant startedAt = event.timestamp();
+        if (startedAt != null) {
+            time.put("startedAt", startedAt);
+        }
+        Long startUnix = event.timeUnixNano();
+        if (startUnix == null && startedAt != null) {
+            startUnix = toUnixNanos(startedAt);
+        }
+        if (startUnix != null) {
+            time.put("startUnixNano", startUnix);
+        }
+
+        Instant endedAt = event.endTimestamp();
+        if (endedAt != null) {
+            time.put("endedAt", endedAt);
+            Long endUnix = toUnixNanos(endedAt);
+            if (endUnix != null) {
+                time.put("endUnixNano", endUnix);
+            } else if (startUnix != null) {
+                long nanos = Duration.between(startedAt, endedAt).toNanos();
+                time.put("endUnixNano", startUnix + nanos);
+            }
+        }
+        if (!time.isEmpty()) {
+            root.put("time", time);
         }
 
         if (event.status() != null
@@ -80,81 +120,200 @@ public class TelemetryObsinityReceivers {
             root.put("status", status);
         }
 
-        Map<String, Object> attrs = new LinkedHashMap<>(
+        Map<String, Object> attributes = new LinkedHashMap<>(
                 event.attributes() == null ? Map.of() : event.attributes().map());
-        root.put("attributes", attrs);
+        root.put("attributes", attributes);
 
-        Map<String, Object> resource = new LinkedHashMap<>();
-        OResource r = event.resource();
-        if (r != null) {
-            if (r.attributes() != null
-                    && r.attributes().map() != null
-                    && !r.attributes().map().isEmpty()) {
-                resource.put("attributes", r.attributes().map());
-            }
-        }
+        List<Map<String, Object>> eventsSerialized = serializeEvents(event.events());
+        List<?> links = event.links() == null ? List.of() : event.links();
+        root.put("events", eventsSerialized);
+        root.put("links", links);
+        root.put("synthetic", event.synthetic() != null ? event.synthetic() : Boolean.FALSE);
 
-        String serviceId = resolveServiceId(event);
-        if (serviceId != null) {
-            Map<String, Object> service = new LinkedHashMap<>();
-            service.put("name", serviceId);
-
-            String namespace = extractAttribute(event, "service.namespace");
-            if (namespace != null) service.put("namespace", namespace);
-
-            String version = extractAttribute(event, "service.version");
-            if (version != null) service.put("version", version);
-
-            String instanceId = extractAttribute(event, "service.instance.id");
-            if (instanceId != null) {
-                Map<String, Object> instance = new LinkedHashMap<>();
-                instance.put("id", instanceId);
-                service.put("instance", instance);
-            }
-
-            resource.put("service", service);
-        } else {
-            log.warn(
-                    "Missing service identifier for telemetry event '{}'; set system property '{}' or env '{}'",
-                    event.name(),
-                    SERVICE_PROP,
-                    SERVICE_ENV);
-        }
-
-        if (!event.eventContext().isEmpty()) resource.put("context", event.eventContext());
-        root.put("resource", resource);
         return root;
     }
 
-    private static String resolveServiceId(TelemetryEvent event) {
-        if (event == null) return null;
+    private static Map<String, Object> buildResource(TelemetryEvent event) {
+        Map<String, Object> resource = new LinkedHashMap<>();
 
-        String fromEvent = sanitize(event.effectiveServiceId());
-        if (fromEvent != null) return fromEvent;
+        Map<String, Object> service = new LinkedHashMap<>();
+        String serviceId = sanitize(event.effectiveServiceId());
+        if (serviceId == null) {
+            String fallback = sanitize(System.getProperty(SERVICE_PROP));
+            if (fallback == null) fallback = sanitize(System.getenv(SERVICE_ENV));
+            serviceId = fallback;
+        }
+        if (serviceId != null) {
+            service.put("name", serviceId);
+        } else {
+            log.warn("Missing service identifier for telemetry event '{}'", event.name());
+        }
 
-        String fromAttributes = extractAttribute(event, "service.name");
-        if (fromAttributes != null) return fromAttributes;
+        Map<String, Object> attrs =
+                event.attributes() == null ? Map.of() : event.attributes().map();
 
-        String sys = sanitize(System.getProperty(SERVICE_PROP));
-        if (sys != null) return sys;
+        String namespace = attribute(attrs, "service.namespace");
+        if (namespace != null) service.put("namespace", namespace);
+        String version = attribute(attrs, "service.version");
+        if (version != null) service.put("version", version);
+        String instanceId = attribute(attrs, "service.instance.id");
+        if (instanceId != null) {
+            Map<String, Object> instance = new LinkedHashMap<>();
+            instance.put("id", instanceId);
+            service.put("instance", instance);
+        }
 
-        String env = sanitize(System.getenv(SERVICE_ENV));
-        if (env != null) return env;
+        Map<String, Object> rawService = nestedMap(attrs, "service");
+        if (rawService != null) {
+            service.putAll(rawService);
+        }
 
-        return null;
+        if (!service.isEmpty()) {
+            resource.put("service", service);
+        }
+
+        String hostName = attribute(attrs, "host.name");
+        if (hostName != null) {
+            resource.put("host", Map.of("name", hostName));
+        } else {
+            Map<String, Object> rawHost = nestedMap(attrs, "host");
+            if (rawHost != null && !rawHost.isEmpty()) resource.put("host", rawHost);
+        }
+
+        String provider = attribute(attrs, "cloud.provider");
+        String region = attribute(attrs, "cloud.region");
+        Map<String, Object> cloud = provider != null || region != null ? new LinkedHashMap<>() : null;
+        if (cloud != null) {
+            if (provider != null) cloud.put("provider", provider);
+            if (region != null) cloud.put("region", region);
+            resource.put("cloud", cloud);
+        } else {
+            Map<String, Object> rawCloud = nestedMap(attrs, "cloud");
+            if (rawCloud != null && !rawCloud.isEmpty()) resource.put("cloud", rawCloud);
+        }
+
+        String sdkName = attribute(attrs, "telemetry.sdk.name");
+        String sdkVersion = attribute(attrs, "telemetry.sdk.version");
+        if (sdkName != null || sdkVersion != null) {
+            Map<String, Object> sdk = new LinkedHashMap<>();
+            if (sdkName != null) sdk.put("name", sdkName);
+            if (sdkVersion != null) sdk.put("version", sdkVersion);
+            resource.put("telemetry", Map.of("sdk", sdk));
+        } else {
+            Map<String, Object> telemetry = nestedMap(attrs, "telemetry");
+            if (telemetry != null && !telemetry.isEmpty()) resource.put("telemetry", telemetry);
+        }
+
+        OResource oResource = event.resource();
+        if (oResource != null
+                && oResource.attributes() != null
+                && oResource.attributes().map() != null) {
+            Map<String, Object> raw = oResource.attributes().map();
+            mergeNestedMap(raw.get("service"), service);
+            Map<String, Object> rawHost = nestedMap(raw, "host");
+            if (rawHost != null && !rawHost.isEmpty()) resource.put("host", rawHost);
+            Map<String, Object> rawCloud = nestedMap(raw, "cloud");
+            if (rawCloud != null && !rawCloud.isEmpty()) resource.put("cloud", rawCloud);
+            Map<String, Object> rawTelemetry = nestedMap(raw, "telemetry");
+            if (rawTelemetry != null && !rawTelemetry.isEmpty()) resource.put("telemetry", rawTelemetry);
+        }
+
+        Map<String, Object> context = event.eventContext();
+        if (context != null && !context.isEmpty()) {
+            resource.put("context", context);
+        }
+
+        return resource;
     }
 
-    private static String extractAttribute(TelemetryEvent event, String key) {
-        if (event == null || event.attributes() == null || event.attributes().map() == null) return null;
-        Object raw = event.attributes().map().get(key);
-        return raw == null ? null : sanitize(String.valueOf(raw));
+    private static List<Map<String, Object>> serializeEvents(List<com.obsinity.telemetry.model.OEvent> events) {
+        if (events == null || events.isEmpty()) return List.of();
+        List<Map<String, Object>> out = new ArrayList<>(events.size());
+        for (com.obsinity.telemetry.model.OEvent e : events) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("name", e.getName());
+            Map<String, Object> time = new LinkedHashMap<>();
+            long epochNanos = e.getEpochNanos();
+            if (epochNanos > 0) {
+                time.put("startUnixNano", epochNanos);
+                time.put("startedAt", instantFromNanos(epochNanos));
+            }
+            Long endEpochNanos = e.getEndEpochNanos();
+            if (endEpochNanos != null && endEpochNanos > 0) {
+                time.put("endUnixNano", endEpochNanos);
+                time.put("endedAt", instantFromNanos(endEpochNanos));
+            }
+            if (!time.isEmpty()) {
+                m.put("time", time);
+            }
+            if (e.getKind() != null && !e.getKind().isBlank()) {
+                m.put("kind", e.getKind());
+            }
+            if (e.getAttributes() != null && !e.getAttributes().map().isEmpty()) {
+                m.put("attributes", e.getAttributes().map());
+            }
+            if (e.getStatus() != null
+                    && (e.getStatus().getCode() != null || e.getStatus().getMessage() != null)) {
+                Map<String, Object> status = new LinkedHashMap<>();
+                if (e.getStatus().getCode() != null)
+                    status.put("code", e.getStatus().getCode().name());
+                if (e.getStatus().getMessage() != null)
+                    status.put("message", e.getStatus().getMessage());
+                m.put("status", status);
+            }
+            List<com.obsinity.telemetry.model.OEvent> children = e.getEvents();
+            if (children != null && !children.isEmpty()) {
+                m.put("events", serializeEvents(children));
+            }
+            out.add(m);
+        }
+        return out;
+    }
+
+    private static Instant instantFromNanos(Long epochNanos) {
+        if (epochNanos == null || epochNanos <= 0) return null;
+        long seconds = epochNanos / 1_000_000_000L;
+        long nanos = epochNanos % 1_000_000_000L;
+        return Instant.ofEpochSecond(seconds, nanos);
+    }
+
+    private static String attribute(Map<String, Object> attrs, String key) {
+        if (attrs == null) return null;
+        Object v = attrs.get(key);
+        return v == null ? null : sanitize(v.toString());
+    }
+
+    private static Map<String, Object> nestedMap(Map<String, Object> source, String key) {
+        if (source == null) return null;
+        Object v = source.get(key);
+        if (v instanceof Map<?, ?> map && !map.isEmpty()) {
+            Map<String, Object> copy = new LinkedHashMap<>();
+            map.forEach((k, value) -> {
+                if (value != null) copy.put(String.valueOf(k), value);
+            });
+            return copy;
+        }
+        return null;
     }
 
     private static String sanitize(String value) {
         if (value == null) return null;
         String trimmed = value.trim();
-        if (trimmed.isEmpty()) return null;
-        if (trimmed.equals(DUMMY_SERVICE_ID)) return null;
-        return trimmed;
+        return (trimmed.isEmpty() || trimmed.equals(DUMMY_SERVICE_ID)) ? null : trimmed;
+    }
+
+    private static Long toUnixNanos(Instant instant) {
+        if (instant == null) return null;
+        long seconds = instant.getEpochSecond();
+        int nanos = instant.getNano();
+        return seconds * 1_000_000_000L + nanos;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void mergeNestedMap(Object source, Map<String, Object> target) {
+        if (!(source instanceof Map<?, ?> src)) return;
+        src.forEach((k, v) -> {
+            if (k != null && v != null) target.put(String.valueOf(k), v);
+        });
     }
 }

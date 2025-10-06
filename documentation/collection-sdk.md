@@ -33,10 +33,10 @@ Quick Start (Spring)
    - obsinity.collection.obsinity.enabled = true|false
 
 What gets sent to Obsinity
-- The Obsinity sink converts an OEvent to a REST body accepted by UnifiedPublishController. Minimal fields below; optional richer fields are included when present (event.kind/domain, trace, status, time, resource.telemetry, host, cloud).
+- The Obsinity sink converts an OEvent to a REST body accepted by UnifiedPublishController. Minimal fields below; optional richer fields are included when present (event.kind, trace, status, time, resource.telemetry, host, cloud).
 
   {
-    "occurredAt": "2025-09-21T19:40:00Z",
+    "startedAt": "2025-09-21T19:40:00Z",
     "time": { "startedAt": "...", "endedAt": "...", "startUnixNano": 1726665303120000000 },
     "resource": {
       "service": { "name": "payments", "namespace": "core", "version": "1.42.0", "instance": {"id": "p-1"} },
@@ -45,7 +45,7 @@ What gets sent to Obsinity
       "cloud": { "provider": "aws", "region": "eu-west-1" },
       "context": { ... }
     },
-    "event": { "name": "checkout", "kind": "SERVER", "domain": "http" },
+    "event": { "name": "checkout", "kind": "SERVER" },
     "trace": { "traceId": "...", "spanId": "...", "parentSpanId": "..." },
     "status": { "code": "OK", "message": "HTTP 200" },
     "attributes": { "user.id": "alice" }
@@ -61,8 +61,9 @@ Reference Demo
 
 Builder helpers
 - OEvent.builder()
-  - occurredAt(Instant), endedAt(Instant), startUnixNano(long), endUnixNano(long)
-  - name(String), kind(String), domain(String)
+  - startedAt(Instant), endedAt(Instant), startUnixNano(long), endUnixNano(long)
+  - name(String), kind(String)
+  - `events[]` may contain nested steps; each entry includes its own `time` object and `status` block when available.
   - trace(traceId, spanId, parentSpanId, state)
   - serviceName(String), serviceNamespace(String), serviceVersion(String), serviceInstanceId(String)
   - telemetrySdk(name, version), hostName(String), cloud(provider, region)
