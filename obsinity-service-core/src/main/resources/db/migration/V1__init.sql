@@ -52,6 +52,23 @@ PARTITION BY LIST (service_partition_key);
 CREATE TABLE IF NOT EXISTS event_attr_index_default
   PARTITION OF event_attr_index DEFAULT;
 
+-- ==============================================================
+-- Dead-letter storage for rejected events
+-- ==============================================================
+CREATE TABLE IF NOT EXISTS event_dead_letters (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  service_key TEXT,
+  event_type  TEXT,
+  event_id    TEXT,
+  reason      TEXT        NOT NULL,
+  error       TEXT,
+  payload     JSONB       NOT NULL,
+  received_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ix_event_dead_letters_service
+  ON event_dead_letters(service_key);
+
 -- ================================================
 -- Attribute distinct values (per service + path)
 -- ================================================

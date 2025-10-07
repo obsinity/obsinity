@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
-class JsonUtil {
+public final class JsonUtil {
     private static final ObjectMapper M = new ObjectMapper();
     private static final ObjectWriter PRETTY;
 
@@ -15,7 +15,9 @@ class JsonUtil {
         PRETTY = M.writerWithDefaultPrettyPrinter();
     }
 
-    static String toJson(Object o) {
+    private JsonUtil() {}
+
+    public static String toJson(Object o) {
         try {
             return M.writeValueAsString(o);
         } catch (JsonProcessingException e) {
@@ -23,7 +25,7 @@ class JsonUtil {
         }
     }
 
-    static String toPrettyJson(Object o) {
+    public static String toPrettyJson(Object o) {
         try {
             return PRETTY.writeValueAsString(o);
         } catch (JsonProcessingException e) {

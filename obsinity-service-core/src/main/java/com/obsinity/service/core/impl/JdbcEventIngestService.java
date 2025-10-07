@@ -2,6 +2,7 @@ package com.obsinity.service.core.impl;
 
 import com.obsinity.service.core.config.ConfigLookup;
 import com.obsinity.service.core.config.EventTypeConfig;
+import com.obsinity.service.core.deadletter.DeadLetterQueue;
 import com.obsinity.service.core.index.AttributeIndexingService;
 import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.spi.EventIngestService;
@@ -44,6 +45,7 @@ public class JdbcEventIngestService implements EventIngestService {
     private final NamedParameterJdbcTemplate jdbc;
     private final AttributeIndexingService attributeIndexingService;
     private final ConfigLookup configLookup;
+    private final DeadLetterQueue deadLetterQueue;
 
     // tiny in-memory cache to avoid re-hashing/upserting each time
     private final Map<String, String> servicePartitionKeyCache = new ConcurrentHashMap<>();
@@ -51,10 +53,12 @@ public class JdbcEventIngestService implements EventIngestService {
     public JdbcEventIngestService(
             NamedParameterJdbcTemplate jdbc,
             AttributeIndexingService attributeIndexingService,
-            ConfigLookup configLookup) {
+            ConfigLookup configLookup,
+            DeadLetterQueue deadLetterQueue) {
         this.jdbc = jdbc;
         this.attributeIndexingService = attributeIndexingService;
         this.configLookup = configLookup;
+        this.deadLetterQueue = deadLetterQueue;
     }
 
     @Override
@@ -82,7 +86,14 @@ public class JdbcEventIngestService implements EventIngestService {
             return 0;
         }
 
-        EventTypeConfig eventConfig = resolveEventConfig(serviceId, eventType, serviceKey);
+        var eventConfigOpt = configLookup.get(serviceId, eventType);
+        if (eventConfigOpt.isEmpty()) {
+            String message = "Unknown event type '" + eventType + "' for service '" + serviceKey + "'";
+            log.warn(message);
+            deadLetterQueue.publish(e, "UNKNOWN_EVENT_TYPE", message);
+            return 0;
+        }
+        EventTypeConfig eventConfig = eventConfigOpt.get();
         final UUID eventTypeId = eventConfig.eventId();
 
         final OffsetDateTime completedAt =
