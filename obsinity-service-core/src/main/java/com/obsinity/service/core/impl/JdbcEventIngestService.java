@@ -178,7 +178,8 @@ public class JdbcEventIngestService implements EventIngestService {
                     e.getTraceId(),
                     e.getSpanId(),
                     e.getParentSpanId(),
-                    e.getCorrelationId());
+                    e.getCorrelationId(),
+                    e);
         }
 
         return wrote;
@@ -257,7 +258,8 @@ public class JdbcEventIngestService implements EventIngestService {
             String traceId,
             String spanId,
             String parentSpanId,
-            String correlationId) {
+            String correlationId,
+            EventEnvelope rootEnvelope) {
 
         if (subEvents == null || subEvents.isEmpty()) return;
 
@@ -287,7 +289,54 @@ public class JdbcEventIngestService implements EventIngestService {
                 subCompleted = OffsetDateTime.ofInstant(subEndInstant, ZoneOffset.UTC);
             }
             String subEventType = buildSubEventType(parentEventType, sub.getName());
-            UUID subEventTypeId = resolveSubEventTypeId(serviceId, serviceKey, subEventType, parentEventTypeId);
+
+            UUID subEventTypeId = null;
+            if (serviceId != null) {
+                var subConfig = configLookup.get(serviceId, subEventType);
+                if (subConfig.isPresent()) {
+                    subEventTypeId = subConfig.get().eventId();
+                } else {
+                    String message = "Unknown nested event type '" + subEventType + "' for service '" + serviceKey + "'";
+                    log.warn(message);
+                    deadLetterQueue.publish(
+                            buildDeadLetterEnvelope(
+                                    rootEnvelope,
+                                    serviceKey,
+                                    subEventType,
+                                    subEventId,
+                                    subStartInstant,
+                                    subEndInstant,
+                                    receivedAt,
+                                    sub,
+                                    traceId,
+                                    spanId,
+                                    parentSpanId,
+                                    correlationId),
+                            "UNKNOWN_NESTED_EVENT_TYPE",
+                            message);
+                    continue;
+                }
+            } else {
+                String message = "Unknown service id for nested event '" + subEventType + "'";
+                log.warn(message);
+                deadLetterQueue.publish(
+                        buildDeadLetterEnvelope(
+                                rootEnvelope,
+                                serviceKey,
+                                subEventType,
+                                subEventId,
+                                subStartInstant,
+                                subEndInstant,
+                                receivedAt,
+                                sub,
+                                traceId,
+                                spanId,
+                                parentSpanId,
+                                correlationId),
+                        "UNKNOWN_SERVICE",
+                        message);
+                continue;
+            }
             String subStatus = resolveSubEventStatus(sub);
 
             MapSqlParameterSource params = new MapSqlParameterSource()
@@ -328,31 +377,62 @@ public class JdbcEventIngestService implements EventIngestService {
                         traceId,
                         spanId,
                         parentSpanId,
-                        correlationId);
+                        correlationId,
+                        rootEnvelope);
             }
         }
     }
 
-    private UUID resolveSubEventTypeId(UUID serviceId, String serviceKey, String subEventType, UUID parentEventTypeId) {
-        if (serviceId != null) {
-            try {
-                return resolveEventConfig(serviceId, subEventType, serviceKey).eventId();
-            } catch (IllegalStateException ex) {
-                log.warn(
-                        "No event definition for nested event '{}' on service '{}'; deriving deterministic id",
-                        subEventType,
-                        serviceKey);
+    private EventEnvelope buildDeadLetterEnvelope(
+            EventEnvelope rootEnvelope,
+            String serviceKey,
+            String eventType,
+            UUID eventId,
+            Instant started,
+            Instant ended,
+            OffsetDateTime receivedAt,
+            EventEnvelope.OtelEvent event,
+            String traceId,
+            String spanId,
+            String parentSpanId,
+            String correlationId) {
+
+        Instant startInstant = started;
+        if (startInstant == null) {
+            if (rootEnvelope != null && rootEnvelope.getTimestamp() != null) {
+                startInstant = rootEnvelope.getTimestamp();
+            } else if (receivedAt != null) {
+                startInstant = receivedAt.toInstant();
+            } else {
+                startInstant = Instant.now();
             }
         }
-        if (serviceKey == null || serviceKey.isBlank()) {
-            return parentEventTypeId;
-        }
-        return deterministicEventTypeId(serviceKey, subEventType);
-    }
 
-    private static UUID deterministicEventTypeId(String serviceKey, String eventType) {
-        String seed = (serviceKey == null ? "" : serviceKey) + "|" + (eventType == null ? "" : eventType);
-        return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
+        Instant ingestInstant = receivedAt != null ? receivedAt.toInstant() : Instant.now();
+        Map<String, Object> attrs = event.getAttributes() == null ? Map.of() : event.getAttributes();
+
+        EventEnvelope.Builder builder = EventEnvelope.builder()
+                .serviceId(serviceKey)
+                .eventType(eventType)
+                .eventId(eventId.toString())
+                .timestamp(startInstant)
+                .ingestedAt(ingestInstant)
+                .attributes(attrs)
+                .resourceAttributes(rootEnvelope != null ? rootEnvelope.getResourceAttributes() : Map.of())
+                .events(event.getEvents())
+                .links(null)
+                .name(event.getName())
+                .kind(event.getKind())
+                .traceId(traceId)
+                .spanId(spanId)
+                .parentSpanId(parentSpanId)
+                .correlationId(correlationId)
+                .synthetic(rootEnvelope != null ? rootEnvelope.getSynthetic() : null);
+
+        if (ended != null) builder.endTimestamp(ended);
+        if (event.getStatus() != null) builder.status(event.getStatus());
+
+        return builder.build();
     }
 
     private String resolveSubEventStatus(EventEnvelope.OtelEvent sub) {
