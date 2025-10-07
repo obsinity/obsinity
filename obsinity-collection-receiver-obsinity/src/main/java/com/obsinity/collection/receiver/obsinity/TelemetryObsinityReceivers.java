@@ -146,7 +146,14 @@ public class TelemetryObsinityReceivers {
         if (serviceId != null) {
             service.put("name", serviceId);
         } else {
-            log.warn("Missing service identifier for telemetry event '{}'", event.name());
+            throw new IllegalStateException(
+                    "Missing service identifier for telemetry event '"
+                            + event.name()
+                            + "'. Configure system property '"
+                            + SERVICE_PROP
+                            + "' or environment variable '"
+                            + SERVICE_ENV
+                            + "'.");
         }
 
         Map<String, Object> attrs =
