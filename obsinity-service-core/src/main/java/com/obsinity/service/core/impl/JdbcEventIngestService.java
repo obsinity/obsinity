@@ -59,6 +59,9 @@ public class JdbcEventIngestService implements EventIngestService {
 
     @Override
     public int ingestOne(EventEnvelope e) {
+        if (log.isDebugEnabled()) {
+            log.debug("Ingesting event envelope:\n{}", JsonUtil.toPrettyJson(e));
+        }
         final UUID eventId = UUID.fromString(e.getEventId());
         final OffsetDateTime startedAt = OffsetDateTime.ofInstant(e.getTimestamp(), ZoneOffset.UTC);
         final OffsetDateTime receivedAt = OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC);
