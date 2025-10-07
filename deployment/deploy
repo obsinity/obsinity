@@ -1,0 +1,299 @@
+#!/usr/bin/env bash
+# -----------------------------------------------------------------------------
+# deploy
+# Generic Maven deployment script with automatic snapshot/release detection.
+#
+# Usage:
+#   ./deploy [--debug] [--trace] [--exclude CSV|--exclude-file FILE] <config> [-- <extra mvn args>]
+#
+# Features:
+#   - Detects snapshot/release from pom.xml (robust awk; no mvn help:evaluate)
+#   - Uses settings file: ~/.m2/<config>-deploy.xml
+#   - Uses Maven profile: <config>-<target>
+#   - Supports exclusions via --exclude, --exclude-file, or .excludes (from script dir)
+#   - Always logs excludes and the full mvn command (even without --debug)
+#   - With --debug, prints structured debug messages
+#   - With --trace, enables raw Bash tracing (set -x)
+# -----------------------------------------------------------------------------
+
+set -euo pipefail
+
+DEBUG=0
+TRACE=0
+EXCLUDES=""
+
+# Resolve script directory for default .excludes
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EXCLUDES_FILE="${SCRIPT_DIR}/.excludes"
+
+# ------------------------------
+# Logging helpers (stderr only, safe under set -e)
+# ------------------------------
+step()  { printf '⚙️  %s\n' "$*" >&2; return 0; }
+info()  { printf 'ℹ️  %s\n' "$*" >&2; return 0; }
+debug() {
+  if [ "${DEBUG:-0}" -eq 1 ]; then
+    printf '🔹 [DEBUG] %s\n' "$*" >&2
+  fi
+  return 0
+}
+run() {
+  if [ "${DEBUG:-0}" -eq 1 ]; then
+    printf '🧩 [CMD] %s\n' "$*" >&2
+  fi
+  "$@"
+}
+
+usage() {
+  cat <<EOF
+Usage:
+  $0 [--debug] [--trace] [--exclude CSV|--exclude-file FILE] <config> [-- <extra mvn args>]
+
+Options:
+  --debug             Verbose logging; echoes executed commands
+  --trace             Enable Bash command tracing (set -x)
+  --exclude CSV       Comma-separated list of modules to exclude
+  --exclude-file FILE Load excludes from file (default: .excludes in script dir)
+
+Examples:
+  $0 myconfig
+  $0 --debug myconfig
+  $0 --trace myconfig
+  $0 myconfig --exclude :reference-client,:reference-server
+  $0 myconfig --exclude-file /path/to/deploy.excludes
+EOF
+}
+
+# ------------------------------
+# Utility: trim whitespace
+# ------------------------------
+trim() {
+  local s="$1"
+  s="${s#"${s%%[![:space:]]*}"}"  # ltrim
+  s="${s%"${s##*[![:space:]]}"}"  # rtrim
+  printf '%s' "$s"
+}
+
+# ------------------------------
+# Load excludes from file (pure bash)
+# ------------------------------
+load_excludes_from_file() {
+  local file="$1"
+  [[ ! -f "$file" ]] && return 0
+  info "Using excludes file: ${file}"
+  debug "Loading excludes from file: ${file}"
+
+  local merged="" line
+  mapfile -t lines < "$file" || lines=()
+
+  for line in "${lines[@]}"; do
+    line="${line%%#*}"          # strip comments
+    line="$(trim "$line")"
+    [[ -z "$line" ]] && continue
+
+    IFS=',' read -r -a parts <<< "$line"
+    for p in "${parts[@]}"; do
+      p="$(trim "$p")"
+      [[ -z "$p" ]] && continue
+      merged+="${merged:+,}${p}"
+    done
+  done
+
+  [[ -n "$merged" ]] && EXCLUDES="${EXCLUDES:+${EXCLUDES},}${merged}"
+  debug "Loaded excludes: ${EXCLUDES:-<none>}"
+  return 0
+}
+
+# ------------------------------
+# Build -pl exclusion list
+# ------------------------------
+build_exclusion_value() {
+  local csv="$1"
+  [[ -z "$csv" ]] && return 0
+  local IFS=',' arr
+  IFS=',' read -r -a arr <<< "$csv"
+  local pl_neg=""
+  for sel in "${arr[@]}"; do
+    sel="$(trim "$sel")"
+    [[ -z "$sel" ]] && continue
+    if [[ "$sel" != *":"* && "$sel" != *"/"* ]]; then
+      sel=":${sel}"
+    fi
+    pl_neg+="${pl_neg:+,}!${sel}"
+  done
+  if [[ -n "$pl_neg" ]]; then
+    debug "Excluding modules: ${csv} → -pl ${pl_neg} -am"
+    printf '%s' "${pl_neg}"
+  fi
+  return 0
+}
+
+# ------------------------------
+# Detect project version (robust)
+# ------------------------------
+detect_project_version() {
+  step "Detecting project version from pom.xml..."
+  local version
+  version="$(awk '
+    match($0, /<version>[[:space:]]*[^<]+[[:space:]]*<\/version>/) {
+      s = substr($0, RSTART, RLENGTH);
+      gsub(/<[^>]+>/, "", s); gsub(/^[[:space:]]+|[[:space:]]+$/, "", s);
+      print s; exit
+    }' pom.xml | tr -d "\r\t")"
+  if [[ -z "$version" ]]; then
+    printf '❌ Could not find <version> in pom.xml (this module).\n' >&2
+    printf '   If the version is inherited from a parent, run from the root where <version> exists,\n' >&2
+    printf '   or add a <version> to this module.\n' >&2
+    exit 1
+  fi
+  debug "Detected project version: ${version}"
+  printf '%s\n' "${version}"
+}
+
+# ------------------------------
+# Derive snapshot/release
+# ------------------------------
+derive_target_from_version() {
+  step "Determining deploy target..."
+  local v="$1"
+  if [[ "$v" == *"-SNAPSHOT" ]]; then
+    debug "Version ends with -SNAPSHOT → snapshot"
+    printf 'snapshot\n'
+  else
+    debug "Version does not end with -SNAPSHOT → release"
+    printf 'release\n'
+  fi
+  return 0
+}
+
+# ------------------------------
+# Prerequisites
+# ------------------------------
+check_prereqs() {
+  step "Checking prerequisites..."
+  run command -v mvn >/dev/null 2>&1 || { echo "❌ Maven not found." >&2; exit 2; }
+  [[ -f pom.xml ]] || { echo "❌ No pom.xml found in current dir." >&2; exit 3; }
+  debug "Maven binary: $(command -v mvn)"
+  return 0
+}
+
+list_available_configs() {
+  local dir="${HOME}/.m2"
+  shopt -s nullglob
+  local files=( "${dir}"/*-deploy.xml )
+  if (( ${#files[@]} == 0 )); then
+    echo "No deploy settings found in ${dir} (looking for *-deploy.xml)." >&2
+    return 1
+  fi
+  echo "Available deploy configs:" >&2
+  for f in "${files[@]}"; do
+    echo "  - $(basename "$f" | sed 's/-deploy\.xml$//')" >&2
+  done
+  return 0
+}
+
+# ------------------------------
+# Main
+# ------------------------------
+main() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --debug) DEBUG=1; shift ;;
+      --trace) TRACE=1; shift ;;
+      --exclude) EXCLUDES="${2-}"; shift 2 ;;
+      --exclude-file) EXCLUDES_FILE="${2-}"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      --) shift; break ;;
+      *) break ;;
+    esac
+  done
+
+  if [[ $TRACE -eq 1 ]]; then
+    echo "🔍 Trace mode enabled — Bash will echo each command." >&2
+    set -x
+  fi
+
+  if [[ $# -eq 0 ]]; then
+    step "No config specified — listing available configs"
+    list_available_configs || true
+    echo
+    usage
+    exit 0
+  fi
+
+  # Load excludes (default from script directory)
+  if [[ -f "$EXCLUDES_FILE" ]]; then
+    load_excludes_from_file "$EXCLUDES_FILE"
+  else
+    debug "No excludes file found at ${EXCLUDES_FILE}"
+  fi
+
+  local config="$1"
+  shift || true
+
+  local extra_mvn_args=()
+  if [[ "${1:-}" == "--" ]]; then
+    shift
+    extra_mvn_args=("$@")
+  fi
+
+  if [[ $DEBUG -eq 1 ]]; then
+    echo "🔧 Debug mode enabled — echoing internal steps" >&2
+    echo "--------------------------------------------" >&2
+  fi
+
+  step "Verifying prerequisites"
+  check_prereqs
+
+  local version target
+  step "Reading project version"
+  version="$(detect_project_version)"
+  step "Deriving target type"
+  target="$(derive_target_from_version "${version}")"
+
+  step "Preparing Maven settings and profile"
+  local settings_file="${HOME}/.m2/${config}-deploy.xml"
+  local profile="${config}-${target}"
+  if [[ ! -f "${settings_file}" ]]; then
+    echo "❌ Settings file not found: ${settings_file}" >&2
+    echo "   (Expected pattern: ~/.m2/<config>-deploy.xml)" >&2
+    echo
+    list_available_configs || true
+    usage
+    exit 4
+  fi
+
+  local pl_value=""
+  if [[ -n "$EXCLUDES" ]]; then
+    pl_value="$(build_exclusion_value "$EXCLUDES" || true)"
+  fi
+  local pl_args=()
+  if [[ -n "${pl_value}" ]]; then
+    pl_args=( -pl "${pl_value}" -am )
+  fi
+
+  echo
+  echo "🚀 Deploy Summary"
+  echo "🔧 Config:        ${config}"
+  echo "🧩 Settings:      ${settings_file}"
+  echo "📄 Project ver:   ${version}"
+  echo "🎯 Target:        ${target}"
+  echo "📦 Maven profile: ${profile}"
+  if [[ -n "$EXCLUDES" ]]; then
+    echo "🚫 Excluding:     ${EXCLUDES}"
+  else
+    echo "🚫 Excluding:     (none)"
+  fi
+  [[ ${#extra_mvn_args[@]} -gt 0 ]] && echo "➕ Extra mvn args: ${extra_mvn_args[*]}"
+  echo
+
+  step "Executing Maven deploy"
+  local mvn_cmd=(mvn -B -s "${settings_file}" -DskipTests -P "${profile}" "${pl_args[@]}" clean deploy "${extra_mvn_args[@]}")
+  printf '▶ %q ' "${mvn_cmd[@]}"; echo
+  run "${mvn_cmd[@]}"
+
+  step "Verifying result"
+  echo "✅ Deployment complete for ${config} (${target})"
+}
+
+main "$@"

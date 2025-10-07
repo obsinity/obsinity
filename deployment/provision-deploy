@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+# -----------------------------------------------------------------------------
+# provision-deploy
+# Generate a Maven deploy settings file (~/.m2/<config>-deploy.xml)
+# using a template deploy-template.xml (in the same directory by default).
+#
+# Placeholders replaced in the template:
+#   __CONFIG__, __REPO_BASE_URL__, __REPO_CONTEXT__,
+#   __RELEASE_PATH__, __SNAPSHOT_PATH__,
+#   __RELEASE_REPO_ID__, __SNAPSHOT_REPO_ID__
+#
+# If credentials are provided, <servers> is populated.
+# If not, <servers> remains empty.
+#
+# Usage:
+#   ./provision-deploy \
+#     --config mycompany \
+#     --repo-base-url https://repo.example.com \
+#     --repo-context /artifactory \
+#     --release-path libs-release-local \
+#     --snapshot-path libs-snapshot-local \
+#     --release-repo-id releases \
+#     --snapshot-repo-id snapshots \
+#     [--release-user USER --release-pass PASS] \
+#     [--snapshot-user USER --snapshot-pass PASS] \
+#     [--template /path/to/template.xml]
+# -----------------------------------------------------------------------------
+
+set -euo pipefail
+
+die() { echo "❌ $*" >&2; exit 1; }
+
+# ---------------------------------------------
+# Locate template (default: same dir as script)
+# ---------------------------------------------
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TEMPLATE="${SCRIPT_DIR}/deploy-template.xml"
+
+# ---------------------------------------------
+# Argument parsing
+# ---------------------------------------------
+CONFIG=""
+REPO_BASE_URL=""
+REPO_CONTEXT=""
+RELEASE_PATH=""
+SNAPSHOT_PATH=""
+RELEASE_REPO_ID=""
+SNAPSHOT_REPO_ID=""
+REL_USER=""
+REL_PASS=""
+SNP_USER=""
+SNP_PASS=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --template) TEMPLATE="${2-}"; shift 2 ;;
+    --config) CONFIG="${2-}"; shift 2 ;;
+    --repo-base-url) REPO_BASE_URL="${2-}"; shift 2 ;;
+    --repo-context) REPO_CONTEXT="${2-}"; shift 2 ;;
+    --release-path) RELEASE_PATH="${2-}"; shift 2 ;;
+    --snapshot-path) SNAPSHOT_PATH="${2-}"; shift 2 ;;
+    --release-repo-id) RELEASE_REPO_ID="${2-}"; shift 2 ;;
+    --snapshot-repo-id) SNAPSHOT_REPO_ID="${2-}"; shift 2 ;;
+    --release-user) REL_USER="${2-}"; shift 2 ;;
+    --release-pass) REL_PASS="${2-}"; shift 2 ;;
+    --snapshot-user) SNP_USER="${2-}"; shift 2 ;;
+    --snapshot-pass) SNP_PASS="${2-}"; shift 2 ;;
+    -h|--help)
+      grep '^#' "$0" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    *) die "Unknown argument: $1" ;;
+  esac
+done
+
+# ---------------------------------------------
+# Validation
+# ---------------------------------------------
+[[ -f "$TEMPLATE" ]] || die "Template not found: $TEMPLATE"
+[[ -n "$CONFIG" ]] || die "Missing --config"
+[[ -n "$REPO_BASE_URL" ]] || die "Missing --repo-base-url"
+[[ -n "$RELEASE_PATH" ]] || die "Missing --release-path"
+[[ -n "$SNAPSHOT_PATH" ]] || die "Missing --snapshot-path"
+[[ -n "$RELEASE_REPO_ID" ]] || die "Missing --release-repo-id"
+[[ -n "$SNAPSHOT_REPO_ID" ]] || die "Missing --snapshot-repo-id"
+
+# Normalize REPO_CONTEXT
+if [[ -z "$REPO_CONTEXT" || "$REPO_CONTEXT" == "/" ]]; then
+  REPO_CONTEXT=""
+else
+  REPO_CONTEXT="/${REPO_CONTEXT#/}"
+  REPO_CONTEXT="${REPO_CONTEXT%/}"
+fi
+
+# ---------------------------------------------
+# Prepare output
+# ---------------------------------------------
+M2_DIR="${HOME}/.m2"
+OUT_FILE="${M2_DIR}/${CONFIG}-deploy.xml"
+mkdir -p "$M2_DIR"
+TMP="$(mktemp)"
+cp -f "$TEMPLATE" "$TMP"
+
+escape_sed() { printf '%s' "$1" | sed -e 's/[\/&]/\\&/g'; }
+
+declare -A R
+R["__CONFIG__"]="$CONFIG"
+R["__REPO_BASE_URL__"]="$REPO_BASE_URL"
+R["__REPO_CONTEXT__"]="$REPO_CONTEXT"
+R["__RELEASE_PATH__"]="$RELEASE_PATH"
+R["__SNAPSHOT_PATH__"]="$SNAPSHOT_PATH"
+R["__RELEASE_REPO_ID__"]="$RELEASE_REPO_ID"
+R["__SNAPSHOT_REPO_ID__"]="$SNAPSHOT_REPO_ID"
+
+for key in "${!R[@]}"; do
+  sed -i "s/$(escape_sed "$key")/$(escape_sed "${R[$key]}")/g" "$TMP"
+done
+
+# ---------------------------------------------
+# Inject <servers> if credentials provided
+# ---------------------------------------------
+SERVERS_XML=""
+if [[ -n "$REL_USER" || -n "$REL_PASS" || -n "$SNP_USER" || -n "$SNP_PASS" ]]; then
+  if [[ -n "$REL_USER" || -n "$REL_PASS" ]]; then
+    SERVERS_XML+="    <server>\n"
+    SERVERS_XML+="      <id>${RELEASE_REPO_ID}</id>\n"
+    [[ -n "$REL_USER" ]] && SERVERS_XML+="      <username>${REL_USER}</username>\n"
+    [[ -n "$REL_PASS" ]] && SERVERS_XML+="      <password>${REL_PASS}</password>\n"
+    SERVERS_XML+="    </server>\n"
+  fi
+  if [[ -n "$SNP_USER" || -n "$SNP_PASS" ]]; then
+    SERVERS_XML+="    <server>\n"
+    SERVERS_XML+="      <id>${SNAPSHOT_REPO_ID}</id>\n"
+    [[ -n "$SNP_USER" ]] && SERVERS_XML+="      <username>${SNP_USER}</username>\n"
+    [[ -n "$SNP_PASS" ]] && SERVERS_XML+="      <password>${SNP_PASS}</password>\n"
+    SERVERS_XML+="    </server>\n"
+  fi
+fi
+
+# Ensure <servers> section exists
+if ! grep -q "<servers>" "$TMP"; then
+  awk -v block="  <servers>\n  </servers>\n" '
+    /<\/settings>/ && !done { print block; done=1 } { print }
+  ' "$TMP" > "${TMP}.new" && mv "${TMP}.new" "$TMP"
+fi
+
+# Replace <servers> content
+awk -v serversContent="$SERVERS_XML" '
+  BEGIN { inServers=0 }
+  /<servers>/ {
+    print $0
+    inServers=1
+    printed=0
+    next
+  }
+  /<\/servers>/ {
+    if (inServers && serversContent != "" && !printed) {
+      printf "%s", serversContent
+    }
+    inServers=0
+    printed=1
+    print $0
+    next
+  }
+  {
+    if (!inServers) print $0
+  }
+' "$TMP" > "${TMP}.new" && mv "${TMP}.new" "$TMP"
+
+# ---------------------------------------------
+# Finalize
+# ---------------------------------------------
+cp -f "$TMP" "$OUT_FILE"
+rm -f "$TMP"
+
+echo "✅ Provisioned: $OUT_FILE"

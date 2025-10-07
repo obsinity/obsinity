@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
+
+    <profiles>
+        <!-- Release deploy profile -->
+        <profile>
+            <id>__CONFIG__-release</id>
+            <properties>
+                <!-- Force releases -->
+                <altDeploymentRepository>__RELEASE_REPO_ID__::default::__REPO_BASE_URL____REPO_CONTEXT__/__RELEASE_PATH__</altDeploymentRepository>
+                <!-- Optional (same to avoid plugin quirks) -->
+                <altSnapshotDeploymentRepository>__RELEASE_REPO_ID__::default::__REPO_BASE_URL____REPO_CONTEXT__/__RELEASE_PATH__</altSnapshotDeploymentRepository>
+            </properties>
+        </profile>
+
+        <!-- Snapshot deploy profile -->
+        <profile>
+            <id>__CONFIG__-snapshot</id>
+            <properties>
+                <!-- Force snapshots -->
+                <altDeploymentRepository>__SNAPSHOT_REPO_ID__::default::__REPO_BASE_URL____REPO_CONTEXT__/__SNAPSHOT_PATH__</altDeploymentRepository>
+                <!-- Optional (same to avoid plugin quirks) -->
+                <altSnapshotDeploymentRepository>__SNAPSHOT_REPO_ID__::default::__REPO_BASE_URL____REPO_CONTEXT__/__SNAPSHOT_PATH__</altSnapshotDeploymentRepository>
+            </properties>
+        </profile>
+    </profiles>
+
+    <!-- Credentials (populated automatically by provision-deploy if provided) -->
+    <servers>
+    </servers>
+
+</settings>
