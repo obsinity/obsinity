@@ -31,6 +31,7 @@ class ObsinityEventReceiverTest {
                 .name("demo.checkout")
                 .timestamp(Instant.parse("2025-09-24T08:30:00Z"))
                 .status(new OStatus(StatusCode.OK, null))
+                .serviceId("demo-service")
                 .build();
         h.attributes().put("user.id", "alice");
         h.eventContext().put("cart.size", 3);

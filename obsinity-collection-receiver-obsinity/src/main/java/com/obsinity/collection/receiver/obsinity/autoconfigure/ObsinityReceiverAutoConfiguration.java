@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.env.Environment;
 
 @AutoConfiguration
 @ConditionalOnBean(EventSender.class)
@@ -19,7 +20,8 @@ public class ObsinityReceiverAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(name = "telemetryObsinityReceivers")
-    public TelemetryObsinityReceivers telemetryObsinityReceivers(EventSender sender) {
-        return new TelemetryObsinityReceivers(sender);
+    public TelemetryObsinityReceivers telemetryObsinityReceivers(EventSender sender, Environment environment) {
+        String configuredService = environment.getProperty("obsinity.collection.service");
+        return new TelemetryObsinityReceivers(sender, configuredService);
     }
 }

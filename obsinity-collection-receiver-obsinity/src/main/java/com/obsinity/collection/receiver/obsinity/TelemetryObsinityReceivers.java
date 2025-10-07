@@ -29,9 +29,15 @@ public class TelemetryObsinityReceivers {
 
     private final EventSender sender;
     private final ObjectMapper json;
+    private final String configuredServiceId;
 
     public TelemetryObsinityReceivers(EventSender sender) {
+        this(sender, null);
+    }
+
+    public TelemetryObsinityReceivers(EventSender sender, String configuredServiceId) {
         this.sender = sender;
+        this.configuredServiceId = sanitize(configuredServiceId);
         this.json = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -61,11 +67,11 @@ public class TelemetryObsinityReceivers {
     }
 
     private void send(TelemetryEvent event) throws IOException {
-        byte[] body = json.writeValueAsBytes(toUnifiedPublishBody(event));
+        byte[] body = json.writeValueAsBytes(toUnifiedPublishBody(event, configuredServiceId));
         sender.send(body);
     }
 
-    static Map<String, Object> toUnifiedPublishBody(TelemetryEvent event) {
+    static Map<String, Object> toUnifiedPublishBody(TelemetryEvent event, String configuredServiceId) {
         Map<String, Object> root = new LinkedHashMap<>();
 
         Map<String, Object> eventNode = new LinkedHashMap<>();
@@ -73,7 +79,7 @@ public class TelemetryObsinityReceivers {
         if (event.kind() != null) eventNode.put("kind", event.kind().name());
         root.put("event", eventNode);
 
-        root.put("resource", buildResource(event));
+        root.put("resource", buildResource(event, configuredServiceId));
 
         Map<String, Object> trace = new LinkedHashMap<>();
         if (event.traceId() != null) trace.put("traceId", event.traceId());
@@ -133,27 +139,24 @@ public class TelemetryObsinityReceivers {
         return root;
     }
 
-    private static Map<String, Object> buildResource(TelemetryEvent event) {
+    private static Map<String, Object> buildResource(TelemetryEvent event, String configuredServiceId) {
         Map<String, Object> resource = new LinkedHashMap<>();
 
         Map<String, Object> service = new LinkedHashMap<>();
         String serviceId = sanitize(event.effectiveServiceId());
-        if (serviceId == null) {
-            String fallback = sanitize(System.getProperty(SERVICE_PROP));
-            if (fallback == null) fallback = sanitize(System.getenv(SERVICE_ENV));
-            serviceId = fallback;
-        }
+        if (serviceId == null) serviceId = sanitize(configuredServiceId);
+        if (serviceId == null) serviceId = sanitize(System.getProperty(SERVICE_PROP));
+        if (serviceId == null) serviceId = sanitize(System.getenv(SERVICE_ENV));
         if (serviceId != null) {
             service.put("name", serviceId);
         } else {
-            throw new IllegalStateException(
-                    "Missing service identifier for telemetry event '"
-                            + event.name()
-                            + "'. Configure system property '"
-                            + SERVICE_PROP
-                            + "' or environment variable '"
-                            + SERVICE_ENV
-                            + "'.");
+            throw new IllegalStateException("Missing service identifier for telemetry event '"
+                    + event.name()
+                    + "'. Configure system property '"
+                    + SERVICE_PROP
+                    + "' or environment variable '"
+                    + SERVICE_ENV
+                    + "'.");
         }
 
         Map<String, Object> attrs =
