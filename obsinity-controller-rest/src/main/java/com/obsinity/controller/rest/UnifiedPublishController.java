@@ -1,5 +1,6 @@
 package com.obsinity.controller.rest;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,6 +11,8 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,6 +26,7 @@ import org.springframework.web.bind.annotation.*;
 public class UnifiedPublishController {
 
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
+    private static final Logger log = LoggerFactory.getLogger(UnifiedPublishController.class);
     private final EventIngestService ingest;
     private final ObjectMapper mapper;
 
@@ -34,18 +38,29 @@ public class UnifiedPublishController {
     @PostMapping("/publish")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public Map<String, Object> publishOne(@Valid @RequestBody JsonNode body) {
-        EventEnvelope env = toEnvelopeFromRaw(body);
-        int stored = ingest.ingestOne(env);
-        return Map.of("status", stored == 1 ? "stored" : "duplicate", "eventId", env.getEventId());
+        try {
+            EventEnvelope env = toEnvelopeFromRaw(body);
+            int stored = ingest.ingestOne(env);
+            return Map.of("status", stored == 1 ? "stored" : "duplicate", "eventId", env.getEventId());
+        } catch (RuntimeException ex) {
+            logRejectedPayload(body, ex);
+            throw ex;
+        }
     }
 
     @PostMapping("/publish/batch")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public Map<String, Object> publishBatch(@Valid @RequestBody List<JsonNode> bodies) {
-        List<EventEnvelope> envs = bodies.stream().map(this::toEnvelopeFromRaw).toList();
-        int stored = ingest.ingestBatch(envs);
-        int duplicates = Math.max(0, envs.size() - stored);
-        return Map.of("stored", stored, "duplicates", duplicates);
+        try {
+            List<EventEnvelope> envs =
+                    bodies.stream().map(this::toEnvelopeFromRaw).toList();
+            int stored = ingest.ingestBatch(envs);
+            int duplicates = Math.max(0, envs.size() - stored);
+            return Map.of("stored", stored, "duplicates", duplicates);
+        } catch (RuntimeException ex) {
+            logRejectedPayload(bodies, ex);
+            throw ex;
+        }
     }
 
     // ---- Mapping helpers ----------------------------------------------------
@@ -188,6 +203,22 @@ public class UnifiedPublishController {
     private Map<String, Object> toMap(JsonNode node) {
         if (node == null || node.isNull() || node.isMissingNode()) return Map.of();
         return mapper.convertValue(node, MAP_TYPE);
+    }
+
+    private void logRejectedPayload(Object payload, RuntimeException cause) {
+        if (!log.isInfoEnabled()) return;
+        try {
+            String rendered = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(payload);
+            String reason = (cause.getMessage() == null || cause.getMessage().isBlank())
+                    ? cause.getClass().getSimpleName()
+                    : cause.getMessage();
+            log.info("Rejected publish payload due to {}:\n{}", reason, rendered);
+        } catch (JsonProcessingException e) {
+            log.info(
+                    "Rejected publish payload; failed to render JSON ({}: {})",
+                    e.getClass().getSimpleName(),
+                    e.getOriginalMessage());
+        }
     }
 
     private java.util.List<EventEnvelope.OtelEvent> parseOtelEvents(JsonNode arrayNode) {
