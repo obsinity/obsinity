@@ -1,4 +1,4 @@
-package com.obsinity.service.core.deadletter;
+package com.obsinity.service.core.unconfigured;
 
 import com.obsinity.service.core.impl.JsonUtil;
 import com.obsinity.service.core.model.EventEnvelope;
@@ -12,12 +12,12 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
-public class JdbcDeadLetterQueue implements DeadLetterQueue {
+public class JdbcUnconfiguredEventQueue implements UnconfiguredEventQueue {
 
-    private static final Logger log = LoggerFactory.getLogger(JdbcDeadLetterQueue.class);
+    private static final Logger log = LoggerFactory.getLogger(JdbcUnconfiguredEventQueue.class);
     private static final String INSERT_SQL =
             """
-        insert into event_dead_letters(
+        insert into event_unconfigured_events(
               id, service_key, event_type, event_id, reason, error, payload
         ) values (
               :id, :service_key, :event_type, :event_id, :reason, :error, cast(:payload as jsonb)
@@ -26,7 +26,7 @@ public class JdbcDeadLetterQueue implements DeadLetterQueue {
 
     private final NamedParameterJdbcTemplate jdbc;
 
-    public JdbcDeadLetterQueue(NamedParameterJdbcTemplate jdbc) {
+    public JdbcUnconfiguredEventQueue(NamedParameterJdbcTemplate jdbc) {
         this.jdbc = jdbc;
     }
 
@@ -43,7 +43,7 @@ public class JdbcDeadLetterQueue implements DeadLetterQueue {
                     .addValue("payload", JsonUtil.toJson(envelope), Types.VARCHAR);
             jdbc.update(INSERT_SQL, params);
         } catch (DataAccessException ex) {
-            log.error("Failed to persist event into dead-letter queue: {}", reason, ex);
+            log.error("Failed to persist event into unconfigured event queue: {}", reason, ex);
         }
     }
 }

@@ -30,4 +30,9 @@ public class ConfigLookup {
         }
         return Optional.empty();
     }
+
+    public boolean isServiceConfigured(java.util.UUID serviceId) {
+        if (serviceId == null) return false;
+        return registry.current().services().containsKey(serviceId);
+    }
 }

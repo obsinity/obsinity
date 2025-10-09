@@ -45,15 +45,15 @@ This document details how Obsinity forwards events to additional targets (connec
 
 - Delivery semantics
   - At‑least‑once: commit Kafka offsets (or ack RMQ) after successful DB insert.
-  - De‑duplication and DLQ:
+  - De‑duplication and Unconfigured Event Queue (UEQ):
     - Incoming messages MUST carry an `eventId`. The ingest path computes a SHA‑256 over the canonicalized payload.
     - If an event with the same `eventId` exists and the SHA‑256 matches, the message is a duplicate and is discarded.
-    - If an event with the same `eventId` exists but the SHA‑256 differs (payload mismatch), the message is sent to a Dead Letter Queue (DLQ) with diagnostic metadata.
+    - If an event with the same `eventId` exists but the SHA‑256 differs (payload mismatch), the message is sent to the Unconfigured Event Queue (UEQ) with diagnostic metadata.
   - Exactly‑once (optional):
     - Maintain an idempotency table `(source, event_id)` checked inside the ingest transaction; still apply SHA‑256 guard for mismatch detection.
 
 - Error handling
-  - Poison messages routed to DLQ (Kafka) or dead‑letter exchange (RabbitMQ) after N retries.
+  - Poison messages routed to the UEQ (Kafka) or dead‑letter exchange (RabbitMQ) after N retries.
   - Structured logs with message metadata (offset/partition/routing key) and root cause.
 
 - Configuration
@@ -68,7 +68,7 @@ This document details how Obsinity forwards events to additional targets (connec
   - Use small batches (100–1000) with adaptive backoff to avoid DB hotspots and burst traffic.
 
 - Observability
-  - Per‑connector metrics: processed/sec, success rate, retries, DLQ counts.
+  - Per‑connector metrics: processed/sec, success rate, retries, UEQ counts.
   - Per‑consumer metrics: lag, processing latency, ack rates.
   - Include trace headers on outbound messages (`traceparent`, correlation ID) for cross‑system tracing.
 
@@ -91,7 +91,7 @@ This document details how Obsinity forwards events to additional targets (connec
   - Shared mapping to `EventEnvelope` and idempotency option.
 
 - Phase D — Hardening
-  - Retry strategies, DLQ wiring, metrics, dashboards, structured audit logs.
+  - Retry strategies, UEQ wiring, metrics, dashboards, structured audit logs.
 
 ---
 This design lets Obsinity act both as a central telemetry store and as a hub to publish events to other systems, while allowing ingestion from existing event streams.

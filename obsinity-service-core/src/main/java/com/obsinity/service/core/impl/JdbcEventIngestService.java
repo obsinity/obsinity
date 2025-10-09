@@ -2,10 +2,10 @@ package com.obsinity.service.core.impl;
 
 import com.obsinity.service.core.config.ConfigLookup;
 import com.obsinity.service.core.config.EventTypeConfig;
-import com.obsinity.service.core.deadletter.DeadLetterQueue;
 import com.obsinity.service.core.index.AttributeIndexingService;
 import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.spi.EventIngestService;
+import com.obsinity.service.core.unconfigured.UnconfiguredEventQueue;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.sql.Types;
@@ -45,7 +45,7 @@ public class JdbcEventIngestService implements EventIngestService {
     private final NamedParameterJdbcTemplate jdbc;
     private final AttributeIndexingService attributeIndexingService;
     private final ConfigLookup configLookup;
-    private final DeadLetterQueue deadLetterQueue;
+    private final UnconfiguredEventQueue unconfiguredEventQueue;
 
     // tiny in-memory cache to avoid re-hashing/upserting each time
     private final Map<String, String> servicePartitionKeyCache = new ConcurrentHashMap<>();
@@ -54,11 +54,11 @@ public class JdbcEventIngestService implements EventIngestService {
             NamedParameterJdbcTemplate jdbc,
             AttributeIndexingService attributeIndexingService,
             ConfigLookup configLookup,
-            DeadLetterQueue deadLetterQueue) {
+            UnconfiguredEventQueue unconfiguredEventQueue) {
         this.jdbc = jdbc;
         this.attributeIndexingService = attributeIndexingService;
         this.configLookup = configLookup;
-        this.deadLetterQueue = deadLetterQueue;
+        this.unconfiguredEventQueue = unconfiguredEventQueue;
     }
 
     @Override
@@ -80,6 +80,13 @@ public class JdbcEventIngestService implements EventIngestService {
                 servicePartitionKeyCache.computeIfAbsent(serviceKey, this::ensureServiceAndGetPartitionKey);
         final UUID serviceId = resolveServiceId(serviceKey);
 
+        if (!configLookup.isServiceConfigured(serviceId)) {
+            String message = "Service '" + serviceKey + "' is not configured";
+            log.warn(message);
+            unconfiguredEventQueue.publish(e, "UNCONFIGURED_SERVICE", message);
+            return 0;
+        }
+
         final Map<String, Object> attrs = e.getAttributes();
         String lifecycle = lifecycle(attrs);
         if ("STARTED".equalsIgnoreCase(lifecycle)) {
@@ -88,9 +95,9 @@ public class JdbcEventIngestService implements EventIngestService {
 
         var eventConfigOpt = configLookup.get(serviceId, eventType);
         if (eventConfigOpt.isEmpty()) {
-            String message = "Unknown event type '" + eventType + "' for service '" + serviceKey + "'";
+            String message = "Event type '" + eventType + "' for service '" + serviceKey + "' is not configured";
             log.warn(message);
-            deadLetterQueue.publish(e, "UNKNOWN_EVENT_TYPE", message);
+            unconfiguredEventQueue.publish(e, "UNCONFIGURED_EVENT_TYPE", message);
             return 0;
         }
         EventTypeConfig eventConfig = eventConfigOpt.get();
@@ -296,10 +303,11 @@ public class JdbcEventIngestService implements EventIngestService {
                 if (subConfig.isPresent()) {
                     subEventTypeId = subConfig.get().eventId();
                 } else {
-                    String message = "Unknown nested event type '" + subEventType + "' for service '" + serviceKey + "'";
+                    String message = "Nested event type '" + subEventType + "' for service '" + serviceKey
+                            + "' is not configured";
                     log.warn(message);
-                    deadLetterQueue.publish(
-                            buildDeadLetterEnvelope(
+                    unconfiguredEventQueue.publish(
+                            buildUnconfiguredEventEnvelope(
                                     rootEnvelope,
                                     serviceKey,
                                     subEventType,
@@ -312,15 +320,15 @@ public class JdbcEventIngestService implements EventIngestService {
                                     spanId,
                                     parentSpanId,
                                     correlationId),
-                            "UNKNOWN_NESTED_EVENT_TYPE",
+                            "UNCONFIGURED_NESTED_EVENT_TYPE",
                             message);
                     continue;
                 }
             } else {
-                String message = "Unknown service id for nested event '" + subEventType + "'";
+                String message = "Service configuration not found for nested event '" + subEventType + "'";
                 log.warn(message);
-                deadLetterQueue.publish(
-                        buildDeadLetterEnvelope(
+                unconfiguredEventQueue.publish(
+                        buildUnconfiguredEventEnvelope(
                                 rootEnvelope,
                                 serviceKey,
                                 subEventType,
@@ -333,7 +341,7 @@ public class JdbcEventIngestService implements EventIngestService {
                                 spanId,
                                 parentSpanId,
                                 correlationId),
-                        "UNKNOWN_SERVICE",
+                        "UNCONFIGURED_SERVICE",
                         message);
                 continue;
             }
@@ -383,7 +391,7 @@ public class JdbcEventIngestService implements EventIngestService {
         }
     }
 
-    private EventEnvelope buildDeadLetterEnvelope(
+    private EventEnvelope buildUnconfiguredEventEnvelope(
             EventEnvelope rootEnvelope,
             String serviceKey,
             String eventType,

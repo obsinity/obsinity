@@ -53,9 +53,9 @@ CREATE TABLE IF NOT EXISTS event_attr_index_default
   PARTITION OF event_attr_index DEFAULT;
 
 -- ==============================================================
--- Dead-letter storage for rejected events
+-- Unconfigured event storage for rejected events
 -- ==============================================================
-CREATE TABLE IF NOT EXISTS event_dead_letters (
+CREATE TABLE IF NOT EXISTS event_unconfigured_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   service_key TEXT,
   event_type  TEXT,
@@ -66,8 +66,23 @@ CREATE TABLE IF NOT EXISTS event_dead_letters (
   received_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS ix_event_dead_letters_service
-  ON event_dead_letters(service_key);
+CREATE INDEX IF NOT EXISTS ix_event_unconfigured_events_service
+  ON event_unconfigured_events(service_key);
+
+-- ==============================================================
+-- Dead-letter storage for payloads that cannot be parsed
+-- ==============================================================
+CREATE TABLE IF NOT EXISTS event_ingest_dead_letters (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source TEXT,
+  reason TEXT NOT NULL,
+  error TEXT,
+  payload TEXT NOT NULL,
+  received_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ix_event_ingest_dead_letters_received
+  ON event_ingest_dead_letters(received_at);
 
 -- ================================================
 -- Attribute distinct values (per service + path)
