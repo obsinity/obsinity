@@ -6,8 +6,8 @@ import com.obsinity.collection.api.annotations.Flow;
 import com.obsinity.collection.api.annotations.Kind;
 import com.obsinity.collection.api.annotations.PushAttribute;
 import com.obsinity.collection.api.annotations.PushContextValue;
-import com.obsinity.collection.core.receivers.TelemetryReceiver;
-import com.obsinity.telemetry.model.TelemetryEvent;
+import com.obsinity.collection.core.receivers.FlowSinkHandler;
+import com.obsinity.telemetry.model.FlowEvent;
 import io.opentelemetry.api.trace.SpanKind;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,8 +39,8 @@ class TelemetryAspectBindingTest {
         }
 
         @Bean
-        CapturingReceiver capturingReceiver() {
-            return new CapturingReceiver();
+        CapturingSink capturingSink() {
+            return new CapturingSink();
         }
 
         static class SampleFlows {
@@ -51,12 +51,12 @@ class TelemetryAspectBindingTest {
             }
         }
 
-        /** Simple receiver bean that captures TelemetryHolder fan-out. */
-        static class CapturingReceiver implements TelemetryReceiver {
-            final List<TelemetryEvent> holders = new ArrayList<>();
+        /** Simple sink bean that captures FlowEvent fan-out. */
+        static class CapturingSink implements FlowSinkHandler {
+            final List<FlowEvent> holders = new ArrayList<>();
 
             @Override
-            public void handle(TelemetryEvent holder) {
+            public void handle(FlowEvent holder) {
                 holders.add(holder);
             }
         }
@@ -65,11 +65,11 @@ class TelemetryAspectBindingTest {
         private SampleFlows flows;
 
         @org.springframework.beans.factory.annotation.Autowired
-        private CapturingReceiver capturingReceiver;
+        private CapturingSink capturingSink;
 
         @AfterEach
         void clear() {
-            capturingReceiver.holders.clear();
+            capturingSink.holders.clear();
         }
 
         @Test
@@ -80,10 +80,10 @@ class TelemetryAspectBindingTest {
                 Thread.sleep(100);
             } catch (InterruptedException ignored) {
             }
-            List<TelemetryEvent> seen = capturingReceiver.holders;
+            List<FlowEvent> seen = capturingSink.holders;
             assertThat(seen).hasSize(2);
-            TelemetryEvent started = seen.get(0);
-            TelemetryEvent finished = seen.get(1);
+            FlowEvent started = seen.get(0);
+            FlowEvent finished = seen.get(1);
 
             assertThat(started.name()).isEqualTo("demo.checkout");
             assertThat(finished.name()).isEqualTo("demo.checkout");

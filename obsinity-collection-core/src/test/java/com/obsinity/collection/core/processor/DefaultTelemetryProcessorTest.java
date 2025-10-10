@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.obsinity.collection.core.dispatch.AsyncDispatchBus;
 import com.obsinity.collection.core.receivers.TelemetryHandlerRegistry;
-import com.obsinity.telemetry.model.TelemetryEvent;
+import com.obsinity.telemetry.model.FlowEvent;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -25,7 +25,7 @@ class DefaultTelemetryProcessorTest {
 
     @Test
     void onFlowFailed_propagates_throwable_to_holder() throws Exception {
-        BlockingQueue<TelemetryEvent> seen = new ArrayBlockingQueue<>(4);
+        BlockingQueue<FlowEvent> seen = new ArrayBlockingQueue<>(4);
         registry.register(seen::offer);
 
         var support = new com.obsinity.telemetry.processor.TelemetryProcessorSupport();
@@ -36,7 +36,7 @@ class DefaultTelemetryProcessorTest {
         RuntimeException err = new RuntimeException("boom");
         proc.onFlowFailed("demo.flow", err, Map.of(), Map.of());
 
-        TelemetryEvent h = seen.poll(Duration.ofSeconds(2).toMillis(), TimeUnit.MILLISECONDS);
+        FlowEvent h = seen.poll(Duration.ofSeconds(2).toMillis(), TimeUnit.MILLISECONDS);
         assertNotNull(h);
         assertEquals("FAILED", h.eventContext().get("lifecycle"));
         assertSame(err, h.throwable());

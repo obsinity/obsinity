@@ -1,6 +1,6 @@
 # 📊 Obsinity Engine: Event & Counter Flow Spec
 
-> **Source of truth:** All telemetry flows through `TelemetryHolder` (OTEL-shaped container with Obsinity-native fields).
+> **Source of truth:** All telemetry flows through `FlowEvent` (OTEL-shaped container with Obsinity-native fields).
 > **Hard rules:**
 >
 > * ✅ **Idempotency:** duplicates are strict no-ops.

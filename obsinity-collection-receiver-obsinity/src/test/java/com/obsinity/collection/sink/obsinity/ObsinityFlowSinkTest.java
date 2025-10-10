@@ -5,14 +5,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.obsinity.client.transport.EventSender;
-import com.obsinity.collection.receiver.obsinity.TelemetryObsinityReceivers;
+import com.obsinity.collection.receiver.obsinity.TelemetryObsinitySink;
+import com.obsinity.telemetry.model.FlowEvent;
 import com.obsinity.telemetry.model.OStatus;
-import com.obsinity.telemetry.model.TelemetryEvent;
 import io.opentelemetry.api.trace.StatusCode;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
-class ObsinityEventReceiverTest {
+class ObsinityFlowSinkTest {
     static class CapturingSender implements EventSender {
         byte[] last;
 
@@ -25,9 +25,9 @@ class ObsinityEventReceiverTest {
     @Test
     void maps_basic_fields() throws Exception {
         var sender = new CapturingSender();
-        var sink = new TelemetryObsinityReceivers(sender);
+        var sink = new TelemetryObsinitySink(sender);
 
-        TelemetryEvent h = TelemetryEvent.builder()
+        FlowEvent h = FlowEvent.builder()
                 .name("demo.checkout")
                 .timestamp(Instant.parse("2025-09-24T08:30:00Z"))
                 .status(new OStatus(StatusCode.OK, null))

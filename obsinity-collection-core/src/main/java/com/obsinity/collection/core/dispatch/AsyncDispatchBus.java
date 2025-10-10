@@ -1,8 +1,8 @@
 package com.obsinity.collection.core.dispatch;
 
+import com.obsinity.collection.core.receivers.FlowSinkHandler;
 import com.obsinity.collection.core.receivers.TelemetryHandlerRegistry;
-import com.obsinity.collection.core.receivers.TelemetryReceiver;
-import com.obsinity.telemetry.model.TelemetryEvent;
+import com.obsinity.telemetry.model.FlowEvent;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.UndeclaredThrowableException;
 import java.util.List;
@@ -16,22 +16,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Per-receiver asynchronous dispatch bus using a dedicated single-thread worker and deque.
+ * Per-sink asynchronous dispatch bus using a dedicated single-thread worker and deque.
  */
 public final class AsyncDispatchBus implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(AsyncDispatchBus.class);
 
     private final TelemetryHandlerRegistry registry;
-    private final Map<TelemetryReceiver, Worker> workers = new ConcurrentHashMap<>();
+    private final Map<FlowSinkHandler, Worker> workers = new ConcurrentHashMap<>();
 
     public AsyncDispatchBus(TelemetryHandlerRegistry registry) {
         this.registry = Objects.requireNonNull(registry, "registry");
     }
 
-    public void dispatch(TelemetryEvent holder) {
+    public void dispatch(FlowEvent holder) {
         if (holder == null) return;
-        List<TelemetryReceiver> list = registry.handlers();
-        for (TelemetryReceiver r : list) {
+        List<FlowSinkHandler> list = registry.handlers();
+        for (FlowSinkHandler r : list) {
             workers.computeIfAbsent(r, Worker::new).offer(holder);
         }
     }
@@ -43,20 +43,20 @@ public final class AsyncDispatchBus implements AutoCloseable {
     }
 
     private static final class Worker implements Runnable {
-        private final TelemetryReceiver receiver;
-        private final LinkedBlockingDeque<TelemetryEvent> queue = new LinkedBlockingDeque<>();
+        private final FlowSinkHandler sink;
+        private final LinkedBlockingDeque<FlowEvent> queue = new LinkedBlockingDeque<>();
         private final AtomicBoolean running = new AtomicBoolean(true);
         private final Thread thread;
 
-        Worker(TelemetryReceiver receiver) {
-            this.receiver = receiver;
+        Worker(FlowSinkHandler sink) {
+            this.sink = sink;
             this.thread = new Thread(
-                    this, "obsinity-telemetry-worker-" + receiver.getClass().getSimpleName());
+                    this, "obsinity-telemetry-worker-" + sink.getClass().getSimpleName());
             this.thread.setDaemon(true);
             this.thread.start();
         }
 
-        void offer(TelemetryEvent event) {
+        void offer(FlowEvent event) {
             queue.offer(event);
         }
 
@@ -68,18 +68,18 @@ public final class AsyncDispatchBus implements AutoCloseable {
         @Override
         public void run() {
             while (running.get()) {
-                TelemetryEvent event = null;
+                FlowEvent event = null;
                 try {
                     event = queue.poll(250, TimeUnit.MILLISECONDS);
-                    if (event != null) receiver.handle(event);
+                    if (event != null) sink.handle(event);
                 } catch (InterruptedException ie) {
                     // shutdown
                     Thread.currentThread().interrupt();
                 } catch (Throwable t) {
                     Throwable root = unwrap(t);
                     log.warn(
-                            "Telemetry receiver {} failed to handle event {} due to {}",
-                            receiver.getClass().getName(),
+                            "Flow sink {} failed to handle event {} due to {}",
+                            sink.getClass().getName(),
                             describe(event),
                             root.getMessage(),
                             root);
@@ -87,7 +87,7 @@ public final class AsyncDispatchBus implements AutoCloseable {
             }
         }
 
-        private static String describe(TelemetryEvent event) {
+        private static String describe(FlowEvent event) {
             if (event == null) return "<none>";
             return event.getClass().getName();
         }

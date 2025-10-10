@@ -1,13 +1,13 @@
 package com.obsinity.collection.receiver.logging.autoconfigure;
 
-import com.obsinity.collection.receiver.logging.LoggingReceivers;
+import com.obsinity.collection.receiver.logging.LoggingSink;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 
 @AutoConfiguration
-public class LoggingReceiverAutoConfiguration {
+public class LoggingSinkAutoConfiguration {
 
     @Bean
     @ConditionalOnProperty(
@@ -15,8 +15,8 @@ public class LoggingReceiverAutoConfiguration {
             name = "enabled",
             havingValue = "true",
             matchIfMissing = true)
-    @ConditionalOnMissingBean(name = "loggingReceivers")
-    public LoggingReceivers loggingReceivers() {
-        return new LoggingReceivers();
+    @ConditionalOnMissingBean(name = "loggingSink")
+    public LoggingSink loggingSink() {
+        return new LoggingSink();
     }
 }

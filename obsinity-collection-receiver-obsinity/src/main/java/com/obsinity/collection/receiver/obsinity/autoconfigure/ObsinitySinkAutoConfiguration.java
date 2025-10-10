@@ -1,7 +1,7 @@
 package com.obsinity.collection.receiver.obsinity.autoconfigure;
 
 import com.obsinity.client.transport.EventSender;
-import com.obsinity.collection.receiver.obsinity.TelemetryObsinityReceivers;
+import com.obsinity.collection.receiver.obsinity.TelemetryObsinitySink;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -16,12 +16,12 @@ import org.springframework.core.env.Environment;
         name = "enabled",
         havingValue = "true",
         matchIfMissing = true)
-public class ObsinityReceiverAutoConfiguration {
+public class ObsinitySinkAutoConfiguration {
 
     @Bean
-    @ConditionalOnMissingBean(name = "telemetryObsinityReceivers")
-    public TelemetryObsinityReceivers telemetryObsinityReceivers(EventSender sender, Environment environment) {
+    @ConditionalOnMissingBean(name = "telemetryObsinitySink")
+    public TelemetryObsinitySink telemetryObsinitySink(EventSender sender, Environment environment) {
         String configuredService = environment.getProperty("obsinity.collection.service");
-        return new TelemetryObsinityReceivers(sender, configuredService);
+        return new TelemetryObsinitySink(sender, configuredService);
     }
 }

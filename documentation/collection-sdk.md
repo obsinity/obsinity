@@ -6,7 +6,7 @@ Overview
 
 Modules
 - obsinity-collection-api: Public annotations used by apps.
-- obsinity-collection-core: Minimal event model (OEvent), thread-local TelemetryContext, DispatchBus, DispatchBus (EventReceiver), processor.
+- obsinity-collection-core: Minimal event model (OEvent), thread-local TelemetryContext, DispatchBus, DispatchBus (FlowSink), processor.
 - obsinity-collection-spring: Spring Boot autoconfig + AOP aspect (@Flow) that emits lifecycle events.
 - obsinity-collection-receiver-logging: Logs OEvent via SLF4J; enabled by default (toggle property).
 - obsinity-collection-receiver-obsinity: Adapts OEvent to Obsinity REST ingest JSON and posts via EventSender.
@@ -23,6 +23,8 @@ Quick Start (Spring)
 2) Annotate code:
    - @Flow(name = "checkout") on methods
    - @PushAttribute("user.id"), @PushContextValue("cart.size") on parameters
+
+   Optional consumer side: create beans annotated with `@FlowSink` and scoped with `@OnFlowScope`/lifecycle annotations to react to emitted events.
 
 3) Configure service and endpoint:
    - obsinity.collection.service = payments (system property) or OBSINITY_SERVICE env

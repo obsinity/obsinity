@@ -48,7 +48,7 @@ public class DemoController {
 
     /**
      * Flow failure example.
-     * Demonstrates: FAILED lifecycle; receivers with @OnFlowFailure and @OnOutcome(FAILURE).
+     * Demonstrates: FAILED lifecycle; sinks with @OnFlowFailure and @OnOutcome(FAILURE).
      */
     @GetMapping(path = "/api/checkout/fail", produces = MediaType.APPLICATION_JSON_VALUE)
     @Flow(name = "demo.checkout")

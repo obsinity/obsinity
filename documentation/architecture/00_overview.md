@@ -134,7 +134,7 @@ Reliability & Performance
 
 ## 9) Extensibility & Integration
 - Ingestion Adapters
-  - Additional receivers (e.g., OTLP, gRPC) translate to the canonical JSON/EventEnvelope.
+  - Additional sinks (e.g., OTLP, gRPC) translate to the canonical JSON/EventEnvelope.
 - Query & API
   - HAL/REST for search and catalog; future GraphQL/SQL views possible.
 - Client SDKs
@@ -168,7 +168,7 @@ Reliability & Performance
 - Operability: first‑class metrics/logging/tracing; partition maintenance automated.
 - Scalability: horizontal scale on REST frontends and stream consumers; per‑service partitioning for storage.
 - Availability: stateless app tier; database HA via standard Postgres setups (streaming replicas, failover).
-- Extensibility: connectors/consumers are plugins; SDK sinks pluggable; new receivers map to canonical JSON.
+- Extensibility: connectors/consumers are plugins; SDK sinks pluggable; new sinks map to canonical JSON.
 - Cost control: TTLs per event/metric; partition pruning; optional rollups.
 
 ## Appendix B) Context & Logical Views

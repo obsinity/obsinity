@@ -4,12 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.obsinity.client.transport.EventSender;
-import com.obsinity.collection.api.annotations.EventReceiver;
+import com.obsinity.collection.api.annotations.FlowSink;
 import com.obsinity.collection.api.annotations.OnFlowCompleted;
 import com.obsinity.collection.api.annotations.OnFlowFailure;
 import com.obsinity.collection.api.annotations.OnFlowStarted;
+import com.obsinity.telemetry.model.FlowEvent;
 import com.obsinity.telemetry.model.OResource;
-import com.obsinity.telemetry.model.TelemetryEvent;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -20,9 +20,9 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@EventReceiver
-public class TelemetryObsinityReceivers {
-    private static final Logger log = LoggerFactory.getLogger(TelemetryObsinityReceivers.class);
+@FlowSink
+public class TelemetryObsinitySink {
+    private static final Logger log = LoggerFactory.getLogger(TelemetryObsinitySink.class);
     private static final String SERVICE_PROP = "obsinity.collection.service";
     private static final String SERVICE_ENV = "OBSINITY_SERVICE";
     private static final String DUMMY_SERVICE_ID = "**DUMMY-SERVICE-ID**";
@@ -31,11 +31,11 @@ public class TelemetryObsinityReceivers {
     private final ObjectMapper json;
     private final String configuredServiceId;
 
-    public TelemetryObsinityReceivers(EventSender sender) {
+    public TelemetryObsinitySink(EventSender sender) {
         this(sender, null);
     }
 
-    public TelemetryObsinityReceivers(EventSender sender, String configuredServiceId) {
+    public TelemetryObsinitySink(EventSender sender, String configuredServiceId) {
         this.sender = sender;
         this.configuredServiceId = sanitize(configuredServiceId);
         this.json = new ObjectMapper()
@@ -44,34 +44,34 @@ public class TelemetryObsinityReceivers {
     }
 
     @OnFlowStarted
-    public void onStarted(TelemetryEvent event) {
+    public void onStarted(FlowEvent event) {
         // Ignore STARTED lifecycle; we only emit terminal events.
     }
 
     @OnFlowCompleted
-    public void onCompleted(TelemetryEvent event) throws IOException {
+    public void onCompleted(FlowEvent event) throws IOException {
         ensureEndTimestamp(event);
         send(event);
     }
 
     @OnFlowFailure
-    public void onFailed(TelemetryEvent event) throws IOException {
+    public void onFailed(FlowEvent event) throws IOException {
         ensureEndTimestamp(event);
         send(event);
     }
 
-    private void ensureEndTimestamp(TelemetryEvent event) {
+    private void ensureEndTimestamp(FlowEvent event) {
         if (event.endTimestamp() == null) {
             event.setEndTimestamp(Instant.now());
         }
     }
 
-    private void send(TelemetryEvent event) throws IOException {
+    private void send(FlowEvent event) throws IOException {
         byte[] body = json.writeValueAsBytes(toUnifiedPublishBody(event, configuredServiceId));
         sender.send(body);
     }
 
-    static Map<String, Object> toUnifiedPublishBody(TelemetryEvent event, String configuredServiceId) {
+    static Map<String, Object> toUnifiedPublishBody(FlowEvent event, String configuredServiceId) {
         Map<String, Object> root = new LinkedHashMap<>();
 
         Map<String, Object> eventNode = new LinkedHashMap<>();
@@ -139,7 +139,7 @@ public class TelemetryObsinityReceivers {
         return root;
     }
 
-    private static Map<String, Object> buildResource(TelemetryEvent event, String configuredServiceId) {
+    private static Map<String, Object> buildResource(FlowEvent event, String configuredServiceId) {
         Map<String, Object> resource = new LinkedHashMap<>();
 
         Map<String, Object> service = new LinkedHashMap<>();

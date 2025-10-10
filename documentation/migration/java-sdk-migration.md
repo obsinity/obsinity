@@ -73,11 +73,11 @@
 
 ### 5) Logging sink / dev sink
 
-Use the collection-side receiver module instead of a client sink.
+Use the collection-side sink module instead of a client sink.
 
 **Module:** `obsinity-collection-receiver-logging`
 **Packages:** `com.obsinity.collection.receiver.logging`
-**Classes:** logging receiver implementation
+**Classes:** logging sink implementation
 
 ---
 
@@ -109,15 +109,15 @@ Use the collection-side receiver module instead of a client sink.
 These belong in a **separate processing/receiver** repo (e.g., `obsinity-server` or `obsinity-processor`), not in this client SDK:
 
 * **Handler-side annotations and dispatching**
-  `@OnEvent`, `@OnEveryEvent`, `@OnUnMatchedEvent`, `@TelemetryEventHandler`, `@OnFlow*`, `@OnFlowNotMatched`, wildcard/prefix resolution, etc.
+  `@FlowSink`, `@OnFlowScope`, lifecycle filters (`@OnFlow*`), `@OnFlowNotMatched`, wildcard/prefix resolution, etc.
 
 * **Event routing/dispatch/validation**
-  `TelemetryEventHandlerScanner`, `TelemetryDispatchBus`, `HandlerScopeValidator`, handler grouping/registries, dot‑chop prefix matchers, lifecycle mode matrices, etc.
+  `FlowEventHandlerScanner`, `TelemetryDispatchBus`, `HandlerScopeValidator`, handler grouping/registries, dot‑chop prefix matchers, lifecycle mode matrices, etc.
 
 * **Consumer parameter binding**
   `@PullAttribute`, `@PullContextValue` and their binding logic (reflection/adapters), throwable filters, error mode routing (`SUCCESS/FAILURE/COMBINED`), etc.
 
-* **Receiver sinks & persistence**
+* **Sink & persistence**
   Anything that reads events and pushes into time-series, OTEL bridging on the **consumer** side, fallback handlers, wildcard coverage tests.
 
 > Rationale
@@ -158,7 +158,7 @@ These belong in a **separate processing/receiver** repo (e.g., `obsinity-server`
 | `*WebClient*EventSender`                                       | `obsinity-client-transport-webclient`        | `com.obsinity.client.transport.webclient`    |
 | logging receiver                                               | `obsinity-collection-receiver-logging`       | `com.obsinity.collection.receiver.logging`   |
 | `InMemoryEventSender`, fakes                                   | `obsinity-client-testkit`                    | `com.obsinity.client.testkit`                |
-| **Receiver/handler side** (`@OnEvent`, scanners, dispatch, …)  | **Not in this repo** (server/processor repo) | —                                            |
+| **Sink/handler side** (`@OnEvent`, scanners, dispatch, …)  | **Not in this repo** (server/processor repo) | —                                            |
 
 ---
 

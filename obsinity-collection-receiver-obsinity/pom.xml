@@ -35,7 +35,7 @@
       <version>${spring-boot.version}</version>
     </dependency>
 
-    <!-- Required for TelemetryHolder.kind() (SpanKind) -->
+    <!-- Required for FlowEvent.kind() (SpanKind) -->
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-api</artifactId>

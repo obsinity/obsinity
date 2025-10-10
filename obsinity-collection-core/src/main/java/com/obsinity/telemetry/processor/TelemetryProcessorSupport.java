@@ -1,7 +1,7 @@
 package com.obsinity.telemetry.processor;
 
 import com.obsinity.collection.api.annotations.OrphanAlert;
-import com.obsinity.telemetry.model.TelemetryEvent;
+import com.obsinity.telemetry.model.FlowEvent;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -20,24 +20,24 @@ public class TelemetryProcessorSupport {
             "Step '{}' executed with no active Flow; auto-promoted to Flow.";
 
     /** Per-thread stack of active flows/holders (top = current). */
-    private final InheritableThreadLocal<Deque<TelemetryEvent>> ctx;
+    private final InheritableThreadLocal<Deque<FlowEvent>> ctx;
 
     /**
-     * Per-thread, per-root in-order list of completed {@link TelemetryHolder}s. Created when the root opens; appended
+     * Per-thread, per-root in-order list of completed {@link FlowEvent}s. Created when the root opens; appended
      * to on flow start (for batching), emitted and cleared at root exit.
      */
-    private final InheritableThreadLocal<List<TelemetryEvent>> batch;
+    private final InheritableThreadLocal<List<FlowEvent>> batch;
 
     public TelemetryProcessorSupport() {
         this.ctx = new InheritableThreadLocal<>() {
             @Override
-            protected Deque<TelemetryEvent> initialValue() {
+            protected Deque<FlowEvent> initialValue() {
                 return new ArrayDeque<>();
             }
         };
         this.batch = new InheritableThreadLocal<>() {
             @Override
-            protected List<TelemetryEvent> initialValue() {
+            protected List<FlowEvent> initialValue() {
                 return new ArrayList<>();
             }
         };
@@ -45,14 +45,14 @@ public class TelemetryProcessorSupport {
 
     /* --------------------- flow stack --------------------- */
 
-    public TelemetryEvent currentHolder() {
-        final Deque<TelemetryEvent> d = ctx.get();
+    public FlowEvent currentHolder() {
+        final Deque<FlowEvent> d = ctx.get();
         return d.isEmpty() ? null : d.peekLast();
     }
 
     /** Returns the holder just below the current top (the parent), or null if none. */
-    TelemetryEvent currentHolderBelowTop() {
-        final Deque<TelemetryEvent> d = ctx.get();
+    FlowEvent currentHolderBelowTop() {
+        final Deque<FlowEvent> d = ctx.get();
         if (d.size() < 2) return null;
         final var it = d.descendingIterator();
         it.next(); // skip top
@@ -63,14 +63,14 @@ public class TelemetryProcessorSupport {
         return !ctx.get().isEmpty();
     }
 
-    public void push(final TelemetryEvent event) {
+    public void push(final FlowEvent event) {
         if (event != null) ctx.get().addLast(event);
     }
 
-    public void pop(final TelemetryEvent expectedTop) {
-        final Deque<TelemetryEvent> d = ctx.get();
+    public void pop(final FlowEvent expectedTop) {
+        final Deque<FlowEvent> d = ctx.get();
         if (!d.isEmpty()) {
-            final TelemetryEvent last = d.peekLast();
+            final FlowEvent last = d.peekLast();
             if (last == expectedTop) {
                 d.removeLast();
             } else {
@@ -87,8 +87,8 @@ public class TelemetryProcessorSupport {
     }
 
     /** Add a holder to the current root batch if present. */
-    public void addToBatch(final TelemetryEvent event) {
-        final List<TelemetryEvent> list = batch.get();
+    public void addToBatch(final FlowEvent event) {
+        final List<FlowEvent> list = batch.get();
         if (list != null && event != null) list.add(event);
     }
 
@@ -96,12 +96,12 @@ public class TelemetryProcessorSupport {
      * Return the current batch as-is (may be empty). <b>Does not clear.</b> Clearing must be done by
      * {@link #clearBatchAfterDispatch()} after dispatch completes.
      */
-    public List<TelemetryEvent> finishBatchAndGet() {
+    public List<FlowEvent> finishBatchAndGet() {
         return batch.get();
     }
 
     /** Convenience accessor if a binder prefers non-null/immutable empty. */
-    public List<TelemetryEvent> getBatch() {
+    public List<FlowEvent> getBatch() {
         return batch.get();
     }
 
@@ -114,7 +114,7 @@ public class TelemetryProcessorSupport {
 
     /* --------------------- mutation helpers --------------------- */
 
-    public void setEndTime(final TelemetryEvent event, final Instant end) {
+    public void setEndTime(final FlowEvent event, final Instant end) {
         if (event != null) event.setEndTimestamp(end);
     }
 

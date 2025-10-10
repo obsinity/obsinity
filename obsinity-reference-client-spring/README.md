@@ -1,6 +1,6 @@
 # Reference Client (Spring MVC Demo)
 
-This demo app exposes HTTP endpoints that exercise the Obsinity client annotations and receivers.
+This demo app exposes HTTP endpoints that exercise the Obsinity client annotations and flow sinks.
 
 ## Endpoints
 
@@ -19,20 +19,20 @@ This demo app exposes HTTP endpoints that exercise the Obsinity client annotatio
 - GET `/api/produce?topic=demo-topic`
   - @Kind(PRODUCER) flow; attaches attribute `messaging.topic`
 
-## Receivers
+## Flow sinks
 
-Class `DemoFlowReceivers` is scoped to `demo.*` via `@OnEventScope("demo.")` and demonstrates:
+Class `DemoFlowSink` is scoped to `demo.*` via `@OnFlowScope("demo.")` and demonstrates:
 - `@OnFlowStarted` with `@PullAllAttributes`
 - Finish handlers split by outcome: `@OnFlowCompleted` + `@OnOutcome(SUCCESS|FAILURE)`
 - Failure specificity with `@OnFlowFailure(IllegalArgumentException ...)`
 - Guarded start using `@RequiredAttributes` + `@PullAttribute`/`@PullContextValue`
-- Per-receiver fallback using `@OnFlowNotMatched`
+- Per-sink fallback using `@OnFlowNotMatched`
 
 ## Running
 
 - `mvn -pl obsinity-reference-client-spring spring-boot:run`
 - Provide a service identifier with `OBSINITY_SERVICE` (or `-Dobsinity.collection.service=<service>`); the ingest rejects events without `resource.service.name`.
-- Call the endpoints above, and watch logs for START/DONE/FAIL lines (logging receiver).
+- Call the endpoints above, and watch logs for START/DONE/FAIL lines (logging sink).
 - To send events to an Obsinity controller ingest, enable:
   - `obsinity.collection.obsinity.enabled=true`
   - `obsinity.ingest.url=http://obsinity-reference-server:8086/events/publish` (auto-detects Docker host IP when containerized; override as needed)

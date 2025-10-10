@@ -21,13 +21,13 @@ import java.util.Map;
  * {@link #effectiveServiceId()} to read the resolved value.
  */
 @JsonInclude(Include.NON_NULL)
-public class TelemetryEvent {
+public class FlowEvent {
 
     public static final String SERVICE_ID_ATTR = "service.id";
 
     /* ========================= Embedded Builder ========================= */
 
-    /** Create a new builder for {@link TelemetryEvent}. */
+    /** Create a new builder for {@link FlowEvent}. */
     public static Builder builder() {
         return new Builder();
     }
@@ -175,8 +175,8 @@ public class TelemetryEvent {
             return this;
         }
 
-        public TelemetryEvent build() {
-            TelemetryEvent holder = new TelemetryEvent(
+        public FlowEvent build() {
+            FlowEvent holder = new FlowEvent(
                     name,
                     timestamp,
                     timeUnixNano,
@@ -242,7 +242,7 @@ public class TelemetryEvent {
     private transient long startNanoTime; // monotonic start for accurate duration when folding
 
     /** Full constructor (validates service id consistency). */
-    public TelemetryEvent(
+    public FlowEvent(
             String name,
             Instant timestamp,
             Long timeUnixNano,
@@ -313,12 +313,12 @@ public class TelemetryEvent {
         return kind;
     }
 
-    public TelemetryEvent kind(SpanKind value) {
+    public FlowEvent kind(SpanKind value) {
         this.kind = value;
         return this;
     }
 
-    public TelemetryEvent trace(String traceId, String spanId, String parentSpanId) {
+    public FlowEvent trace(String traceId, String spanId, String parentSpanId) {
         if (traceId != null && !traceId.isBlank()) this.traceId = traceId;
         if (spanId != null && !spanId.isBlank()) this.spanId = spanId;
         if (parentSpanId != null && !parentSpanId.isBlank()) this.parentSpanId = parentSpanId;
@@ -345,7 +345,7 @@ public class TelemetryEvent {
         return status;
     }
 
-    public TelemetryEvent setStatus(OStatus status) {
+    public FlowEvent setStatus(OStatus status) {
         this.status = status;
         return this;
     }
@@ -416,7 +416,7 @@ public class TelemetryEvent {
         return throwable;
     }
 
-    public TelemetryEvent setThrowable(Throwable throwable) {
+    public FlowEvent setThrowable(Throwable throwable) {
         this.throwable = throwable;
         return this;
     }

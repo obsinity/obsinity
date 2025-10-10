@@ -25,7 +25,7 @@
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter</artifactId><version>${spring-boot.version}</version></dependency>
     <!-- WebFlux optional; keep only MVC for this demo -->
 
-    <!-- Collection SDK and receivers -->
+    <!-- Collection SDK and sinks -->
     <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-collection-api</artifactId></dependency>
     <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-collection-core</artifactId></dependency>
     <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-collection-spring</artifactId></dependency>

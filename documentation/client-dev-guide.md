@@ -10,7 +10,7 @@ Scope
 
 Core client-side pieces (add what you need):
 - `obsinity-collection-api` — public annotations (`@Flow`, `@Step`, `@PushAttribute`, `@PushContextValue`, …).
-- `obsinity-collection-core` — event model and processor (`OEvent`, `TelemetryEvent`, `TelemetryProcessor`).
+- `obsinity-collection-core` — event model and processor (`OEvent`, `FlowEvent`, `TelemetryProcessor`).
 - `obsinity-collection-spring` — Spring Boot autoconfig + AOP aspect that emits lifecycle events from annotations.
 - `obsinity-collection-receiver-logging` — logs events via SLF4J; enabled by default (toggleable).
 - `obsinity-collection-receiver-obsinity` — adapts events to Obsinity’s REST ingest and posts via an `EventSender`.
@@ -18,7 +18,7 @@ Core client-side pieces (add what you need):
 - `obsinity-client-testkit` — `InMemoryEventSender` for tests.
 
 Reference demos:
-- `obsinity-reference-client-spring` — runnable Spring Boot demo using `@Flow` and both receivers.
+- `obsinity-reference-client-spring` — runnable Spring Boot demo using `@Flow` and the built-in flow sinks.
 
 ---
 
@@ -53,7 +53,7 @@ Minimal Spring Boot setup (choose one transport):
     <groupId>com.obsinity</groupId>
     <artifactId>obsinity-collection-spring</artifactId>
   </dependency>
-  <!-- Receivers (sinks) -->
+  <!-- Flow sinks -->
   <dependency>
     <groupId>com.obsinity</groupId>
     <artifactId>obsinity-collection-receiver-logging</artifactId>
@@ -115,7 +115,7 @@ obsinity.collection.obsinity.enabled=true
 obsinity.ingest.url=http://localhost:8086/events/publish
 ```
 
-Transports are discovered via classpath. If both WebClient and OkHttp are present, WebClient wins (see `obsinity-reference-client-spring`). If none are present, the JDK HttpClient transport is used.
+Transports are discovered via classpath. If both WebClient and OkHttp are present, WebClient wins (see `obsinity-reference-client-spring`). If none are present, the JDK HttpClient transport is used. Flow sinks (`@FlowSink`-annotated beans) are auto-detected by `TelemetryFlowSinkScanner` when you include `obsinity-collection-spring`.
 
 ---
 
@@ -159,12 +159,28 @@ class SampleFlows {
 }
 ```
 
+### Register flow sinks
+
+To react to emitted events, declare Spring beans annotated with `@FlowSink`. Combine `@OnFlowScope` with lifecycle annotations to target specific flows and phases. The auto-configured `TelemetryFlowSinkScanner` discovers these beans and wires them into the registry.
+
+```java
+@FlowSink
+@OnFlowScope("demo.")
+class DemoAuditSink {
+
+  @OnFlowCompleted
+  public void recordCompletion(FlowEvent event) {
+    // persist audit entry
+  }
+}
+```
+
 What happens at runtime:
 - `TelemetryAspect` wraps annotated methods and emits `STARTED` → `COMPLETED` (or `FAILED`) events.
-- Attributes/context from parameters are merged into the current `TelemetryEvent`.
-- Receivers run on each lifecycle event:
-  - Logging receiver prints to application logs.
-  - Obsinity receiver serializes to JSON and posts to `obsinity.ingest.url` via the active `EventSender`.
+- Attributes/context from parameters are merged into the current `FlowEvent`.
+- Flow sinks run on each lifecycle event:
+  - Logging sink prints to application logs.
+  - Obsinity sink serializes to JSON and posts to `obsinity.ingest.url` via the active `EventSender`.
 - If an inbound HTTP request has `traceparent`/`b3` headers, `TraceContextFilter` copies them into MDC so trace IDs propagate into events automatically.
 
 ---
@@ -202,19 +218,19 @@ Use `InMemoryEventSender` to capture outbound payloads without doing HTTP calls:
 
 ```java
 var sender = new com.obsinity.client.testkit.InMemoryEventSender();
-var obsinity = new com.obsinity.collection.receiver.obsinity.TelemetryObsinityReceivers(sender);
-// register obsinity receivers into your registry…
+var obsinity = new com.obsinity.collection.receiver.obsinity.TelemetryObsinitySink(sender);
+// register obsinity sink into your registry…
 // run a @Flow method or manual processor calls
 // assert on sender.payloads()
 ```
 
-For Spring Boot tests, keep the logging receiver on and assert log lines, or inject a bean of type `EventSender` as the in-memory variant.
+For Spring Boot tests, keep the logging sink on and assert log lines, or inject a bean of type `EventSender` as the in-memory variant.
 
 ---
 
 ## Run the Reference Demo
 
-The demo app shows `@Flow` + both receivers working together.
+The demo app shows `@Flow` + both built-in sinks working together.
 
 - Run via Maven: `mvn -pl obsinity-reference-client-spring spring-boot:run`
 - Or build all then run the reference service + controller ingest:
@@ -263,24 +279,24 @@ Check logs for `START/DONE/FAIL` lines and verify events arrive at the controlle
 | `@Kind`              | Method / Class | Sets OTEL SpanKind (`SERVER`, `CLIENT`, `PRODUCER`, `CONSUMER`, `INTERNAL`).                         |
 | `@OrphanAlert`       | Method / Class | Controls log level when a `@Step` is auto‑promoted because no active `@Flow` exists.                 |
 | `@OnFlowLifecycle`   | Method / Class | Lifecycle selector to receive only a specific phase (`STARTED`, `COMPLETED`, `FAILED`).              |
-| `@OnAllLifecycles`   | Method / Class | Shorthand to observe all phases for the annotated receiver/handler.                                  |
+| `@OnAllLifecycles`   | Method / Class | Shorthand to observe all phases for the annotated sink/handler.                                       |
 | `@OnFlowLifecycles`  | Method / Class | Container to specify multiple lifecycles.                                                            |
-| `@OnEventScope`      | Method / Class | Declare name/prefix scope for matching events; supports dot‑chop fallback.                           |
+| `@OnFlowScope`       | Method / Class | Declare name/prefix scope for matching events; supports dot‑chop fallback.                           |
 
-Note: Use class‑level annotations to apply defaults for all handlers within a receiver; method‑level annotations further refine.
+Note: Use class‑level annotations to apply defaults for all handlers within a sink; method‑level annotations further refine.
 
 When a flow contains nested `@Step` calls, the resulting event payload includes a tree of `events[]`, each reusing the same `time` block (`startedAt` / `startUnixNano` / `endedAt` / `endUnixNano`) and, if available, a `status` object mirroring OTEL span status.
 
-### Flow receivers (flow‑centric handlers)
+### Flow sinks (flow‑centric handlers)
 
 | Annotation          | Target | Purpose                                                                      |
 | ------------------- | ------ | ---------------------------------------------------------------------------- |
-| `@EventReceiver`    | Class  | Marks a bean containing flow/step event handlers.                            |
-| `@OnFlowStarted`    | Method | Handle when a flow starts (exact name or prefix via `@OnEventScope`).        |
+| `@FlowSink`         | Class  | Marks a bean containing flow/step event handlers.                            |
+| `@OnFlowStarted`    | Method | Handle when a flow starts (exact name or prefix via `@OnFlowScope`).         |
 | `@OnFlowCompleted`  | Method | Handle when a matched flow finishes (success or failure).                    |
 | `@OnFlowFailure`    | Method | Handle only when a matched flow fails.                                       |
 | `@OnFlowSuccess`    | Method | Handle only when a matched flow succeeds (non‑root vs root depends on scope).|
-| `@OnFlowNotMatched` | Method | Component‑scoped fallback when no other handler in this receiver matched.    |
+| `@OnFlowNotMatched` | Method | Component‑scoped fallback when no other handler in this sink matched.        |
 
 Note: A global fallback annotation (e.g., `@GlobalFlowFallback`) does not exist in this repo.
 
@@ -321,7 +337,7 @@ Throwable binding: For failure handlers, you can declare a `Throwable` parameter
 ## Selection & Matching (dot‑chop, scope, lifecycle, kind)
 
 - Lifecycle: use `@OnFlowLifecycle`/`@OnAllLifecycles`/`@OnFlowLifecycles` or the specific annotations (`@OnFlowStarted`, `@OnFlowCompleted`, `@OnFlowFailure`, `@OnFlowSuccess`).
-- Scope/name: class‑level and method‑level `@OnEventScope` combine (both must pass). Matching supports exact, prefix (`startsWith`), and dot‑chop fallback.
+- Scope/name: class‑level and method‑level `@OnFlowScope` combine (both must pass). Matching supports exact, prefix (`startsWith`), and dot‑chop fallback.
 - Outcomes: use `@OnOutcome(Outcome.SUCCESS|FAILURE)` to narrow finish handlers.
 
 ---
@@ -362,12 +378,12 @@ public void reserveInventory(@PushAttribute("sku") String sku) { /* ... */ }
 public void processPayment(@PushAttribute("payment.method") String method) { /* ... */ }
 ```
 
-### Receiver with lifecycle + outcomes + scope
+### Flow sink with lifecycle + outcomes + scope
 
 ```java
-@EventReceiver
-@OnEventScope("checkout")
-public class CheckoutReceiver {
+@FlowSink
+@OnFlowScope("checkout")
+public class CheckoutSink {
 
   @OnFlowStarted
   public void onStart(@PullAttribute("user.id") String userId) { /* ... */ }
@@ -383,8 +399,8 @@ public class CheckoutReceiver {
 ### Failure binding rules
 
 ```java
-@EventReceiver
-public class FailureSpecificReceiver {
+@FlowSink
+public class FailureSpecificSink {
 
   @OnFlowFailure
   public void onAnyFailure(Throwable t) { /* fallback */ }
@@ -399,11 +415,11 @@ public class FailureSpecificReceiver {
 
 If an `IllegalArgumentException` occurs, only `onIllegalArg` is invoked (most specific type wins).
 
-### Guarded receiver
+### Guarded sink
 
 ```java
-@EventReceiver
-public class GuardedReceiver {
+@FlowSink
+public class GuardedSink {
   @OnFlowStarted
   @RequiredAttributes({"user.id", "amount"})
   public void charge(@PullAttribute("user.id") String uid,
@@ -457,7 +473,7 @@ Attributes saved; context is ephemeral
 
 ## Spring Boot Quick Start
 
-1) Add dependencies: `obsinity-collection-api`, `obsinity-collection-core`, `obsinity-collection-spring`, at least one receiver (`-receiver-logging`, `-receiver-obsinity`), and one transport (`obsinity-client-transport-*`).
+1) Add dependencies: `obsinity-collection-api`, `obsinity-collection-core`, `obsinity-collection-spring`, at least one sink module (`-receiver-logging`, `-receiver-obsinity`), and one transport (`obsinity-client-transport-*`).
 2) Annotate methods with `@Flow` / `@Step` and `@Push*`.
 3) Enable telemetry (AOP + auto-config):
    - Preferred: annotate your app with `@ObsinityApplication`.
@@ -484,7 +500,7 @@ Transports (`EventSender`) available: WebClient, RestTemplate, OkHttp, JDK HttpC
 
 ## Troubleshooting
 
-- Handler never fires → Check lifecycle filter, scope, name/prefix, outcome, and that the receiver bean is scanned.
+- Handler never fires → Check lifecycle filter, scope, name/prefix, outcome, and that the sink bean is scanned.
 - Throwable not injected → Only failure handlers may declare `Throwable` parameters.
 - Duplicates → Avoid identical selection/signature pairs.
 - No HTTP sends → Ensure a single `EventSender` is on classpath or bean provided; set `obsinity.collection.obsinity.enabled=true`.

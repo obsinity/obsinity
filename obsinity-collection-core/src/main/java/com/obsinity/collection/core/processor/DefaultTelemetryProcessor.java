@@ -1,8 +1,8 @@
 package com.obsinity.collection.core.processor;
 
 import com.obsinity.collection.core.dispatch.AsyncDispatchBus;
+import com.obsinity.telemetry.model.FlowEvent;
 import com.obsinity.telemetry.model.OStatus;
-import com.obsinity.telemetry.model.TelemetryEvent;
 import com.obsinity.telemetry.processor.TelemetryProcessorSupport;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.StatusCode;
@@ -48,8 +48,8 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
         var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
         var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
         if (support != null) {
-            TelemetryEvent holder =
-                    TelemetryEvent.builder().name(name).timestamp(Instant.now()).build();
+            FlowEvent holder =
+                    FlowEvent.builder().name(name).timestamp(Instant.now()).build();
             holder.attributes().map().putAll(attrs);
             holder.eventContext().putAll(ctx);
             holder.eventContext().put("lifecycle", "STARTED");
@@ -67,7 +67,7 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
         var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
         var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
         if (support != null) {
-            TelemetryEvent top = support.currentHolder();
+            FlowEvent top = support.currentHolder();
             if (top != null) {
                 top.attributes().map().putAll(attrs);
                 top.eventContext().putAll(ctx);
@@ -91,7 +91,7 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
         if (error != null) attrs.putIfAbsent("error", error.getClass().getSimpleName());
         var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
         if (support != null) {
-            TelemetryEvent top = support.currentHolder();
+            FlowEvent top = support.currentHolder();
             if (top != null) {
                 top.attributes().map().putAll(attrs);
                 top.eventContext().putAll(ctx);
@@ -105,7 +105,7 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
         }
     }
 
-    private void applyMeta(TelemetryEvent holder, TelemetryMeta meta) {
+    private void applyMeta(FlowEvent holder, TelemetryMeta meta) {
         if (holder == null || meta == null) return;
         if (meta.kind() != null) {
             try {
@@ -122,7 +122,7 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
         }
     }
 
-    private void applyCompletionMeta(TelemetryEvent holder, TelemetryMeta meta) {
+    private void applyCompletionMeta(FlowEvent holder, TelemetryMeta meta) {
         applyMeta(holder, meta);
         if (holder == null || meta == null) return;
         if (meta.statusCode() != null) {

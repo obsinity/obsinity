@@ -3,8 +3,8 @@ package com.obsinity.collection.spring;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.obsinity.collection.core.dispatch.AsyncDispatchBus;
-import com.obsinity.collection.core.receivers.TelemetryReceiver;
-import com.obsinity.telemetry.model.TelemetryEvent;
+import com.obsinity.collection.core.receivers.FlowSinkHandler;
+import com.obsinity.telemetry.model.FlowEvent;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,16 +25,16 @@ class HandlerScannerTest {
     @Configuration
     static class TestConfig {
         @Bean
-        TestReceiver testReceiver() {
-            return new TestReceiver();
+        TestSink testSink() {
+            return new TestSink();
         }
     }
 
-    static class TestReceiver implements TelemetryReceiver {
-        static final List<TelemetryEvent> received = new ArrayList<>();
+    static class TestSink implements FlowSinkHandler {
+        static final List<FlowEvent> received = new ArrayList<>();
 
         @Override
-        public void handle(TelemetryEvent h) {
+        public void handle(FlowEvent h) {
             received.add(h);
         }
     }
@@ -43,18 +43,16 @@ class HandlerScannerTest {
     private AsyncDispatchBus bus;
 
     @Test
-    void scanner_registers_receiver_methods() {
-        TelemetryEvent h = TelemetryEvent.builder()
-                .name("unit.test")
-                .timestamp(Instant.now())
-                .build();
+    void scanner_registers_sink_handlers() {
+        FlowEvent h =
+                FlowEvent.builder().name("unit.test").timestamp(Instant.now()).build();
         bus.dispatch(h);
         try {
             Thread.sleep(100);
         } catch (InterruptedException ignored) {
         }
-        assertThat(TestReceiver.received).hasSize(1);
-        assertThat(TestReceiver.received.get(0).name()).isEqualTo("unit.test");
-        TestReceiver.received.clear();
+        assertThat(TestSink.received).hasSize(1);
+        assertThat(TestSink.received.get(0).name()).isEqualTo("unit.test");
+        TestSink.received.clear();
     }
 }

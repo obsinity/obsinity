@@ -1,16 +1,16 @@
 package com.obsinity.reference.client.spring;
 
 import com.obsinity.collection.api.annotations.*;
-import com.obsinity.telemetry.model.TelemetryEvent;
+import com.obsinity.telemetry.model.FlowEvent;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Receivers for demo.* flows that illustrate selection rules, outcome filters, and parameter binding.
+ * Flow sinks for demo.* flows that illustrate selection rules, outcome filters, and parameter binding.
  *
  * <p>Scope and matching
- * - Class scope {@code @OnEventScope("demo.")} selects events whose names start with {@code demo.}.
+ * - Class scope {@code @OnFlowScope("demo.")} selects events whose names start with {@code demo.}.
  *   A trailing dot means "treat as prefix". Dot-chop fallback also applies for exact scopes (a.b.c → a.b → a → "").
  * - Method annotations refine selection further: lifecycle ({@code @OnFlowStarted}, {@code @OnFlowCompleted},
  *   {@code @OnFlowFailure}) and outcomes ({@code @OnOutcome}).
@@ -20,12 +20,12 @@ import org.slf4j.LoggerFactory;
  * - Finish handlers split by outcome with Throwable injection on failure
  * - Failure handler with most-specific Throwable type matching (IllegalArgumentException)
  * - Guarded handler requiring attributes/context via {@code @RequiredAttributes} and {@code @Pull*}
- * - Per-receiver fallback via {@code @OnFlowNotMatched} when nothing else in this bean matches
+ * - Per-sink fallback via {@code @OnFlowNotMatched} when nothing else in this bean matches
  */
-@EventReceiver
-@OnEventScope("demo.") // handle demo.* flows by default
-public class DemoFlowReceivers {
-    private static final Logger log = LoggerFactory.getLogger(DemoFlowReceivers.class);
+@FlowSink
+@OnFlowScope("demo.") // handle demo.* flows by default
+public class DemoFlowSink {
+    private static final Logger log = LoggerFactory.getLogger(DemoFlowSink.class);
 
     /**
      * Fires when:
@@ -35,7 +35,7 @@ public class DemoFlowReceivers {
      * Binds: full attributes map via {@code @PullAllAttributes}.
      */
     @OnFlowStarted
-    public void onStart(TelemetryEvent event, @PullAllAttributes Map<String, Object> attrs) {
+    public void onStart(FlowEvent event, @PullAllAttributes Map<String, Object> attrs) {
         log.info("START {} attrs={} ctx={}", event.name(), attrs, event.eventContext());
     }
 
@@ -56,7 +56,7 @@ public class DemoFlowReceivers {
      * Fires when:
      * - Lifecycle = FAILED
      * - Event name matches class scope {@code demo.*}
-     * - Only if no {@code @OnFlowFailure}-annotated handler in this receiver matched
+     * - Only if no {@code @OnFlowFailure}-annotated handler in this sink matched
      * Notes: This represents the finish (failure) event and receives the Throwable; suppressed when a
      *        more specific {@code @OnFlowFailure} handler in this bean has handled the failure.
      * Binds: failure Throwable and full attributes map.
@@ -72,10 +72,10 @@ public class DemoFlowReceivers {
      * - Lifecycle = FAILED
      * - Throwable is an IllegalArgumentException (or subtype)
      * - Event name matches class scope {@code demo.*}
-     * Binds: the specific IllegalArgumentException and the full TelemetryEvent.
+     * Binds: the specific IllegalArgumentException and the full FlowEvent.
      */
     @OnFlowFailure
-    public void onIllegalArg(IllegalArgumentException ex, TelemetryEvent event) {
+    public void onIllegalArg(IllegalArgumentException ex, FlowEvent event) {
         log.warn("FAIL-IAE {} ex={}", event.name(), ex.getMessage());
     }
 
@@ -94,11 +94,11 @@ public class DemoFlowReceivers {
 
     /**
      * Fires when:
-     * - No other handler method in this receiver matched the incoming event
+     * - No other handler method in this sink matched the incoming event
      * - Runs regardless of lifecycle/name (used as a last resort within this bean only)
      */
     @OnFlowNotMatched
-    public void notMatched(TelemetryEvent event) {
+    public void notMatched(FlowEvent event) {
         log.debug(
                 "FALLBACK {} attrs={} ctx={}", event.name(), event.attributes().map(), event.eventContext());
     }

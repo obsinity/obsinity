@@ -4,13 +4,13 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public final class TelemetryHandlerRegistry {
-    private final CopyOnWriteArrayList<TelemetryReceiver> handlers = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<FlowSinkHandler> handlers = new CopyOnWriteArrayList<>();
 
-    public void register(TelemetryReceiver h) {
+    public void register(FlowSinkHandler h) {
         if (h != null) handlers.add(h);
     }
 
-    public List<TelemetryReceiver> handlers() {
+    public List<FlowSinkHandler> handlers() {
         return List.copyOf(handlers);
     }
 }

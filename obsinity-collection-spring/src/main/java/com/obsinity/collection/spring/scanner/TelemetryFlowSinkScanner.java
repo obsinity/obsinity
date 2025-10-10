@@ -2,7 +2,7 @@ package com.obsinity.collection.spring.scanner;
 
 import com.obsinity.collection.api.annotations.*;
 import com.obsinity.collection.core.receivers.TelemetryHandlerRegistry;
-import com.obsinity.telemetry.model.TelemetryEvent;
+import com.obsinity.telemetry.model.FlowEvent;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
@@ -16,13 +16,13 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.util.ReflectionUtils;
 
-public class TelemetryEventReceiverScanner implements BeanPostProcessor, ApplicationContextAware {
-    private static final Logger log = LoggerFactory.getLogger(TelemetryEventReceiverScanner.class);
+public class TelemetryFlowSinkScanner implements BeanPostProcessor, ApplicationContextAware {
+    private static final Logger log = LoggerFactory.getLogger(TelemetryFlowSinkScanner.class);
 
     private final TelemetryHandlerRegistry registry;
     private ApplicationContext applicationContext;
 
-    public TelemetryEventReceiverScanner(TelemetryHandlerRegistry registry) {
+    public TelemetryFlowSinkScanner(TelemetryHandlerRegistry registry) {
         this.registry = Objects.requireNonNull(registry, "registry");
     }
 
@@ -34,14 +34,14 @@ public class TelemetryEventReceiverScanner implements BeanPostProcessor, Applica
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
         Class<?> type = bean.getClass();
-        if (!type.isAnnotationPresent(EventReceiver.class)) return bean;
+        if (!type.isAnnotationPresent(FlowSink.class)) return bean;
 
-        CompiledReceiver compiled = compileReceiver(bean);
+        CompiledSink compiled = compileSink(bean);
         if (compiled.handlers.isEmpty() && compiled.fallbacks.isEmpty()) return bean;
 
         registry.register(holder -> compiled.dispatch(holder));
         log.info(
-                "Registered EventReceiver: {} (handlers={}, fallbacks={})",
+                "Registered FlowSink: {} (handlers={}, fallbacks={})",
                 type.getSimpleName(),
                 compiled.handlers.size(),
                 compiled.fallbacks.size());
@@ -50,7 +50,7 @@ public class TelemetryEventReceiverScanner implements BeanPostProcessor, Applica
 
     /* ----------------- compile model ----------------- */
 
-    private CompiledReceiver compileReceiver(Object bean) {
+    private CompiledSink compileSink(Object bean) {
         Class<?> type = bean.getClass();
 
         // Class-level scopes
@@ -67,15 +67,15 @@ public class TelemetryEventReceiverScanner implements BeanPostProcessor, Applica
             else handlers.add(ch);
         });
 
-        return new CompiledReceiver(handlers, fallbacks);
+        return new CompiledSink(handlers, fallbacks);
     }
 
     private static List<String> extractScopes(Annotation[] anns) {
         List<String> out = new ArrayList<>();
         for (Annotation a : anns) {
-            if (a instanceof OnEventScope s) out.add(nullToEmpty(s.value()));
-            if (a instanceof OnEventScopes ss) {
-                for (OnEventScope s : ss.value()) out.add(nullToEmpty(s.value()));
+            if (a instanceof OnFlowScope s) out.add(nullToEmpty(s.value()));
+            if (a instanceof OnFlowScopes ss) {
+                for (OnFlowScope s : ss.value()) out.add(nullToEmpty(s.value()));
             }
         }
         return out;
@@ -135,7 +135,7 @@ public class TelemetryEventReceiverScanner implements BeanPostProcessor, Applica
         ReflectionUtils.makeAccessible(m);
         Parameter[] params = m.getParameters();
         java.lang.annotation.Annotation[][] pann = m.getParameterAnnotations();
-        List<Function<TelemetryEvent, Object>> bindings = new ArrayList<>(params.length);
+        List<Function<FlowEvent, Object>> bindings = new ArrayList<>(params.length);
 
         boolean allowThrowable = isFailure
                 || (methodLifecycle != null && methodLifecycle.value() == OnFlowLifecycle.Lifecycle.FAILED)
@@ -163,12 +163,12 @@ public class TelemetryEventReceiverScanner implements BeanPostProcessor, Applica
                 failureFinishHandler);
     }
 
-    private static Function<TelemetryEvent, Object> buildParamBinding(
+    private static Function<FlowEvent, Object> buildParamBinding(
             Parameter p, Annotation[] anns, boolean allowThrowable) {
         Class<?> type = p.getType();
 
         // Holder
-        if (TelemetryEvent.class.isAssignableFrom(type)) return h -> h;
+        if (FlowEvent.class.isAssignableFrom(type)) return h -> h;
 
         // Throwable for failures
         if (allowThrowable && Throwable.class.isAssignableFrom(type)) {
@@ -190,14 +190,14 @@ public class TelemetryEventReceiverScanner implements BeanPostProcessor, Applica
                 return h -> coerce(h.eventContext().get(pcv.value()), type);
         }
 
-        // Unannotated — unsupported except for TelemetryHolder/Throwable
+        // Unannotated — unsupported except for FlowEvent/Throwable
         return null;
     }
 
     /* ----------------- dispatch model ----------------- */
 
-    private record CompiledReceiver(List<CompiledHandler> handlers, List<CompiledHandler> fallbacks) {
-        void dispatch(TelemetryEvent event) throws Exception {
+    private record CompiledSink(List<CompiledHandler> handlers, List<CompiledHandler> fallbacks) {
+        void dispatch(FlowEvent event) throws Exception {
             boolean any = false;
             String lcStr = String.valueOf(event.eventContext().get("lifecycle"));
             boolean isFailed = "FAILED".equals(lcStr);
@@ -238,7 +238,7 @@ public class TelemetryEventReceiverScanner implements BeanPostProcessor, Applica
         final OnOutcome onOutcome;
         final RequiredAttributes reqAttrs;
         final RequiredEventContext reqCtx;
-        final List<Function<TelemetryEvent, Object>> bindings;
+        final List<Function<FlowEvent, Object>> bindings;
         final boolean fallback;
         final boolean flowFailure;
         final boolean failureFinish;
@@ -252,7 +252,7 @@ public class TelemetryEventReceiverScanner implements BeanPostProcessor, Applica
                 OnOutcome onOutcome,
                 RequiredAttributes reqAttrs,
                 RequiredEventContext reqCtx,
-                List<Function<TelemetryEvent, Object>> bindings,
+                List<Function<FlowEvent, Object>> bindings,
                 boolean fallback,
                 boolean flowFailure,
                 boolean failureFinish) {
@@ -270,7 +270,7 @@ public class TelemetryEventReceiverScanner implements BeanPostProcessor, Applica
             this.failureFinish = failureFinish;
         }
 
-        boolean matches(TelemetryEvent event) {
+        boolean matches(FlowEvent event) {
             String lcStr = String.valueOf(event.eventContext().get("lifecycle"));
             OnFlowLifecycle.Lifecycle lc;
             if ("STARTED".equals(lcStr)) lc = OnFlowLifecycle.Lifecycle.STARTED;
@@ -301,7 +301,7 @@ public class TelemetryEventReceiverScanner implements BeanPostProcessor, Applica
             return true;
         }
 
-        void invoke(TelemetryEvent event) throws Exception {
+        void invoke(FlowEvent event) throws Exception {
             Object[] args = new Object[bindings.size()];
             for (int i = 0; i < bindings.size(); i++) args[i] = bindings.get(i).apply(event);
             ReflectionUtils.invokeMethod(method, bean, args);
@@ -310,7 +310,7 @@ public class TelemetryEventReceiverScanner implements BeanPostProcessor, Applica
 
     /* ----------------- helpers ----------------- */
 
-    private static boolean attrsPresent(TelemetryEvent event, String[] required) {
+    private static boolean attrsPresent(FlowEvent event, String[] required) {
         if (required == null || required.length == 0) return true;
         Map<String, Object> m = event.attributes() != null ? event.attributes().map() : null;
         if (m == null) return false;
@@ -318,7 +318,7 @@ public class TelemetryEventReceiverScanner implements BeanPostProcessor, Applica
         return true;
     }
 
-    private static boolean ctxPresent(TelemetryEvent event, String[] required) {
+    private static boolean ctxPresent(FlowEvent event, String[] required) {
         if (required == null || required.length == 0) return true;
         Map<String, Object> m = event.eventContext();
         if (m == null) return false;
@@ -352,7 +352,7 @@ public class TelemetryEventReceiverScanner implements BeanPostProcessor, Applica
         return false;
     }
 
-    private static Throwable chooseThrowable(TelemetryEvent event, boolean root) {
+    private static Throwable chooseThrowable(FlowEvent event, boolean root) {
         Throwable t = event != null ? event.throwable() : null;
         if (!root || t == null) return t;
         while (t.getCause() != null) t = t.getCause();
