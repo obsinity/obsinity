@@ -44,7 +44,7 @@ public class TelemetryAspect {
             return result;
         } catch (Throwable t) {
             var attrs = new java.util.LinkedHashMap<String, Object>(ac.attributes());
-            attrs.put("error", t.getClass().getSimpleName());
+            attrs.put("error", t.toString());
             TelemetryMeta err = buildMeta(pjp, new StatusHint("ERROR", t.getMessage()));
             processor.onFlowFailed(name, t, attrs, ac.context(), err);
             throw t;

@@ -37,7 +37,7 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
     public void onFlowFailed(
             String name, Throwable error, Map<String, Object> extraAttrs, Map<String, Object> extraContext) {
         var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
-        if (error != null) attrs.putIfAbsent("error", error.getClass().getSimpleName());
+        if (error != null) attrs.putIfAbsent("error", error.toString());
         var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
         onFlowFailed(name, error, attrs, ctx, null);
     }
@@ -88,7 +88,7 @@ public class DefaultTelemetryProcessor implements TelemetryProcessor {
             Map<String, Object> extraContext,
             TelemetryMeta meta) {
         var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
-        if (error != null) attrs.putIfAbsent("error", error.getClass().getSimpleName());
+        if (error != null) attrs.putIfAbsent("error", error.toString());
         var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
         if (support != null) {
             FlowEvent top = support.currentHolder();
