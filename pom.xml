@@ -21,7 +21,7 @@
     <module>obsinity-client-transport-resttemplate</module>
     <module>obsinity-client-transport-webclient</module>
 
-    <!-- removed: obsinity-client-logging-sink (replaced by obsinity-collection-receiver-logging) -->
+    <!-- removed: obsinity-client-logging-sink (replaced by obsinity-collection-sink-logging) -->
     <module>obsinity-client-testkit</module>
 
     <module>obsinity-reference-client</module>
@@ -38,8 +38,8 @@
     <module>obsinity-collection-api</module>
     <module>obsinity-collection-core</module>
     <module>obsinity-collection-spring</module>
-    <module>obsinity-collection-receiver-logging</module>
-    <module>obsinity-collection-receiver-obsinity</module>
+    <module>obsinity-collection-sink-logging</module>
+    <module>obsinity-collection-sink-obsinity</module>
   </modules>
 
   <properties>
@@ -98,12 +98,12 @@
       </dependency>
       <dependency>
         <groupId>com.obsinity</groupId>
-        <artifactId>obsinity-collection-receiver-logging</artifactId>
+        <artifactId>obsinity-collection-sink-logging</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
         <groupId>com.obsinity</groupId>
-        <artifactId>obsinity-collection-receiver-obsinity</artifactId>
+        <artifactId>obsinity-collection-sink-obsinity</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>

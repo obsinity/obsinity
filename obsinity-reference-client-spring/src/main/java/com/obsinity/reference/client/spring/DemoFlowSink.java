@@ -1,7 +1,7 @@
 package com.obsinity.reference.client.spring;
 
 import com.obsinity.collection.api.annotations.*;
-import com.obsinity.telemetry.model.FlowEvent;
+import com.obsinity.flow.model.FlowEvent;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

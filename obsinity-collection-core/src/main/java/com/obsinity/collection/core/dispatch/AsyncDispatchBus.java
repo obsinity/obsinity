@@ -1,8 +1,8 @@
 package com.obsinity.collection.core.dispatch;
 
-import com.obsinity.collection.core.receivers.FlowSinkHandler;
-import com.obsinity.collection.core.receivers.TelemetryHandlerRegistry;
-import com.obsinity.telemetry.model.FlowEvent;
+import com.obsinity.collection.core.sinks.FlowHandlerRegistry;
+import com.obsinity.collection.core.sinks.FlowSinkHandler;
+import com.obsinity.flow.model.FlowEvent;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.UndeclaredThrowableException;
 import java.util.List;
@@ -21,10 +21,10 @@ import org.slf4j.LoggerFactory;
 public final class AsyncDispatchBus implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(AsyncDispatchBus.class);
 
-    private final TelemetryHandlerRegistry registry;
+    private final FlowHandlerRegistry registry;
     private final Map<FlowSinkHandler, Worker> workers = new ConcurrentHashMap<>();
 
-    public AsyncDispatchBus(TelemetryHandlerRegistry registry) {
+    public AsyncDispatchBus(FlowHandlerRegistry registry) {
         this.registry = Objects.requireNonNull(registry, "registry");
     }
 

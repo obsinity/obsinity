@@ -23,14 +23,14 @@
 **Packages:** `com.obsinity.client.core`
 **Classes:**
 
-* `TelemetryContext` (producer thread-local for attributes/context)
+* `FlowContext` (producer thread-local for attributes/context)
 * `ObsinityClient` (the tiny emitter that serializes and calls the transport)
 * Any **lightweight DTOs** strictly needed to build the on‑wire JSON (if you keep DTOs; you can also inline maps as you do now)
 
 > Notes
 >
 > * Avoid Spring dependencies here.
-> * If you previously had `TelemetryProcessor`/`TelemetryProcessorSupport` doing step/flow lifecycle and batching, **shrink** that to the minimum needed for a synchronous emit path (your current `ObsinityClient` + `TelemetryContext` pattern).
+> * If you previously had `FlowProcessor`/`FlowProcessorSupport` doing step/flow lifecycle and batching, **shrink** that to the minimum needed for a synchronous emit path (your current `ObsinityClient` + `FlowContext` pattern).
 > * Anything AOP/Spring-specific should *not* live in `core` (see Spring section below).
 
 ---
@@ -75,8 +75,8 @@
 
 Use the collection-side sink module instead of a client sink.
 
-**Module:** `obsinity-collection-receiver-logging`
-**Packages:** `com.obsinity.collection.receiver.logging`
+**Module:** `obsinity-collection-sink-logging`
+**Packages:** `com.obsinity.collection.sink.logging`
 **Classes:** logging sink implementation
 
 ---
@@ -112,7 +112,7 @@ These belong in a **separate processing/receiver** repo (e.g., `obsinity-server`
   `@FlowSink`, `@OnFlowScope`, lifecycle filters (`@OnFlow*`), `@OnFlowNotMatched`, wildcard/prefix resolution, etc.
 
 * **Event routing/dispatch/validation**
-  `FlowEventHandlerScanner`, `TelemetryDispatchBus`, `HandlerScopeValidator`, handler grouping/registries, dot‑chop prefix matchers, lifecycle mode matrices, etc.
+  `FlowEventHandlerScanner`, `AsyncDispatchBus`, `HandlerScopeValidator`, handler grouping/registries, dot‑chop prefix matchers, lifecycle mode matrices, etc.
 
 * **Consumer parameter binding**
   `@PullAttribute`, `@PullContextValue` and their binding logic (reflection/adapters), throwable filters, error mode routing (`SUCCESS/FAILURE/COMBINED`), etc.
@@ -146,17 +146,17 @@ These belong in a **separate processing/receiver** repo (e.g., `obsinity-server`
 
 | Original package/class                                         | New module                                   | New package suggestion                       |
 | -------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------- |
-| `com.obsinity.telemetry.annotations.Flow/Step/Kind`            | `obsinity-collection-api`                    | `com.obsinity.collection.api.annotations`    |
-| `com.obsinity.telemetry.annotations.PushAttribute/PushContext` | `obsinity-collection-api`                    | `com.obsinity.collection.api.annotations`    |
-| `com.obsinity.telemetry.processor.TelemetryContext`            | `obsinity-client-core`                       | `com.obsinity.client.core`                   |
-| `com.obsinity.telemetry.processor.TelemetryProcessor*` (emit)  | **Trimmed** into `obsinity-client-core`      | `com.obsinity.client.core`                   |
-| `com.obsinity.telemetry.transport.EventSender`                 | `obsinity-client-transport-spi`              | `com.obsinity.client.transport`              |
+| `com.obsinity.flow.annotations.Flow/Step/Kind`            | `obsinity-collection-api`                    | `com.obsinity.collection.api.annotations`    |
+| `com.obsinity.flow.annotations.PushAttribute/PushContext` | `obsinity-collection-api`                    | `com.obsinity.collection.api.annotations`    |
+| `com.obsinity.flow.processor.FlowContext`            | `obsinity-client-core`                       | `com.obsinity.client.core`                   |
+| `com.obsinity.flow.processor.FlowProcessor*` (emit)  | **Trimmed** into `obsinity-client-core`      | `com.obsinity.client.core`                   |
+| `com.obsinity.flow.transport.EventSender`                 | `obsinity-client-transport-spi`              | `com.obsinity.client.transport`              |
 | `*Apache*EventSender`                                          | `obsinity-client-transport-apache`           | `com.obsinity.client.transport.apache`       |
 | `*OkHttp*EventSender`                                          | `obsinity-client-transport-okhttp`           | `com.obsinity.client.transport.okhttp`       |
 | `*JdkHttp*EventSender`                                         | `obsinity-client-transport-jdkhttp`          | `com.obsinity.client.transport.jdkhttp`      |
 | `*RestTemplate*EventSender`                                    | `obsinity-client-transport-resttemplate`     | `com.obsinity.client.transport.resttemplate` |
 | `*WebClient*EventSender`                                       | `obsinity-client-transport-webclient`        | `com.obsinity.client.transport.webclient`    |
-| logging receiver                                               | `obsinity-collection-receiver-logging`       | `com.obsinity.collection.receiver.logging`   |
+| logging sink                                               | `obsinity-collection-sink-logging`       | `com.obsinity.collection.sink.logging`   |
 | `InMemoryEventSender`, fakes                                   | `obsinity-client-testkit`                    | `com.obsinity.client.testkit`                |
 | **Sink/handler side** (`@OnEvent`, scanners, dispatch, …)  | **Not in this repo** (server/processor repo) | —                                            |
 
@@ -164,7 +164,7 @@ These belong in a **separate processing/receiver** repo (e.g., `obsinity-server`
 
 # Package renames & API polish
 
-* Rename packages from `com.obsinity.telemetry.*` → `com.obsinity.client.*` on the **producer** side.
+* Rename packages from `com.obsinity.flow.*` → `com.obsinity.client.*` on the **producer** side.
 * Keep **annotations** dependency‑free (no Spring types).
 * Keep **core** free of HTTP libs and Spring.
 * All HTTP client code lives only in transport modules.
@@ -175,8 +175,8 @@ These belong in a **separate processing/receiver** repo (e.g., `obsinity-server`
 # Quick migration checklist
 
 1. Move producer annotations → `obsinity-collection-api`.
-2. Extract the minimal emit runtime (`TelemetryContext`, `ObsinityClient`) → `obsinity-client-core`.
+2. Extract the minimal emit runtime (`FlowContext`, `ObsinityClient`) → `obsinity-client-core`.
 3. Keep/expand `EventSender` SPI; move each HTTP implementation into its transport module.
-4. Use `obsinity-collection-receiver-logging` for dev/local logging; keep client testkit in `obsinity-client-testkit`.
+4. Use `obsinity-collection-sink-logging` for dev/local logging; keep client testkit in `obsinity-client-testkit`.
 5. Exclude all receiver/handler/dispatch classes from this repo; create/keep a separate **server** repo for them.
 6. (Optional) Add `obsinity-client-spring-boot-starter` if you want autoconfig/AOP for @Flow/@Step.

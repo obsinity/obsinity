@@ -7,7 +7,7 @@ obsinity/
 │  ├─ obsinity-client-core
 │  ├─ obsinity-client-transport-spi
 │  ├─ obsinity-client-transport-*
-│  ├─ obsinity-collection-receiver-logging
+│  ├─ obsinity-collection-sink-logging
 │  ├─ obsinity-client-testkit
 │  └─ obsinity-client-otel-adapter      # <— new (optional)
 ├─ engine/                         # consumer (ingest/aggregate/query)

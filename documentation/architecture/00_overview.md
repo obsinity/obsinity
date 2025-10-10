@@ -13,7 +13,7 @@ This document presents an end‑to‑end view of Obsinity: client collection, ev
 ## 1) Client Collection & Sinks
 - Collection SDK (client‑side only)
   - Annotations + AOP: `@Flow`, `@Kind`, `@PushAttribute`, `@PushContextValue`.
-  - Thread‑local TelemetryContext; Servlet/WebFlux filters populate trace from W3C/B3 headers.
+  - Thread‑local FlowContext; Servlet/WebFlux filters populate trace from W3C/B3 headers.
   - Pluggable `EventSink` implementations: logging, Obsinity REST ingest, or custom.
   - See `documentation/collection-sdk.md` for usage and configuration.
 - Transport SPI

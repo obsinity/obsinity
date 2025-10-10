@@ -2,8 +2,8 @@ package com.obsinity.collection.core.configuration;
 
 import static org.springframework.core.Ordered.HIGHEST_PRECEDENCE;
 
-import com.obsinity.telemetry.processor.TelemetryContext;
-import com.obsinity.telemetry.processor.TelemetryProcessorSupport;
+import com.obsinity.flow.processor.FlowContext;
+import com.obsinity.flow.processor.FlowProcessorSupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.AutoConfigureOrder;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -18,13 +18,13 @@ import org.springframework.context.annotation.Configuration;
 public class AutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
-    public TelemetryContext telemetryContext(TelemetryProcessorSupport telemetryProcessorSupport) {
-        return new TelemetryContext(telemetryProcessorSupport);
+    public FlowContext flowContext(FlowProcessorSupport flowProcessorSupport) {
+        return new FlowContext(flowProcessorSupport);
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public TelemetryProcessorSupport telemetryProcessorSupport() {
-        return new TelemetryProcessorSupport();
+    public FlowProcessorSupport flowProcessorSupport() {
+        return new FlowProcessorSupport();
     }
 }

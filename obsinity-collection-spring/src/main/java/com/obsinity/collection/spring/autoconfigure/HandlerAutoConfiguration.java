@@ -1,8 +1,8 @@
 package com.obsinity.collection.spring.autoconfigure;
 
-import com.obsinity.collection.core.receivers.FlowSinkHandler;
-import com.obsinity.collection.core.receivers.TelemetryHandlerRegistry;
-import com.obsinity.collection.spring.scanner.TelemetryFlowSinkScanner;
+import com.obsinity.collection.core.sinks.FlowHandlerRegistry;
+import com.obsinity.collection.core.sinks.FlowSinkHandler;
+import com.obsinity.collection.spring.scanner.FlowSinkScanner;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.annotation.Bean;
 
@@ -10,13 +10,13 @@ import org.springframework.context.annotation.Bean;
 public class HandlerAutoConfiguration {
 
     @Bean
-    public TelemetryHandlerRegistry telemetryHandlerRegistry() {
-        return new TelemetryHandlerRegistry();
+    public FlowHandlerRegistry flowHandlerRegistry() {
+        return new FlowHandlerRegistry();
     }
 
     @Bean
     public org.springframework.beans.factory.config.BeanPostProcessor flowSinkHandlerRegistrar(
-            TelemetryHandlerRegistry registry) {
+            FlowHandlerRegistry registry) {
         return new org.springframework.beans.factory.config.BeanPostProcessor() {
             @Override
             public Object postProcessAfterInitialization(Object bean, String beanName) {
@@ -27,7 +27,7 @@ public class HandlerAutoConfiguration {
     }
 
     @Bean
-    public TelemetryFlowSinkScanner telemetryFlowSinkScanner(TelemetryHandlerRegistry registry) {
-        return new TelemetryFlowSinkScanner(registry);
+    public FlowSinkScanner flowSinkScanner(FlowHandlerRegistry registry) {
+        return new FlowSinkScanner(registry);
     }
 }

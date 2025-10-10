@@ -6,18 +6,18 @@ Overview
 
 Modules
 - obsinity-collection-api: Public annotations used by apps.
-- obsinity-collection-core: Minimal event model (OEvent), thread-local TelemetryContext, DispatchBus, DispatchBus (FlowSink), processor.
+- obsinity-collection-core: Minimal event model (OEvent), thread-local FlowContext, DispatchBus, DispatchBus (FlowSink), processor.
 - obsinity-collection-spring: Spring Boot autoconfig + AOP aspect (@Flow) that emits lifecycle events.
-- obsinity-collection-receiver-logging: Logs OEvent via SLF4J; enabled by default (toggle property).
-- obsinity-collection-receiver-obsinity: Adapts OEvent to Obsinity REST ingest JSON and posts via EventSender.
+- obsinity-collection-sink-logging: Logs OEvent via SLF4J; enabled by default (toggle property).
+- obsinity-collection-sink-obsinity: Adapts OEvent to Obsinity REST ingest JSON and posts via EventSender.
 
 Quick Start (Spring)
 1) Add dependencies (choose a transport; WebClient shown):
    - com.obsinity:obsinity-collection-api
    - com.obsinity:obsinity-collection-core
    - com.obsinity:obsinity-collection-spring
-   - com.obsinity:obsinity-collection-receiver-logging (optional, default on)
-   - com.obsinity:obsinity-collection-receiver-obsinity
+   - com.obsinity:obsinity-collection-sink-logging (optional, default on)
+   - com.obsinity:obsinity-collection-sink-obsinity
    - com.obsinity:obsinity-client-transport-webclient
 
 2) Annotate code:
@@ -77,9 +77,9 @@ Notes
 
 Trace Propagation
 - Sources (priority order):
-  - TelemetryContext: context keys traceId, spanId, parentSpanId, tracestate.
+  - FlowContext: context keys traceId, spanId, parentSpanId, tracestate.
   - MDC (SLF4J): keys traceparent (W3C), tracestate, b3 (B3 single), traceId/spanId/parentSpanId, X-B3-TraceId/X-B3-SpanId/X-B3-ParentSpanId.
-  - HTTP headers via auto-registered filters (populate TelemetryContext + MDC):
+  - HTTP headers via auto-registered filters (populate FlowContext + MDC):
     - W3C: traceparent, tracestate
     - B3 single header: b3
     - B3 multi headers: X-B3-TraceId, X-B3-SpanId, X-B3-ParentSpanId
@@ -89,6 +89,6 @@ Trace Propagation
 - Configuration:
   - obsinity.collection.trace.enabled=true|false (default true) — controls filter registration
 - Behavior:
-  - Filters copy inbound headers to MDC and TelemetryContext for the request.
-  - TelemetryAspect builds TelemetryMeta automatically from TelemetryContext first, then MDC fallback.
-  - MDC state is restored and TelemetryContext is cleared after each request to avoid leaks.
+  - Filters copy inbound headers to MDC and FlowContext for the request.
+  - FlowAspect builds FlowMeta automatically from FlowContext first, then MDC fallback.
+  - MDC state is restored and FlowContext is cleared after each request to avoid leaks.

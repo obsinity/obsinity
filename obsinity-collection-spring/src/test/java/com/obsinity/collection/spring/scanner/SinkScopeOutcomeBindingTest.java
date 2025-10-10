@@ -14,8 +14,8 @@ import com.obsinity.collection.api.annotations.PullAllAttributes;
 import com.obsinity.collection.api.annotations.PullAllContextValues;
 import com.obsinity.collection.api.annotations.PullAttribute;
 import com.obsinity.collection.api.annotations.PullContextValue;
-import com.obsinity.collection.core.receivers.TelemetryHandlerRegistry;
-import com.obsinity.telemetry.model.FlowEvent;
+import com.obsinity.collection.core.sinks.FlowHandlerRegistry;
+import com.obsinity.flow.model.FlowEvent;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -82,13 +82,13 @@ class SinkScopeOutcomeBindingTest {
         }
     }
 
-    private TelemetryHandlerRegistry registry;
-    private TelemetryFlowSinkScanner scanner;
+    private FlowHandlerRegistry registry;
+    private FlowSinkScanner scanner;
 
     @BeforeEach
     void setUp() {
-        registry = new TelemetryHandlerRegistry();
-        scanner = new TelemetryFlowSinkScanner(registry);
+        registry = new FlowHandlerRegistry();
+        scanner = new FlowSinkScanner(registry);
 
         scanner.postProcessAfterInitialization(new CheckoutSink(), "checkoutSink");
         scanner.postProcessAfterInitialization(new DotChopSink(), "dotChopSink");

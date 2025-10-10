@@ -6,8 +6,8 @@ import com.obsinity.collection.api.annotations.FlowSink;
 import com.obsinity.collection.api.annotations.OnFlowCompleted;
 import com.obsinity.collection.api.annotations.OnFlowScope;
 import com.obsinity.collection.api.annotations.OnFlowSuccess;
-import com.obsinity.collection.core.receivers.TelemetryHandlerRegistry;
-import com.obsinity.telemetry.model.FlowEvent;
+import com.obsinity.collection.core.sinks.FlowHandlerRegistry;
+import com.obsinity.flow.model.FlowEvent;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,13 +40,13 @@ class MultipleScopeAndSuccessTest {
         }
     }
 
-    private TelemetryHandlerRegistry registry;
-    private TelemetryFlowSinkScanner scanner;
+    private FlowHandlerRegistry registry;
+    private FlowSinkScanner scanner;
 
     @BeforeEach
     void setUp() {
-        registry = new TelemetryHandlerRegistry();
-        scanner = new TelemetryFlowSinkScanner(registry);
+        registry = new FlowHandlerRegistry();
+        scanner = new FlowSinkScanner(registry);
         scanner.postProcessAfterInitialization(new OrdersOrPayments(), "rcv");
         OrdersOrPayments.successOrders.set(0);
         OrdersOrPayments.successPayments.set(0);

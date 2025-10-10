@@ -29,8 +29,8 @@
     <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-collection-api</artifactId></dependency>
     <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-collection-core</artifactId></dependency>
     <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-collection-spring</artifactId></dependency>
-    <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-collection-receiver-logging</artifactId></dependency>
-    <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-collection-receiver-obsinity</artifactId></dependency>
+    <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-collection-sink-logging</artifactId></dependency>
+    <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-collection-sink-obsinity</artifactId></dependency>
 
     <!-- Provide at least one transport so Obsinity sink can wire -->
     <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-transport-webclient</artifactId></dependency>

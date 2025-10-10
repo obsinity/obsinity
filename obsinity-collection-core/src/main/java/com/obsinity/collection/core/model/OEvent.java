@@ -206,8 +206,8 @@ public final class OEvent {
 
         public Builder telemetrySdk(String name, String version) {
             if (this.resource == null) this.resource = new Resource();
-            if (this.resource.telemetry == null) this.resource.telemetry = new Resource.Telemetry();
-            if (this.resource.telemetry.sdk == null) this.resource.telemetry.sdk = new Resource.Telemetry.Sdk();
+            if (this.resource.telemetry == null) this.resource.telemetry = new Resource.FlowTelemetry();
+            if (this.resource.telemetry.sdk == null) this.resource.telemetry.sdk = new Resource.FlowTelemetry.Sdk();
             this.resource.telemetry.sdk.name = name;
             this.resource.telemetry.sdk.version = version;
             return this;
@@ -264,7 +264,7 @@ public final class OEvent {
     public static final class Resource {
         public Service service;
         public Host host;
-        public Telemetry telemetry;
+        public FlowTelemetry telemetry;
         public Cloud cloud;
         public Map<String, Object> context; // additional resource-scoped context
 
@@ -287,7 +287,7 @@ public final class OEvent {
         }
 
         @JsonInclude(JsonInclude.Include.NON_NULL)
-        public static final class Telemetry {
+        public static final class FlowTelemetry {
             public Sdk sdk;
 
             @JsonInclude(JsonInclude.Include.NON_NULL)

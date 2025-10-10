@@ -3,8 +3,8 @@ package com.obsinity.collection.spring;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.obsinity.collection.core.dispatch.AsyncDispatchBus;
-import com.obsinity.collection.core.receivers.FlowSinkHandler;
-import com.obsinity.telemetry.model.FlowEvent;
+import com.obsinity.collection.core.sinks.FlowSinkHandler;
+import com.obsinity.flow.model.FlowEvent;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;

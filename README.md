@@ -18,14 +18,14 @@ A transport-agnostic SDK to collect app telemetry via annotations and AOP and em
 
 Modules:
 - `obsinity-collection-api` (annotations)
-- `obsinity-collection-core` (OEvent model, TelemetryContext, DispatchBus, EventSink)
+- `obsinity-collection-core` (OEvent model, FlowContext, DispatchBus, EventSink)
 - `obsinity-collection-spring` (auto-config + aspect)
-- `obsinity-collection-receiver-logging` (logging sink)
-- `obsinity-collection-receiver-obsinity` (adapter to Obsinity REST ingest)
+- `obsinity-collection-sink-logging` (logging sink)
+- `obsinity-collection-sink-obsinity` (adapter to Obsinity REST ingest)
 
 See `obsinity-reference-client-spring` for a runnable demo using `@Flow` and both sinks.
 
 Trace propagation
-- Servlet and WebFlux filters auto-capture W3C (traceparent/tracestate) and B3 headers and populate MDC + TelemetryContext.
+- Servlet and WebFlux filters auto-capture W3C (traceparent/tracestate) and B3 headers and populate MDC + FlowContext.
 - The aspect auto-populates trace meta (traceId/spanId/parentSpanId/tracestate) on emitted events.
 - Toggle with `obsinity.collection.trace.enabled=true|false` (default true).

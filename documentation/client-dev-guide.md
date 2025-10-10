@@ -10,10 +10,10 @@ Scope
 
 Core client-side pieces (add what you need):
 - `obsinity-collection-api` — public annotations (`@Flow`, `@Step`, `@PushAttribute`, `@PushContextValue`, …).
-- `obsinity-collection-core` — event model and processor (`OEvent`, `FlowEvent`, `TelemetryProcessor`).
+- `obsinity-collection-core` — event model and processor (`OEvent`, `FlowEvent`, `FlowProcessor`).
 - `obsinity-collection-spring` — Spring Boot autoconfig + AOP aspect that emits lifecycle events from annotations.
-- `obsinity-collection-receiver-logging` — logs events via SLF4J; enabled by default (toggleable).
-- `obsinity-collection-receiver-obsinity` — adapts events to Obsinity’s REST ingest and posts via an `EventSender`.
+- `obsinity-collection-sink-logging` — logs events via SLF4J; enabled by default (toggleable).
+- `obsinity-collection-sink-obsinity` — adapts events to Obsinity’s REST ingest and posts via an `EventSender`.
 - `obsinity-client-transport-*` — pluggable HTTP transports for `EventSender` (WebClient, OkHttp, JDK HttpClient, RestTemplate).
 - `obsinity-client-testkit` — `InMemoryEventSender` for tests.
 
@@ -56,11 +56,11 @@ Minimal Spring Boot setup (choose one transport):
   <!-- Flow sinks -->
   <dependency>
     <groupId>com.obsinity</groupId>
-    <artifactId>obsinity-collection-receiver-logging</artifactId>
+    <artifactId>obsinity-collection-sink-logging</artifactId>
   </dependency>
   <dependency>
     <groupId>com.obsinity</groupId>
-    <artifactId>obsinity-collection-receiver-obsinity</artifactId>
+    <artifactId>obsinity-collection-sink-obsinity</artifactId>
   </dependency>
   <!-- Choose ONE transport (or let auto-config choose by classpath) -->
   <dependency>
@@ -115,7 +115,7 @@ obsinity.collection.obsinity.enabled=true
 obsinity.ingest.url=http://localhost:8086/events/publish
 ```
 
-Transports are discovered via classpath. If both WebClient and OkHttp are present, WebClient wins (see `obsinity-reference-client-spring`). If none are present, the JDK HttpClient transport is used. Flow sinks (`@FlowSink`-annotated beans) are auto-detected by `TelemetryFlowSinkScanner` when you include `obsinity-collection-spring`.
+Transports are discovered via classpath. If both WebClient and OkHttp are present, WebClient wins (see `obsinity-reference-client-spring`). If none are present, the JDK HttpClient transport is used. Flow sinks (`@FlowSink`-annotated beans) are auto-detected by `FlowSinkScanner` when you include `obsinity-collection-spring`.
 
 ---
 
@@ -161,7 +161,7 @@ class SampleFlows {
 
 ### Register flow sinks
 
-To react to emitted events, declare Spring beans annotated with `@FlowSink`. Combine `@OnFlowScope` with lifecycle annotations to target specific flows and phases. The auto-configured `TelemetryFlowSinkScanner` discovers these beans and wires them into the registry.
+To react to emitted events, declare Spring beans annotated with `@FlowSink`. Combine `@OnFlowScope` with lifecycle annotations to target specific flows and phases. The auto-configured `FlowSinkScanner` discovers these beans and wires them into the registry.
 
 ```java
 @FlowSink
@@ -176,7 +176,7 @@ class DemoAuditSink {
 ```
 
 What happens at runtime:
-- `TelemetryAspect` wraps annotated methods and emits `STARTED` → `COMPLETED` (or `FAILED`) events.
+- `FlowAspect` wraps annotated methods and emits `STARTED` → `COMPLETED` (or `FAILED`) events.
 - Attributes/context from parameters are merged into the current `FlowEvent`.
 - Flow sinks run on each lifecycle event:
   - Logging sink prints to application logs.
@@ -218,7 +218,7 @@ Use `InMemoryEventSender` to capture outbound payloads without doing HTTP calls:
 
 ```java
 var sender = new com.obsinity.client.testkit.InMemoryEventSender();
-var obsinity = new com.obsinity.collection.receiver.obsinity.TelemetryObsinitySink(sender);
+var obsinity = new com.obsinity.collection.sink.obsinity.FlowObsinitySink(sender);
 // register obsinity sink into your registry…
 // run a @Flow method or manual processor calls
 // assert on sender.payloads()
