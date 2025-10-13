@@ -37,7 +37,7 @@ public class DefaultFlowProcessor implements FlowProcessor {
     public void onFlowFailed(
             String name, Throwable error, Map<String, Object> extraAttrs, Map<String, Object> extraContext) {
         var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
-        if (error != null) attrs.putIfAbsent("error", error.toString());
+        if (error != null) attrs.putIfAbsent("error", error.getClass().getSimpleName());
         var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
         onFlowFailed(name, error, attrs, ctx, null);
     }
@@ -88,7 +88,7 @@ public class DefaultFlowProcessor implements FlowProcessor {
             Map<String, Object> extraContext,
             FlowMeta meta) {
         var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
-        if (error != null) attrs.putIfAbsent("error", error.toString());
+        if (error != null) attrs.putIfAbsent("error", error.getClass().getSimpleName());
         var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
         if (support != null) {
             FlowEvent top = support.currentHolder();
