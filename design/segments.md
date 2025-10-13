@@ -14,6 +14,9 @@
 **Key principles**
 
 * Events and metrics are always stored under a **segment**, not under a service.
+* **Location of segment (OTEL-friendly):** carried in `resource.telemetry.segment`.
+* A single event is associated with **exactly one segment** (processes may switch segments between events, but not within one event).
+* `attributes.correlation_id` is a **generic attribute** (not namespaced under `obsinity`).
 * Services use their bindings to determine where they can publish or query.
 * Cross-segment access is explicit and requires authorization.
 
@@ -83,38 +86,123 @@ spec:
 
 ## 4) Example Events
 
-### 4.1 Payment Service emits an event
+### 4.1 `POST {{ base_url }}/events/publish` — payments → `http_request` (OK)
 
 ```json
 {
-  "segment": "riskops",
-  "resource": { "service": { "name": "payments" } },
   "event": { "name": "http_request", "domain": "http", "kind": "SERVER" },
-  "time": { "observed": "2025-10-13T08:12:00Z" },
+  "resource": {
+    "service": { "name": "payments", "namespace": "{{ service_namespace }}", "instance": { "id": "{{ service_instance_id }}" }, "version": "{{ service_version }}" },
+    "host": { "name": "{{ host_name }}" },
+    "telemetry": { "sdk": { "name": "{{ sdk_name }}", "version": "{{ sdk_version }}" }, "segment": "{{ segment }}" },
+    "cloud": { "provider": "{{ cloud_provider }}", "region": "{{ cloud_region }}" }
+  },
+  "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id }}" },
+  "time": { "startedAt": "{{ nowIso }}", "endedAt": "{{ nowIso }}", "startUnixNano": 0, "endUnixNano": 0 },
   "attributes": {
+    "correlation_id": "{{ correlation_id }}",
     "http.method": "POST",
     "http.route": "/api/pay",
     "http.status_code": 200
-  }
+  },
+  "events": [],
+  "links": [],
+  "status": { "code": "OK", "message": "" },
+  "synthetic": false
 }
 ```
 
-### 4.2 Auth Service emits an event into the same segment
+### 4.2 `POST {{ base_url }}/events/publish` — auth → `auth_attempt` (OK)
 
 ```json
 {
-  "segment": "riskops",
-  "resource": { "service": { "name": "auth" } },
   "event": { "name": "auth_attempt", "domain": "security", "kind": "SERVER" },
+  "resource": {
+    "service": { "name": "auth", "namespace": "{{ service_namespace }}", "instance": { "id": "{{ service_instance_id }}" }, "version": "{{ service_version }}" },
+    "telemetry": { "sdk": { "name": "{{ sdk_name }}", "version": "{{ sdk_version }}" }, "segment": "{{ segment }}" }
+  },
+  "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id_2 }}" },
   "time": { "observed": "2025-10-13T08:12:05Z" },
   "attributes": {
+    "correlation_id": "{{ correlation_id }}",
     "auth.result": "success",
     "user.id": "1234"
   }
 }
 ```
 
-Both events live under the **`riskops`** segment, allowing cross-service correlation.
+### 4.3 `POST {{ base_url }}/events/publish` — payments error (500)
+
+```json
+{
+  "event": { "name": "http_request", "domain": "http", "kind": "SERVER" },
+  "resource": {
+    "service": { "name": "payments", "namespace": "{{ service_namespace }}", "instance": { "id": "{{ service_instance_id }}" }, "version": "{{ service_version }}" },
+    "host": { "name": "{{ host_name }}" },
+    "telemetry": { "sdk": { "name": "{{ sdk_name }}", "version": "{{ sdk_version }}" }, "segment": "{{ segment }}" },
+    "cloud": { "provider": "{{ cloud_provider }}", "region": "{{ cloud_region }}" }
+  },
+  "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id_error }}" },
+  "time": { "startedAt": "{{ nowIso }}", "endedAt": "{{ nowIso }}", "startUnixNano": 0, "endUnixNano": 0 },
+  "attributes": {
+    "correlation_id": "{{ correlation_id }}",
+    "api.name": "createTransaction",
+    "http.method": "POST",
+    "http.route": "/v2/transactions",
+    "http.status_code": 500
+  },
+  "events": [],
+  "links": [],
+  "status": { "code": "ERROR", "message": "Server error" },
+  "synthetic": false
+}
+```
+
+### 4.4 `POST {{ base_url }}/events/publish/batch` — homogeneous batch
+
+```json
+[
+  {
+    "event": { "name": "{{ event_name }}", "kind": "CLIENT" },
+    "resource": {
+      "service": { "name": "{{ service_id }}", "namespace": "{{ service_namespace }}", "instance": { "id": "{{ service_instance_id }}" }, "version": "{{ service_version }}" },
+      "host": { "name": "{{ host_name }}" },
+      "telemetry": { "sdk": { "name": "{{ sdk_name }}", "version": "{{ sdk_version }}" }, "segment": "{{ segment }}" },
+      "cloud": { "provider": "{{ cloud_provider }}", "region": "{{ cloud_region }}" }
+    },
+    "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id }}" },
+    "time": { "startedAt": "{{ nowIso }}", "endedAt": "{{ nowIso }}", "startUnixNano": 0, "endUnixNano": 0 },
+    "attributes": {
+      "correlation_id": "{{ correlation_id }}",
+      "api.name": "lookupUser",
+      "http.status_code": 200,
+      "http.method": "GET"
+    },
+    "events": [],
+    "links": [],
+    "status": { "code": "OK", "message": "" },
+    "synthetic": false
+  },
+  {
+    "event": { "name": "{{ event_name }}", "kind": "INTERNAL" },
+    "resource": {
+      "service": { "name": "{{ service_id }}", "namespace": "{{ service_namespace }}", "instance": { "id": "{{ service_instance_id }}" }, "version": "{{ service_version }}" },
+      "telemetry": { "sdk": { "name": "{{ sdk_name }}", "version": "{{ sdk_version }}" }, "segment": "{{ segment }}" }
+    },
+    "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id_2 }}" },
+    "time": { "startedAt": "{{ nowIso }}", "endedAt": "{{ nowIso }}", "startUnixNano": 0, "endUnixNano": 0 },
+    "attributes": {
+      "correlation_id": "{{ correlation_id }}",
+      "db.system": "postgresql",
+      "db.statement": "select 1"
+    },
+    "events": [],
+    "links": [],
+    "status": { "code": "OK", "message": "" },
+    "synthetic": false
+  }
+]
+```
 
 ---
 
@@ -136,36 +224,78 @@ Both events live under the **`riskops`** segment, allowing cross-service correla
 
 ---
 
-## 6) Example Queries
+## 5) Example Queries (JSON Search & OB‑JQL)
 
-Example 1 — Aggregate HTTP requests in `riskops`:
+Queries now target the segment via **`resource.telemetry.segment`** and use **`attributes.correlation_id`**.
 
-```sql
-FROM events
-WHERE segment = 'riskops' AND event.name = 'http_request'
-GROUP BY time(1m), attrs->>'http.status_code';
+### 6.1 JSON Search — Aggregate HTTP requests in `riskops`
+
+```json
+{
+  "service": "payments",
+  "event": "http_request",
+  "period": { "previous": "-1h" },
+  "filter": { "path": "resource.telemetry.segment", "op": "=", "value": "riskops" },
+  "match": { "attribute": "http.status_code", "op": "=", "value": 200 },
+  "order": [{ "field": "started_at", "dir": "desc" }],
+  "limit": 100
+}
 ```
 
-Example 2 — Correlate authentication and payments events in the same segment:
+### 6.2 JSON Search — Correlate `auth` and `payments` in the same segment
 
-```sql
-FROM events
-WHERE segment = 'riskops'
-  AND service IN ('auth','payments')
-GROUP BY time(30s), service, event.name;
+```json
+{
+  "service": ["auth", "payments"],
+  "period": { "previous": "-30m" },
+  "filter": {
+    "and": [
+      { "path": "resource.telemetry.segment", "op": "=", "value": "riskops" },
+      { "or": [
+          { "path": "event.name", "op": "=", "value": "http_request" },
+          { "path": "event.name", "op": "=", "value": "auth_attempt" }
+        ]
+      }
+    ]
+  },
+  "order": [{ "field": "started_at", "dir": "desc" }],
+  "limit": 200
+}
 ```
 
-Example 3 — Multi-segment (if allowed):
+### 6.3 JSON Search — By correlation id within a segment
 
-```sql
-FROM events
-WHERE segment IN ('riskops','fraudlab')
-GROUP BY time(5m), service;
+```json
+{
+  "period": { "previous": "-15m" },
+  "filter": {
+    "and": [
+      { "path": "resource.telemetry.segment", "op": "=", "value": "riskops" },
+      { "path": "attributes.correlation_id",   "op": "=", "value": "{{ correlation_id }}" }
+    ]
+  },
+  "order": [{ "field": "started_at", "dir": "desc" }],
+  "limit": 25
+}
+```
+
+### 6.4 OB‑JQL — Raw string equivalent
+
+```json
+{
+  "q": "where res.telemetry.segment = 'riskops'
+and  attr.correlation_id = '{{ correlation_id }}'
+since -15m
+order by started_at desc
+limit 25",
+  "offset": 0,
+  "limit": 25
+}
 ```
 
 ---
 
-## 7) Benefits
+## 6) Benefits
 
 * **Unified collaboration layer:** Multiple services share a single observability surface.
 * **Fine-grained access:** Segments define who can write or read.
@@ -174,7 +304,7 @@ GROUP BY time(5m), service;
 
 ---
 
-## 8) Next Steps
+## 7) Next Steps
 
 1. Introduce `Segment` and `SegmentSubscription` CRDs in the control plane.
 2. Update event ingestion to require `segment` as a top-level field.
