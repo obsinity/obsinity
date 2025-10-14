@@ -41,11 +41,11 @@
 
 ## **R3 – “Anvil” (Months 6-9)**
 
-**Theme:** Configurable counters + first aggregates.
+**Theme:** Configurable counters + first rollups.
 **Scope:**
 
 * Materialised counters at ingest (5s→1m→1h→1d→7d→1mo rollups).
-* Aggregations: `SUM`, `RATE`, `GROUP BY`.
+* Rollups: `SUM`, `RATE`, `GROUP BY`.
 * Counter DDL (`CREATE/ALTER/DROP/DESCRIBE COUNTER`).
 * OTEL export: counters → OTLP.
 * CLI: `SHOW COUNTERS`, `EXPLAIN COUNTER`.

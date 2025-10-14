@@ -14,8 +14,8 @@ spec:
   # Group 500–599 into a folded attribute; if your backend requires a separate FoldRule,
   # you can extract the 'fold' block into its own doc. For now, kept inline.
   fold:
-    sourceAttribute: http.status_code
-    foldedAttribute: http.status_code_group
+    sourceAttribute: http.status
+    foldedAttribute: http.status_group
     rules:
       - name: "5xx"
         when: { gte: 500, lt: 600 }
@@ -24,12 +24,12 @@ spec:
     dimensions:
       - http.method
       - http.route
-      - http.status_code_group
+      - http.status_group
   filters:
-    - path: http.status_code_group
+    - path: http.status_group
       op: eq
       value: "5xx"
-  aggregation:
+  rollup:
     windowing:
       granularities: [5s, 1m, 1h, 1d, 7d]
     operation: count
@@ -38,4 +38,4 @@ spec:
   attributeMapping:
     method: http.method
     route: http.route
-    status_code_group: http.status_code_group
+    status_group: http.status_group

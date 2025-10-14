@@ -25,7 +25,7 @@ public final class CrdKeys {
 
     public static final String KEY = "key";
     public static final String DIMENSIONS = "dimensions";
-    public static final String AGGREGATION = "aggregation";
+    public static final String ROLLUP = "rollup";
     public static final String WINDOWING = "windowing";
     public static final String GRANULARITIES = "granularities";
     public static final String VALUE = "value";

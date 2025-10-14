@@ -35,14 +35,14 @@ Move **request/response/view** models used by web & messaging:
 
 * `models.EventPublishRequest`, `EventResponse`
 * `models.EventSearchRequest`, `EventSearchOptions`
-* `models.Aggregation*` (Request, Response, PagedResult, Result, AggregatedKeyCount, TimeBucket, BucketSegment)
+* `models.Rollup*` (Request, Response, PagedResult, Result, RollupKeyCount, TimeBucket, BucketSegment)
 * `models.ResolvedTimeRange`
 * `models.EventConfig` / `EventConfigIO` (public representation)
 * `models.SimulationRequest` (if you keep simulator)
 * `models.HashStatus`
-* Any simple API enums (e.g., aggregation mode, bucket sizes) that are **not** JPA enums
+* Any simple API enums (e.g., rollup mode, bucket sizes) that are **not** JPA enums
 
-**New packages:** `com.obsinity.engine.api.event|aggregation|config|sim|status`
+**New packages:** `com.obsinity.engine.api.event|rollup|config|sim|status`
 
 ---
 
@@ -61,12 +61,12 @@ All JPA entities, repositories, DB enums, and SQL:
 
 ## 3) Domain services (business logic) → `engine/obsinity-engine-service`
 
-Time resolution, ingestion, counters, aggregation:
+Time resolution, ingestion, counters, rollup:
 
 * `ChronografService` → `EventIngestService`
-* `ChronografAggregationService` → `AggregationService`
+* `ChronografRollupService` → `RollupService`
 * `ChronografTimeRangeResolver` → `TimeRangeResolver`
-* `ChronografIntervalAggregator` → `IntervalAggregator`
+* `ChronografIntervalRollup` → `IntervalRollup`
 * `ChronografBucketResolver` → `BucketResolver`
 * `ChronografKeyExpander` → `KeyExpander`
 * Counter pipeline: `ChronografCounterBuffer`, `ChronografCounterPersistService`, `ChronografCounterFlusher`
@@ -81,7 +81,7 @@ Time resolution, ingestion, counters, aggregation:
 
 Controllers and REST error handling:
 
-* Controllers: `EventsController` (old `ChronoGrafController`), `AggregationController`, `EventConfigController`
+* Controllers: `EventsController` (old `ChronoGrafController`), `RollupController`, `EventConfigController`
 * `@ControllerAdvice`: `GlobalExceptionHandler`
 * Request validators / mappers (if not trivial)
 * Web‑facing exceptions (or map service exceptions here)

@@ -265,7 +265,7 @@ public class SearchController {
         n.putAll(row);
         // attributes -> parsed Map
         n.put("attributes", parseAttributes(row.get("attributes")));
-        // drop matched_count from rows; aggregate is exposed at wrapper.total
+        // drop matched_count from rows; rollup is exposed at wrapper.total
         n.remove("matched_count");
         return n;
     }

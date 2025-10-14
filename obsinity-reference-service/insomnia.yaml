@@ -39,6 +39,8 @@ resources:
 
       # Event defaults
       event_name: http_request
+      api_name_checkout: checkout
+      api_name_payments: payments
 
       # Config defaults
       config_snapshot_id: local-snapshot
@@ -96,6 +98,13 @@ resources:
     name: OBJQL
     _type: request_group
 
+  - _id: fld_counters
+    parentId: wrk_68f2907246df440f96e2f024b4a89fee
+    created: 1754511488006
+    modified: 1754511488006
+    name: Counters
+    _type: request_group
+
   - _id: fld_admin
     parentId: wrk_68f2907246df440f96e2f024b4a89fee
     created: 1754511488005
@@ -116,86 +125,29 @@ resources:
     created: 1754511489000
     modified: 1754511489000
     name: publish_event (OK - body routed)
-    description: Publish a single event (nested attributes, OTEL aware).
+    description: Publish a single event using environment defaults.
     method: POST
     url: "{{ base_url }}/events/publish"
     body:
       mimeType: application/json
       text: |
         {
-          "event": { "name": "{{ event_name }}", "kind": "SERVER" },
           "resource": {
             "service": {
               "name": "{{ service_id }}",
               "namespace": "{{ service_namespace }}",
               "instance": { "id": "{{ service_instance_id }}" },
               "version": "{{ service_version }}"
-            },
-            "host": { "name": "{{ host_name }}" },
-            "telemetry": { "sdk": { "name": "{{ sdk_name }}", "version": "{{ sdk_version }}" } },
-            "cloud": { "provider": "{{ cloud_provider }}", "region": "{{ cloud_region }}" }
+            }
           },
-          "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id }}" },
+          "event": { "name": "{{ event_name }}" },
           "time": {
-            "startedAt": "{{ nowIso }}",
-            "endedAt": "{{ nowIso }}",
-            "startUnixNano": 0,
-            "endUnixNano": 0
+            "startedAt": "{% now 'iso-8601', 'utc', -1 %}",
+            "endedAt": "{% now 'iso-8601', 'utc' %}"
           },
           "attributes": {
-            "api":  { "name": "getAccountHolders", "version": "v2" },
-            "http": { "method": "GET", "status_code": 200, "route": "/v2/account-holders", "flavor": "1.1" },
-            "obsinity": { "correlation_id": "{{ correlation_id }}" }
-          },
-          "events": [],
-          "links": [],
-          "status": { "code": "OK", "message": "" },
-          "synthetic": false
-        }
-    headers:
-      - name: Content-Type
-        value: application/json
-    _type: request
-
-  - _id: req_publish_event_err
-    parentId: fld_publish
-    created: 1754511489001
-    modified: 1754511489001
-    name: publish_event (ERROR - body routed)
-    description: Error variant.
-    method: POST
-    url: "{{ base_url }}/events/publish"
-    body:
-      mimeType: application/json
-      text: |
-        {
-          "event": { "name": "{{ event_name }}", "kind": "SERVER" },
-          "resource": {
-            "service": {
-              "name": "{{ service_id }}",
-              "namespace": "{{ service_namespace }}",
-              "instance": { "id": "{{ service_instance_id }}" },
-              "version": "{{ service_version }}" },
-            "host": { "name": "{{ host_name }}" },
-            "telemetry": { "sdk": { "name": "{{ sdk_name }}", "version": "{{ sdk_version }}" } },
-            "cloud": { "provider": "{{ cloud_provider }}", "region": "{{ cloud_region }}" }
-          },
-          "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id_error }}" },
-          "time": {
-            "startedAt": "{{ nowIso }}",
-            "endedAt": "{{ nowIso }}",
-            "startUnixNano": 0,
-            "endUnixNano": 0
-          },
-          "attributes": {
-            "api":  { "name": "createTransaction", "version": "v2" },
-            "http": { "method": "POST", "status_code": 500, "route": "/v2/transactions", "flavor": "1.1" },
-            "obsinity": { "correlation_id": "{{ correlation_id }}" }
-          },
-          "events": [],
-          "links": [],
-          "status": { "code": "ERROR", "message": "Server error" },
-          "synthetic": false
+            "example": "value"
+          }
         }
     headers:
       - name: Content-Type
@@ -207,7 +159,7 @@ resources:
     created: 1754511489002
     modified: 1754511489002
     name: publish_event (BATCH homogeneous - body routed)
-    description: Batch for a single event type from URI.
+    description: Publish a homogeneous batch for the event in the URI.
     method: POST
     url: "{{ base_url }}/events/publish/batch"
     body:
@@ -215,51 +167,337 @@ resources:
       text: |
         [
           {
-            "event": { "name": "{{ event_name }}", "kind": "CLIENT" },
             "resource": {
-              "service": {
-                "name": "{{ service_id }}",
-                "namespace": "{{ service_namespace }}",
-                "instance": { "id": "{{ service_instance_id }}" },
-                "version": "{{ service_version }}"
-              },
-              "host": { "name": "{{ host_name }}" },
-              "telemetry": { "sdk": { "name": "{{ sdk_name }}", "version": "{{ sdk_version }}" } },
-              "cloud": { "provider": "{{ cloud_provider }}", "region": "{{ cloud_region }}" }
+              "service": { "name": "{{ service_id }}" }
             },
-            "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id }}" },
-            "time": { "startedAt": "{{ nowIso }}", "endedAt": "{{ nowIso }}", "startUnixNano": 0, "endUnixNano": 0 },
+            "event": { "name": "{{ event_name }}" },
             "attributes": {
-              "api":  { "name": "lookupUser" },
-              "http": { "status_code": 200, "method": "GET" },
-              "obsinity": { "correlation_id": "{{ correlation_id }}" }
-            },
-            "events": [],
-            "links": [],
-            "status": { "code": "OK", "message": "" },
-            "synthetic": false
+              "http": { "method": "GET", "status": 200 },
+              "api": { "name": "lookupUser" }
+            }
           },
           {
-            "event": { "name": "{{ event_name }}", "kind": "INTERNAL" },
             "resource": {
-              "service": {
-                "name": "{{ service_id }}",
-                "namespace": "{{ service_namespace }}",
-                "instance": { "id": "{{ service_instance_id }}" },
-                "version": "{{ service_version }}" }
+              "service": { "name": "{{ service_id }}" }
             },
-            "trace": { "traceId": "{{ trace_id }}", "spanId": "{{ span_id_2 }}" },
-            "time": { "startedAt": "{{ nowIso }}", "endedAt": "{{ nowIso }}", "startUnixNano": 0, "endUnixNano": 0 },
+            "event": { "name": "{{ event_name }}" },
             "attributes": {
-              "db": { "system": "postgresql", "statement": "select 1" },
-              "obsinity": { "correlation_id": "{{ correlation_id }}" }
-            },
-            "events": [],
-            "links": [],
-            "status": { "code": "OK", "message": "" },
-            "synthetic": false
+              "http": { "method": "POST", "status": 201 },
+              "api": { "name": "lookupUser" }
+            }
           }
         ]
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_publish_payments_http
+    parentId: fld_publish
+    created: 1754639740000
+    modified: 1754639740000
+    name: publish_event payments/http_request
+    description: Publish a payments http_request event.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": {
+            "service": { "name": "payments" },
+            "attributes": { "environment": "demo" }
+          },
+          "event": { "name": "http_request" },
+          "time": {
+            "startedAt": "{% now 'iso-8601', 'utc', -5 %}",
+            "endedAt": "{% now 'iso-8601', 'utc' %}"
+          },
+          "attributes": {
+            "api": { "name": "checkout", "version": "v1" },
+            "http": { "method": "GET", "status": 200, "route": "/api/checkout" }
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_publish_payments_auth
+    parentId: fld_publish
+    created: 1754639740100
+    modified: 1754639740100
+    name: publish_event payments/auth_decision
+    description: Publish a payments auth_decision event.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "payments" } },
+          "event": { "name": "auth_decision" },
+          "attributes": {
+            "auth": {
+              "user_id": "user-123",
+              "subject": "checkout",
+              "decision": "ALLOW"
+            }
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_publish_reference_http
+    parentId: fld_publish
+    created: 1754639740200
+    modified: 1754639740200
+    name: publish_event obsinity-reference-service/http_request
+    description: Publish a obsinity-reference-service http_request event.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": {
+            "service": { "name": "obsinity-reference-service" },
+            "attributes": { "environment": "demo" }
+          },
+          "event": { "name": "http_request" },
+          "time": {
+            "startedAt": "{% now 'iso-8601', 'utc', -5 %}",
+            "endedAt": "{% now 'iso-8601', 'utc' %}"
+          },
+          "attributes": {
+            "api": { "name": "catalog", "version": "v1" },
+            "http": { "method": "GET", "status": 200, "route": "/api/catalog/event-type" }
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_publish_reference_auth
+    parentId: fld_publish
+    created: 1754639740300
+    modified: 1754639740300
+    name: publish_event obsinity-reference-service/auth_decision
+    description: Publish a obsinity-reference-service auth_decision event.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "obsinity-reference-service" } },
+          "event": { "name": "auth_decision" },
+          "attributes": {
+            "auth": {
+              "user_id": "user-789",
+              "subject": "catalog",
+              "decision": "DENY"
+            }
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_publish_demo_checkout
+    parentId: fld_publish
+    created: 1754639740400
+    modified: 1754639740400
+    name: publish_event obsinity-demo-client/demo.checkout
+    description: Publish a obsinity-demo-client demo.checkout event.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "obsinity-demo-client" } },
+          "event": { "name": "demo.checkout" },
+          "attributes": {
+            "user.id": "alice",
+            "cart.size": 3,
+            "outcome": "SUCCESS"
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_publish_demo_client_call
+    parentId: fld_publish
+    created: 1754639740500
+    modified: 1754639740500
+    name: publish_event obsinity-demo-client/demo.client.call
+    description: Publish a obsinity-demo-client demo.client.call event.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "obsinity-demo-client" } },
+          "event": { "name": "demo.client.call" },
+          "attributes": {
+            "client.target": "service-x",
+            "outcome": "SUCCESS"
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_publish_demo_produce
+    parentId: fld_publish
+    created: 1754639740600
+    modified: 1754639740600
+    name: publish_event obsinity-demo-client/demo.produce
+    description: Publish a obsinity-demo-client demo.produce event.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "obsinity-demo-client" } },
+          "event": { "name": "demo.produce" },
+          "attributes": {
+            "messaging.topic": "demo-topic",
+            "outcome": "SUCCESS"
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_publish_demo_orphan_step
+    parentId: fld_publish
+    created: 1754639740700
+    modified: 1754639740700
+    name: publish_event obsinity-demo-client/demo.orphan.step
+    description: Publish a obsinity-demo-client demo.orphan.step event.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "obsinity-demo-client" } },
+          "event": { "name": "demo.orphan.step" },
+          "attributes": {
+            "note": "compensating step",
+            "outcome": "SUCCESS"
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_publish_demo_orphan_fail
+    parentId: fld_publish
+    created: 1754639740800
+    modified: 1754639740800
+    name: publish_event obsinity-demo-client/demo.orphan.fail
+    description: Publish a obsinity-demo-client demo.orphan.fail event.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "obsinity-demo-client" } },
+          "event": { "name": "demo.orphan.fail" },
+          "attributes": {
+            "reason": "timeout",
+            "outcome": "FAIL"
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_publish_demo_reserve
+    parentId: fld_publish
+    created: 1754639740900
+    modified: 1754639740900
+    name: publish_event obsinity-demo-client/demo.reserve
+    description: Publish a obsinity-demo-client demo.reserve event.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "obsinity-demo-client" } },
+          "event": { "name": "demo.reserve" },
+          "attributes": {
+            "sku": "sku-123",
+            "outcome": "SUCCESS"
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_publish_demo_reserve_stock
+    parentId: fld_publish
+    created: 1754639741000
+    modified: 1754639741000
+    name: publish_event obsinity-demo-client/demo.reserve.stock
+    description: Publish a obsinity-demo-client demo.reserve.stock event.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "obsinity-demo-client" } },
+          "event": { "name": "demo.reserve.stock" },
+          "attributes": {
+            "sku": "sku-123",
+            "outcome": "SUCCESS"
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_publish_header_validation
+    parentId: fld_publish
+    created: 1754639741100
+    modified: 1754639741100
+    name: publish_event open-finance/header.validation
+    description: Publish a header.validation event for open-finance-end-user-data-management.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "open-finance-end-user-data-management" } },
+          "event": { "name": "header.validation" },
+          "attributes": {
+            "auth.consent.id": "consent-1",
+            "auth.partner.id": "partner-42",
+            "auth.partner.application.id": "app-7",
+            "auth.error": "NONE"
+          }
+        }
     headers:
       - name: Content-Type
         value: application/json
@@ -564,17 +802,32 @@ resources:
     parentId: fld_objql
     created: 1754511489150
     modified: 1754511489150
-    name: OBJQL - Raw query
-    description: Execute a raw OB-JQL string (same DSL used by the search JSON surface).
+
+  # ===================== Counters =====================
+  - _id: req_counter_query_status_rollup
+    parentId: fld_counters
+    created: 1754639600000
+    modified: 1754639600000
+    name: Counters - HTTP status rollup (5m)
+    description: Query the counter rollup API for HTTP status groups over the last hour.
     method: POST
-    url: "{{ base_url }}/api/objql/query"
+    url: "{{ base_url }}/api/counters/query"
     body:
       mimeType: application/json
       text: |
         {
-          "q": "service:\"{{ service_id }}\" event:\"{{ event_name }}\"\nwhere attr.http.status_code = 200\nsince -1h\norder by started_at desc\nlimit 25",
-          "offset": 0,
-          "limit": 25
+          "serviceKey": "{{ service_id }}",
+          "eventType": "{{ event_name }}",
+          "counterName": "http_requests_by_status",
+          "interval": "5m",
+          "key": {
+            "http.method": ["GET"],
+            "http.status": ["200", "500"]
+          },
+          "limits": {
+            "offset": 0,
+            "limit": 12
+          }
         }
     headers:
       - name: Content-Type
@@ -773,4 +1026,35 @@ resources:
     url: "{{ base_url }}/actuator/health"
     body: {}
     headers: []
+    _type: request
+  - _id: req_counter_query_api_rollup
+    parentId: fld_counters
+    created: 1754639601000
+    modified: 1754639601000
+    name: Counters - HTTP API rollup (1m)
+    description: Query the counter rollup API grouping by API name.
+    method: POST
+    url: "{{ base_url }}/api/counters/query"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "serviceKey": "{{ service_id }}",
+          "eventType": "{{ event_name }}",
+          "counterName": "http_requests_by_api",
+          "interval": "1m",
+          "start": "{% now 'iso-8601', 'utc', -3600 %}",
+          "end": "{% now 'iso-8601', 'utc' %}",
+          "key": {
+            "api.name": ["{{ api_name_checkout }}", "{{ api_name_payments }}"],
+            "http.method": ["GET"]
+          },
+          "limits": {
+            "offset": 0,
+            "limit": 60
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
     _type: request

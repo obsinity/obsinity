@@ -3,8 +3,8 @@ kind: MetricCounter
 metadata:
   service: payments
   event: http_request
-  name: http_requests_by_status
-  displayName: HTTP Requests by Status Code
+  name: http_requests_by_api
+  displayName: HTTP Requests by API
   labels:
     category: http
 spec:
@@ -13,14 +13,12 @@ spec:
     name: http_request
   key:
     dimensions:
+      - api.name
       - http.method
-      - http.route
-      - http.status
   rollup:
     windowing:
-      granularities: [5s, 1m, 1h, 1d, 7d]
+      granularities: [1m, 5m, 1h, 1d, 7d]
     operation: count
   attributeMapping:
+    api_name: api.name
     method: http.method
-    route: http.route
-    status: http.status

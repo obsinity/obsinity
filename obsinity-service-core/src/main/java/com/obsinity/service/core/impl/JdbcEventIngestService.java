@@ -2,6 +2,7 @@ package com.obsinity.service.core.impl;
 
 import com.obsinity.service.core.config.ConfigLookup;
 import com.obsinity.service.core.config.EventTypeConfig;
+import com.obsinity.service.core.counter.CounterIngestService;
 import com.obsinity.service.core.index.AttributeIndexingService;
 import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.spi.EventIngestService;
@@ -20,6 +21,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -46,6 +48,10 @@ public class JdbcEventIngestService implements EventIngestService {
     private final AttributeIndexingService attributeIndexingService;
     private final ConfigLookup configLookup;
     private final UnconfiguredEventQueue unconfiguredEventQueue;
+    private final CounterIngestService counterIngestService;
+
+    @Value("${obsinity.counters.enabled:true}")
+    private boolean countersEnabled;
 
     // tiny in-memory cache to avoid re-hashing/upserting each time
     private final Map<String, String> servicePartitionKeyCache = new ConcurrentHashMap<>();
@@ -54,11 +60,13 @@ public class JdbcEventIngestService implements EventIngestService {
             NamedParameterJdbcTemplate jdbc,
             AttributeIndexingService attributeIndexingService,
             ConfigLookup configLookup,
-            UnconfiguredEventQueue unconfiguredEventQueue) {
+            UnconfiguredEventQueue unconfiguredEventQueue,
+            CounterIngestService counterIngestService) {
         this.jdbc = jdbc;
         this.attributeIndexingService = attributeIndexingService;
         this.configLookup = configLookup;
         this.unconfiguredEventQueue = unconfiguredEventQueue;
+        this.counterIngestService = counterIngestService;
     }
 
     @Override
@@ -187,6 +195,16 @@ public class JdbcEventIngestService implements EventIngestService {
                     e.getParentSpanId(),
                     e.getCorrelationId(),
                     e);
+        }
+
+        if (countersEnabled
+                && eventConfig.counters() != null
+                && !eventConfig.counters().isEmpty()) {
+            try {
+                counterIngestService.process(e, eventConfig);
+            } catch (Exception counterEx) {
+                log.error("Failed to buffer counters for event {}:{}", serviceKey, eventType, counterEx);
+            }
         }
 
         return wrote;

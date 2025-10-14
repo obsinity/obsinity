@@ -15,7 +15,7 @@ The beating heart is PostgreSQL, structured into clear tables:
 - `event_histograms_*`: latency and size distributions.
 - `event_gauges_*`: current value snapshots.
 
-This design balances fidelity (raw events are never lost) with performance (pre-aggregated metrics). Enterprises get the best of both worlds.
+This design balances fidelity (raw events are never lost) with performance (pre-rolled up metrics). Enterprises get the best of both worlds.
 
 ## Query & API
 Data isn’t valuable unless it’s explorable. Obsinity exposes both **event queries** (for detailed forensics) and **metric queries** (for trends and dashboards). Flow views tie start and finish events into meaningful execution stories.

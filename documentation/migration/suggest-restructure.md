@@ -10,7 +10,7 @@ obsinity/
 │  ├─ obsinity-collection-sink-logging
 │  ├─ obsinity-client-testkit
 │  └─ obsinity-client-otel-adapter      # <— new (optional)
-├─ engine/                         # consumer (ingest/aggregate/query)
+├─ engine/                         # consumer (ingest/rollup/query)
 │  ├─ obsinity-engine-app
 │  ├─ obsinity-engine-api
 │  ├─ obsinity-engine-storage
@@ -113,14 +113,14 @@ Accept **OTLP** directly (HTTP/protobuf or JSON), convert to native, feed ingest
 
 # Where Chronograf files go (quick mapping)
 
-* **Chronograf DTOs** (`EventPublishRequest`, `Aggregation*`, `TimeBucket`, etc.)
+* **Chronograf DTOs** (`EventPublishRequest`, `Rollup*`, `TimeBucket`, etc.)
 
     * If they are *wire-level* ingestion items → `shared/obsinity-wire`
-    * If they are *engine API responses for your REST* (e.g., aggregation result shapes) → `engine/obsinity-engine-api`
+    * If they are *engine API responses for your REST* (e.g., rollup result shapes) → `engine/obsinity-engine-api`
 
 * **Entities & Repos** → `engine/obsinity-engine-storage`
 
-* **Services** (ingest, counters, aggregation, bucket resolvers, time-range resolvers) → `engine/obsinity-engine-service`
+* **Services** (ingest, counters, rollup, bucket resolvers, time-range resolvers) → `engine/obsinity-engine-service`
 
 * **Controllers** → `engine/obsinity-engine-web`
 
@@ -148,10 +148,10 @@ Accept **OTLP** directly (HTTP/protobuf or JSON), convert to native, feed ingest
 
 **Examples:**
 
-* `models.ChronografAggregationRequest` → `com.obsinity.engine.api.aggregation.AggregationRequest`
+* `models.ChronografRollupRequest` → `com.obsinity.engine.api.rollup.RollupRequest`
 * `models.EventPublishRequest` *(if it’s your native ingest payload)* → `com.obsinity.shared.wire.IngestBatch` (or `IngestRequest`)
 * `database.entities.ChronografEventCountEntity` → `com.obsinity.engine.storage.entity.EventCountEntity`
-* `service.ChronografAggregationService` → `com.obsinity.engine.service.AggregationService`
+* `service.ChronografRollupService` → `com.obsinity.engine.service.RollupService`
 
 ---
 
@@ -201,5 +201,5 @@ public final class OtelToObsinity {
 
 * Create **shared** with `obsinity-wire` (native ingestion) + `obsinity-types` (VOs) + `obsinity-otel-wire` (mappers).
 * Keep **client** free of engine code; add an optional **client OTEL adapter**.
-* Keep **engine** focused on ingest/aggregate/query; add an optional **OTLP endpoint** module.
+* Keep **engine** focused on ingest/rollup/query; add an optional **OTLP endpoint** module.
 * Move Chronograf code into **engine** modules; move any wire‑level DTOs into **shared** so both sides reuse one contract.

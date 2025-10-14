@@ -7,13 +7,13 @@
 
 ## 1) Overview
 
-OB‑SQL queries **pre‑aggregated observability data** (events, counters, gauges, histograms, state transitions) on fixed rollups: `5s, 1m, 1h, 1d, 7d`.
+OB‑SQL queries **pre‑rolled up observability data** (events, counters, gauges, histograms, state transitions) on fixed rollups: `5s, 1m, 1h, 1d, 7d`.
 
 **Principles**
 
 * **WHERE**: only **indexed fields**.
 * **FILTER**: additional predicates on **attributes‑relative** paths (post‑index).
-* **Aggregation**: requires **`USING ROLLUP`** or **`INTERVAL`** (arbitrary duration).
+* **Rollup**: requires **`USING ROLLUP`** or **`INTERVAL`** (arbitrary duration).
 * **Tenancy**: `USE <schema>`; roles grant schema access.
 * **Safety**: Java **OB‑Q builder** quotes strings & validates; emitters are deterministic stringifiers.
 
@@ -27,7 +27,7 @@ OB‑SQL queries **pre‑aggregated observability data** (events, counters, gaug
 * `SELECT … FROM <source>`
 * `WHERE <indexed conditions>`
 * `FILTER <attributes‑relative conditions>`
-* `USING ROLLUP <5s|1m|1h|1d|7d>` **or** `INTERVAL <duration>` *(aggregations only)*
+* `USING ROLLUP <5s|1m|1h|1d|7d>` **or** `INTERVAL <duration>` *(rollups only)*
 * `BETWEEN '<from‑iso>' AND '<to‑iso>'`
 * `TIMEZONE '<IANA/Zone>'`
 * `OPTIONS (sortOrder = 'asc|desc', limit = N, offset = N, daysBack = N)`
@@ -115,7 +115,7 @@ MATCHES <N> OF (
 
 * `where` must contain **indexed** field predicates (including inside `matches`).
 * `filter` uses **path** predicates (attributes‑relative) and may include `matches`.
-* Aggregations: exactly one of `rollup` or `interval`.
+* Rollups: exactly one of `rollup` or `interval`.
 
 ---
 
@@ -325,7 +325,7 @@ BETWEEN '2025-07-01T00:00:00Z' AND '2025-07-05T00:00:00Z';
 
 ---
 
-### 4.7 INTERVAL (arbitrary aggregation)
+### 4.7 INTERVAL (arbitrary rollup)
 
 **OB‑SQL**
 
@@ -402,7 +402,7 @@ attributes_path::= "attributes->'" key "'"
 
 ## 6) OB‑Q (Java) — Model & Builder
 
-> The builder **quotes/escapes strings**, leaves numbers unquoted, marks WHERE field predicates as `indexed=true`, and enforces aggregation rules.
+> The builder **quotes/escapes strings**, leaves numbers unquoted, marks WHERE field predicates as `indexed=true`, and enforces rollup rules.
 
 ### 6.1 Model
 
@@ -631,7 +631,7 @@ public final class OBQEmitter {
             boolean roll = nonEmpty(q.getRollup());
             boolean intr = nonEmpty(q.getInterval());
             if (roll == intr)
-                throw new IllegalArgumentException("Aggregations require exactly one of: rollup OR interval");
+                throw new IllegalArgumentException("Rollups require exactly one of: rollup OR interval");
         } else {
             if (nonEmpty(q.getRollup()) || nonEmpty(q.getInterval()))
                 throw new IllegalArgumentException("Raw event queries must not specify rollup or interval");
@@ -878,7 +878,7 @@ OPTIONS (sortOrder = 'asc', limit = 50, offset = 0, daysBack = 7);
 
 ## 9) Implementer Notes
 
-* **Rollups**: pre‑created (`5s, 1m, 1h, 1d, 7d`); planner picks minimal base and aggregates upward.
+* **Rollups**: pre‑created (`5s, 1m, 1h, 1d, 7d`); planner picks minimal base and rollups upward.
 * **Index discipline**: `WHERE` is strictly indexed; non‑indexed belong in `FILTER`.
 * **MATCHES** is evaluated within the **row/bucket** context; it can nest boolean groups.
 * **Builder** centralizes quoting & validation; emitters do formatting only.

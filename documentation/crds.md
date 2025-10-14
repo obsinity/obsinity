@@ -122,7 +122,7 @@ spec:
   key:
     dynamic: [ <path>, ... ]   # exact-match identity (e.g., [http.method, http.route, http.status_code_group])
 
-  aggregation:
+  rollup:
     windowing: { granularities: [5s, 1m, 1h, 1d, 7d] }
     operation: count
 
@@ -146,7 +146,7 @@ spec:
   key:
     dynamic: [ http.method, http.route, http.status_code_group ]
 
-  aggregation:
+  rollup:
     windowing: { granularities: [5s, 1m, 1h, 1d, 7d] }
     operation: count
   retention:
@@ -190,7 +190,7 @@ spec:
     min: <number>
     max: <number>
 
-  aggregation:
+  rollup:
     windowing: { granularities: [5s, 1m, 1h, 1d, 7d] }
     percentiles: [0.5, 0.9, 0.95, 0.99]
 ```
@@ -216,7 +216,7 @@ spec:
     count: 100
     min: 1
     max: 10000
-  aggregation:
+  rollup:
     windowing: { granularities: [5s, 1m, 1h, 1d, 7d] }
     percentiles: [0.5, 0.9, 0.95, 0.99]
   retention:
@@ -298,7 +298,7 @@ assertEquals("4xx", out);
 * **Deterministic**: one input → one output; no side effects.
 * **Precompile & cache**: keyed by `(service, event, target, lang, script_sha256)`.
 * **Observability**: per-target counters — `derived_ok`, `derived_null`, `derived_error`, `derived_timeout`.
-* **Indexing**: only set `index: true` for fields you’ll query/aggregate on (write-amp trade-off).
+* **Indexing**: only set `index: true` for fields you’ll query/rollup on (write-amp trade-off).
 * **Storage**:
 
     * Option A: persist derived fields in `events_raw.attributes` (traceability, replays match).
@@ -374,8 +374,8 @@ assertEquals("4xx", out);
 | -------------------------- | --- | --------------------------------- |
 | `sourceEvent.service/name` | ✔   | Event identity                    |
 | `key.dynamic[]`            | ✔   | Exact-match series key            |
-| `aggregation.windowing[]`  | ✔   | Rollups (e.g., \[5s,1m,1h,1d,7d]) |
-| `aggregation.operation`    | ✔   | `count`                           |
+| `rollup.windowing[]`  | ✔   | Rollups (e.g., \[5s,1m,1h,1d,7d]) |
+| `rollup.operation`    | ✔   | `count`                           |
 | `attributeMapping`         |     | Optional UI aliasing              |
 
 **MetricHistogram**
@@ -385,7 +385,7 @@ assertEquals("4xx", out);
 | `value`                             | ✔   | Numeric path (raw or derived) |
 | `key.dynamic[]`                     |     | Additional dims               |
 | `buckets.strategy/count/min/max`    | ✔   | Bucket schema                 |
-| `aggregation.windowing/percentiles` |     | Rollups & percentiles         |
+| `rollup.windowing/percentiles` |     | Rollups & percentiles         |
 
 ---
 

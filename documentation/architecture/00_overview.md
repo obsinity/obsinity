@@ -27,7 +27,7 @@ Non‑Functional Notes
 - Per‑service `ServiceConfig` merges the following:
   - Event identity: name (canonical), category/subCategory (optional).
   - Attribute index spec (paths to index within the event payload).
-  - Metric definitions: COUNTER/HISTOGRAM/GAUGE, dimensions (keyed), aggregation/windowing, rollups, retention TTLs.
+  - Metric definitions: COUNTER/HISTOGRAM/GAUGE, dimensions (keyed), rollup/windowing, rollups, retention TTLs.
 - Sources & Tooling
   - CRDs (YAML) and archive loaders (tar/tgz) produce the same in‑memory model.
   - See `documentation/crds.md` for keys and examples.

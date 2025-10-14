@@ -27,7 +27,7 @@ This document describes how Obsinity processes raw events, maintains in-memory c
 
     * Base columns: `service_id`, `event_type`, `name`, `outcome`, `started_at`, `ended_at`, `trace_id`, `span_id`, `kind`, `error_code`, `error_message` (optional), …
     * **Projected attribute columns** for explicitly indexed attributes only.
-    * A **dimensions hash** (`dim_hash`) computed from indexed attributes to make joins/aggregations cheap.
+    * A **dimensions hash** (`dim_hash`) computed from indexed attributes to keep joins/rollups cheap.
 
 **Partitioning scheme**
 
@@ -53,12 +53,12 @@ This document describes how Obsinity processes raw events, maintains in-memory c
 
 ---
 
-## 2) In-Memory 5s Layer (Per-Instance Aggregators)
+## 2) In-Memory Counter Buffers (Per-Instance Rollup Buffers)
 
-Each ingest instance maintains **in-memory shards** for the current 5-second window, keyed by:
+Each ingest instance now keeps **three independent shard maps** – one per base granularity (`5s`, `1m`, `5m`). A metric’s configured granularity decides which shard it lands in. Within each shard we track keys by:
 
 ```
-(service_id, event_type, interval_start_5s, dim_hash)
+(service_id, event_type, interval_start_bucket, dim_hash)
 ```
 
 For each key:
@@ -69,12 +69,14 @@ For each key:
 
 **Late arrivals**: if an event maps to a past interval still open in memory, it updates normally. If not, see §6 (late events).
 
+Granularity-specific buffers let us avoid flushing minute and five-minute counters every 5 seconds while still supporting high-resolution metrics where needed.
+
 ---
 
 ## 3) Rollups & Buckets
 
-* Every 5s window is the **source of truth** for higher windows (1m, 1h, 1d, 7d).
-* When a 5s window is flushed, the flusher **also updates** the parent windows in the same transaction.
+* The base bucket (5s, 1m, or 5m) is the **source of truth** for higher windows.
+* When a window is flushed, the flusher **also updates** the parent buckets in the same transaction.
 * Sustains **5k–10k TPS** by batching keys and using additive upserts.
 
 ---
@@ -83,7 +85,11 @@ For each key:
 
 **Trigger**
 
-* A flush tick fires after each 5s boundary, e.g., T+5.0s → tick at T+5.2–5.6s with jitter.
+* A dedicated flush tick exists for each granularity:
+  * `5s` counters flush every 5 seconds (default `obsinity.counters.flush.rate.s5`).
+  * `1m` counters flush every 60 seconds (default `obsinity.counters.flush.rate.m1`).
+  * `5m` counters flush every 300 seconds (default `obsinity.counters.flush.rate.m5`).
+* Each tick fires shortly after the aligned boundary with jitter to avoid thundering herds.
 
 **Batching**
 
@@ -127,7 +133,7 @@ Multiple instances flush safely **without leader election**, using:
 
 ## 7) Table Families
 
-* **Counters**: `event_counts_5s`, `event_counts_1m`, `event_counts_1h`, `event_counts_1d`, `event_counts_7d`
+* **Counters**: `event_counts_5s`, `event_counts_1m`, `event_counts_5m`, `event_counts_1h`, `event_counts_1d`, `event_counts_7d`
 * **Histograms**: `event_histograms_*`
 * **Gauges**: `event_gauges_*`
 

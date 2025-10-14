@@ -199,7 +199,7 @@ components:
               maxLength: 128
         attributes:
           type: object
-          description: 'A flexible, namespaced map of producer-defined key/value pairs that enrich the event with queryable context (for example `api.name`, `api.version`, `http.status`, `http.method`, or `client.ip`). Attributes are indexed where possible for fast filtering and aggregation, and can be safely extended by producers without breaking consumers.'
+          description: 'A flexible, namespaced map of producer-defined key/value pairs that enrich the event with queryable context (for example `api.name`, `api.version`, `http.status`, `http.method`, or `client.ip`). Attributes are indexed where possible for fast filtering and rollup, and can be safely extended by producers without breaking consumers.'
           example:
             http: { status: 201, method: 'GET' }
         startedAt:

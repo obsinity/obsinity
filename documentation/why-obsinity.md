@@ -7,7 +7,7 @@
 Most time-series systems specialize in storing numeric samples efficiently. Obsinity goes further by treating **events as first-class citizens**:
 
 * **Rich event structure** → Not just values, but contextual attributes, relationships, and IDs.
-* **Materialized rollups** → Fixed rollup windows (5s → 1m → 1h → 1d → 7d) created at ingest, enabling fast queries without runtime aggregation overhead.
+* **Materialized rollups** → Fixed rollup windows (5s → 1m → 1h → 1d → 7d) created at ingest, enabling fast queries without runtime rollup overhead.
 * **State and transitions** → Captures lifecycle changes (e.g., consent granted/revoked, connection healthy/unhealthy), not just continuous signals.
 * **Configurable retention** → Events and metrics are preserved for **policy-defined durations** (days, months, or years), ensuring compliance without uncontrolled growth.
 * **Attribute masking** → Sensitive fields can be **masked or dropped** at ingest, configurable per event type, ensuring no confidential data is persisted.
@@ -48,7 +48,7 @@ This provides the **sync service** with a flexible **external event store**, so 
 * **Stop until re-auth** if repeated failures indicate an authorization issue.
 * **Backfill a 24-hour gap** if the last successful sync is too far in the past.
 
-Here, Obsinity is not aggregating — it is simply **preserving and exposing events** within the configured retention window. And because sensitive attributes can be masked per event type, it provides **context without risk**, enabling downstream services to make better decisions safely.
+Here, Obsinity is not rolling up — it is simply **preserving and exposing events** within the configured retention window. And because sensitive attributes can be masked per event type, it provides **context without risk**, enabling downstream services to make better decisions safely.
 
 ---
 

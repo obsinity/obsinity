@@ -8,14 +8,14 @@ In **Obsinity**, a *metric* is **not a primitive counter/gauge field** that the 
 * A **metric definition** specifies:
 
     1. **which field** to extract from the event (`path` into `attributes`),
-    2. **which aggregations** to compute (min, max, avg, median, sum),
+    2. **which rollups** to compute (min, max, avg, median, sum),
     3. **which rollup intervals** to maintain (5s, 1m, 1h, 1d, 7d),
     4. **which dimensions** to group by (e.g., `service.id`, `api_name`, `http_status_code`, `symbol`).
 
 On ingest, Obsinity automatically:
 
 * extracts the value(s),
-* applies the aggregations,
+* applies the rollups,
 * updates the appropriate **time buckets**,
 * writes results into a **generic `metric_rollup` table**.
 
@@ -30,14 +30,14 @@ id: uuid
 name: text                # "closing_price"
 eventType: text           # "trade"
 path: text                # "$.close"
-aggs: [avg, min, max]     # aggregations to compute
+aggs: [avg, min, max]     # rollups to compute
 rollups: [1m, 1h, 1d]     # bucket resolutions
 group_by_keys: [symbol, exchange]
 enabled: true
 ```
 
 * **`path`** → JSON path into event attributes.
-* **`aggs`** → defines the set of aggregates stored.
+* **`aggs`** → defines the set of rollups stored.
 * **`rollups`** → Obsinity materialises values at multiple resolutions (5s → 1m → 1h → 1d → 7d).
 * **`group_by_keys`** → attributes used as dimensions (joined via the attribute index).
 
@@ -56,12 +56,12 @@ CREATE TABLE metric_rollup (
   metric_id      uuid        NOT NULL,   -- FK to metric definition
   dims_hash      bigint      NOT NULL,   -- hash of dimension tuple
   dims           jsonb       NOT NULL,   -- {"symbol":"AAPL","exchange":"NASDAQ"}
-  aggregates     jsonb       NOT NULL,   -- {"avg":189.23,"min":185.43,"max":190.32,"sum":390}
+  rollups     jsonb       NOT NULL,   -- {"avg":189.23,"min":185.43,"max":190.32,"sum":390}
   PRIMARY KEY (bucket_start, resolution, metric_id, dims_hash)
 );
 ```
 
-* **aggregates JSONB** holds metric results (named per definition).
+* **rollups JSONB** holds metric results (named per definition).
 * Examples:
 
     * `{"avgClosingValue": 126.1, "min": 123.4, "max": 129.9, "count": 500}`
@@ -83,7 +83,7 @@ For each ingested event:
         * Compute `bucket_start`.
         * **Upsert** into `metric_rollup`:
 
-            * If aggregate already exists, **update** it (`count += 1`, `min=LEAST()`, `avg = sum/count`).
+            * If rollup already exists, **update** it (`count += 1`, `min=LEAST()`, `avg = sum/count`).
             * If not, **insert** with initial values.
 3. Cascade jobs periodically roll lower intervals into higher (e.g., 1m → 1h → 1d).
 
@@ -93,7 +93,7 @@ For each ingested event:
 
 ## 5. Query Model
 
-### Range-only aggregates
+### Range-only rollups
 
 Compute over a span, no explicit bucket.
 
@@ -113,7 +113,7 @@ WHERE time_range(
 
 ---
 
-### Interval-based aggregates
+### Interval-based rollups
 
 Slice into buckets if an interval is specified.
 
@@ -159,12 +159,12 @@ OFFSET 0 LIMIT 100;
 ## 6. Special Metric Types
 
 * **Counters** → derived from event counts via definitions.
-* **Histograms** → store `histogram_bins` or `tdigest` inside `aggregates`.
+* **Histograms** → store `histogram_bins` or `tdigest` inside `rollups`.
 * **Gauges** → numeric snapshot values at ingest.
 * **States** → `stateCounts` JSON tracks categorical state distribution per bucket.
 * **State Transitions** → `transitionCounts` JSON tracks how many transitions occurred (A→B).
 
-All of these use the same `metric_rollup` table and JSONB `aggregates` payload.
+All of these use the same `metric_rollup` table and JSONB `rollups` payload.
 
 ---
 

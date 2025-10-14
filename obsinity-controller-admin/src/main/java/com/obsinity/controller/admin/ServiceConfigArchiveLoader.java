@@ -150,9 +150,9 @@ public class ServiceConfigArchiveLoader {
         if (keyed == null || keyed.isEmpty()) keyed = listOfStrings(mapAt(doc, CrdKeys.KEY), CrdKeys.DIMENSIONS);
 
         List<String> rollups =
-                listOfStrings(mapAt(doc, CrdKeys.SPEC, CrdKeys.AGGREGATION, CrdKeys.WINDOWING), CrdKeys.GRANULARITIES);
+                listOfStrings(mapAt(doc, CrdKeys.SPEC, CrdKeys.ROLLUP, CrdKeys.WINDOWING), CrdKeys.GRANULARITIES);
         if (rollups == null || rollups.isEmpty())
-            rollups = listOfStrings(mapAt(doc, CrdKeys.AGGREGATION), CrdKeys.GRANULARITIES);
+            rollups = listOfStrings(mapAt(doc, CrdKeys.ROLLUP), CrdKeys.GRANULARITIES);
 
         Map<String, Object> filters = mapAt(doc, CrdKeys.FILTERS);
         if (filters == null) filters = mapAt(doc, CrdKeys.SPEC, CrdKeys.FILTERS);

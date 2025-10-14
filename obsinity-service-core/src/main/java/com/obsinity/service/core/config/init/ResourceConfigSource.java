@@ -433,8 +433,8 @@ public class ResourceConfigSource {
 
     @SuppressWarnings("unchecked")
     private static List<String> extractGranularities(Map<String, Object> spec) {
-        Map<String, Object> aggregation = (Map<String, Object>) spec.getOrDefault(CrdKeys.AGGREGATION, Map.of());
-        Map<String, Object> windowing = (Map<String, Object>) aggregation.getOrDefault(CrdKeys.WINDOWING, Map.of());
+        Map<String, Object> rollup = (Map<String, Object>) spec.getOrDefault(CrdKeys.ROLLUP, Map.of());
+        Map<String, Object> windowing = (Map<String, Object>) rollup.getOrDefault(CrdKeys.WINDOWING, Map.of());
         List<String> granularities = new ArrayList<>();
         Object grans = windowing.get(CrdKeys.GRANULARITIES);
         if (grans instanceof List<?> l) {
@@ -449,12 +449,12 @@ public class ResourceConfigSource {
     @SuppressWarnings("unchecked")
     private static Map<String, Object> buildMetricSpecJson(Map<String, Object> spec, List<String> dimensions) {
         Map<String, Object> out = new LinkedHashMap<>();
-        Map<String, Object> aggregation = (Map<String, Object>) spec.getOrDefault(CrdKeys.AGGREGATION, Map.of());
+        Map<String, Object> rollup = (Map<String, Object>) spec.getOrDefault(CrdKeys.ROLLUP, Map.of());
         Map<String, Object> key = (Map<String, Object>) spec.getOrDefault(CrdKeys.KEY, Map.of());
         if (spec.containsKey(CrdKeys.VALUE)) out.put(CrdKeys.VALUE, spec.get(CrdKeys.VALUE));
         if (spec.containsKey(CrdKeys.BUCKETS)) out.put(CrdKeys.BUCKETS, spec.get(CrdKeys.BUCKETS));
         if (spec.containsKey(CrdKeys.FOLD)) out.put(CrdKeys.FOLD, spec.get(CrdKeys.FOLD));
-        if (!aggregation.isEmpty()) out.put(CrdKeys.AGGREGATION, aggregation);
+        if (!rollup.isEmpty()) out.put(CrdKeys.ROLLUP, rollup);
         if (key.containsKey(CrdKeys.DIMENSIONS)) out.put(CrdKeys.KEY, Map.of(CrdKeys.DIMENSIONS, dimensions));
         if (spec.containsKey(CrdKeys.ATTRIBUTE_MAPPING))
             out.put(CrdKeys.ATTRIBUTE_MAPPING, spec.get(CrdKeys.ATTRIBUTE_MAPPING));

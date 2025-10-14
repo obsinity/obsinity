@@ -38,12 +38,12 @@
 
 ## **R3 – “Anvil” (Months 6-9)**
 
-**Theme:** Counters + aggregates.
+**Theme:** Counters + rollups.
 **Target perf:** ≥ 3k ev/s; counter queries ≤600ms (7-day), ≤750ms (30-day).
 
 * **Sprint 1:** Counter DDL (`CREATE/ALTER/DROP COUNTER`).
 * **Sprint 2:** Counter ingest (5s rollup, cascade to 1m/1h/…).
-* **Sprint 3:** SUM aggregator.
+* **Sprint 3:** SUM rollup operator.
 * **Sprint 4:** RATE() function.
 * **Sprint 5:** GROUP BY enforcement (dimension tuples).
 * **Sprint 6:** CLI: `SHOW/EXPLAIN COUNTER`.

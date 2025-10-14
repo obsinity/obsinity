@@ -2,6 +2,7 @@ package com.obsinity.service.core.config;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.obsinity.service.core.counter.CounterGranularity;
 import com.obsinity.service.core.model.config.EventConfig;
 import com.obsinity.service.core.model.config.EventIndexConfig;
 import com.obsinity.service.core.model.config.MetricConfig;
@@ -63,7 +64,11 @@ public class ConfigMaterializer {
                 if ("HISTOGRAM".equals(type)) {
                     histograms.add(new HistogramConfig(metricId, metric.name(), definition));
                 } else {
-                    counters.add(new CounterConfig(metricId, metric.name(), definition));
+                    CounterGranularity granularity = resolveGranularity(metric);
+                    List<String> keyedKeys = metric.keyedKeys() != null ? List.copyOf(metric.keyedKeys()) : List.of();
+                    JsonNode filters = toJson(metric.filtersJson());
+                    counters.add(
+                            new CounterConfig(metricId, metric.name(), granularity, keyedKeys, definition, filters));
                 }
             }
         }
@@ -82,6 +87,33 @@ public class ConfigMaterializer {
 
     private JsonNode toJson(Map<String, Object> map) {
         return mapper.valueToTree(map != null ? map : Map.of());
+    }
+
+    private CounterGranularity resolveGranularity(MetricConfig metric) {
+        String explicit = null;
+        if (metric.specJson() != null) {
+            Object value = metric.specJson().get("granularity");
+            if (value instanceof String g && !g.isBlank()) {
+                explicit = g;
+            }
+        }
+        if (explicit == null && metric.rollups() != null && !metric.rollups().isEmpty()) {
+            explicit = metric.rollups().stream()
+                    .filter(v -> v != null && !v.isBlank())
+                    .min((a, b) -> {
+                        try {
+                            long da = com.obsinity.service.core.counter.DurationParser.parse(a)
+                                    .toMillis();
+                            long db = com.obsinity.service.core.counter.DurationParser.parse(b)
+                                    .toMillis();
+                            return Long.compare(da, db);
+                        } catch (Exception ex) {
+                            return a.compareTo(b);
+                        }
+                    })
+                    .orElse(null);
+        }
+        return CounterGranularity.fromConfigValue(explicit);
     }
 
     private static String safeTrim(String value) {

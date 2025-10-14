@@ -120,7 +120,7 @@
 ## 6️⃣ Materialised Rollups 📐
 
 * Fixed ladder: `5s → 1m → 1h → 1d → 7d`.
-* Continuous workers aggregate forward.
+* Continuous workers rollup forward.
 * Functions:
 
     * Sum (counters)

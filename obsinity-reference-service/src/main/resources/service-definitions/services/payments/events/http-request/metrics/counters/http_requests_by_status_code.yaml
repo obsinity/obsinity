@@ -15,15 +15,14 @@ spec:
     dimensions:
       - http.method
       - http.route
-      - http.status_code
-  filters: []
-  aggregation:
+      - http.status
+  rollup:
     windowing:
       granularities: [5s, 1m, 1h, 1d, 7d]
+    operation: count
   retention:
     ttl: "90d"
-    operation: count
   attributeMapping:
     method: http.method
     route: http.route
-    status_code: http.status_code
+    status: http.status
