@@ -47,24 +47,24 @@ class CounterPipelineTest {
         UUID serviceId = UUID.randomUUID();
         UUID eventTypeId = UUID.randomUUID();
 
-       CounterConfig s5Counter = new CounterConfig(
-               UUID.randomUUID(),
-               "requests_s5",
-               CounterGranularity.S5,
+        CounterConfig s5Counter = new CounterConfig(
+                UUID.randomUUID(),
+                "requests_s5",
+                CounterGranularity.S5,
                 List.of("http.method"),
                 MAPPER.createObjectNode(),
                 MAPPER.createObjectNode());
-       CounterConfig m1Counter = new CounterConfig(
-               UUID.randomUUID(),
-               "requests_m1",
-               CounterGranularity.M1,
+        CounterConfig m1Counter = new CounterConfig(
+                UUID.randomUUID(),
+                "requests_m1",
+                CounterGranularity.M1,
                 List.of("http.method"),
                 MAPPER.createObjectNode(),
                 MAPPER.createObjectNode());
-       CounterConfig m5Counter = new CounterConfig(
-               UUID.randomUUID(),
-               "requests_m5",
-               CounterGranularity.M5,
+        CounterConfig m5Counter = new CounterConfig(
+                UUID.randomUUID(),
+                "requests_m5",
+                CounterGranularity.M5,
                 List.of("http.method"),
                 MAPPER.createObjectNode(),
                 MAPPER.createObjectNode());

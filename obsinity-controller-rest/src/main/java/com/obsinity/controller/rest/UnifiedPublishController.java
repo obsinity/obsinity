@@ -111,8 +111,8 @@ public class UnifiedPublishController {
         String traceId = stringAt(root, "trace", "traceId");
         String spanId = stringAt(root, "trace", "spanId");
 
-        Map<String, Object> resource = toMap(root.path("resource"));
-        Map<String, Object> attributes = toMap(root.path("attributes"));
+        Map<String, Object> resource = expandDottedKeys(toMap(root.path("resource")));
+        Map<String, Object> attributes = expandDottedKeys(toMap(root.path("attributes")));
 
         EventEnvelope.Builder b = EventEnvelope.builder()
                 .serviceId(serviceId)
@@ -155,7 +155,7 @@ public class UnifiedPublishController {
             for (var n : linksNode) {
                 String ltr = stringAt(n, "traceId");
                 String lsp = stringAt(n, "spanId");
-                Map<String, Object> lattrs = toMap(n.path("attributes"));
+                Map<String, Object> lattrs = expandDottedKeys(toMap(n.path("attributes")));
                 lnks.add(new EventEnvelope.OtelLink(ltr, lsp, lattrs));
             }
             b.links(lnks);
@@ -223,6 +223,50 @@ public class UnifiedPublishController {
         return mapper.convertValue(node, MAP_TYPE);
     }
 
+    private Map<String, Object> expandDottedKeys(Map<String, Object> source) {
+        if (source == null || source.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Object> target = new LinkedHashMap<>();
+        source.forEach((k, v) -> mergeAttribute(target, k, v));
+        return target;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void mergeAttribute(Map<String, Object> target, String rawKey, Object value) {
+        if (rawKey == null || rawKey.isBlank()) return;
+        String key = rawKey.trim();
+
+        if (value instanceof Map<?, ?> mapValue) {
+            Map<String, Object> expanded = new LinkedHashMap<>();
+            mapValue.forEach((k, v) -> mergeAttribute(expanded, k != null ? k.toString() : null, v));
+            value = expanded;
+        }
+
+        if (!key.contains(".")) {
+            target.put(key, value);
+            return;
+        }
+
+        String[] segments = key.split("\\.");
+        Map<String, Object> current = target;
+        for (int i = 0; i < segments.length - 1; i++) {
+            String segment = segments[i];
+            Object next = current.get(segment);
+            if (!(next instanceof Map<?, ?> nextMap)) {
+                Map<String, Object> fresh = new LinkedHashMap<>();
+                current.put(segment, fresh);
+                current = fresh;
+            } else {
+                Map<String, Object> mutable = new LinkedHashMap<>();
+                nextMap.forEach((k, v) -> mutable.put(k != null ? k.toString() : null, v));
+                current.put(segment, mutable);
+                current = mutable;
+            }
+        }
+        current.put(segments[segments.length - 1], value);
+    }
+
     private JsonNode parseBody(String raw, String source) {
         try {
             return mapper.readTree(raw);
@@ -274,7 +318,7 @@ public class UnifiedPublishController {
             Long startNanos = numberValue(n, "time", "startUnixNano");
             Long endNanos = numberValue(n, "time", "endUnixNano");
             String kind = stringAt(n, "kind");
-            Map<String, Object> attrs = toMap(n.path("attributes"));
+            Map<String, Object> attrs = expandDottedKeys(toMap(n.path("attributes")));
             java.util.List<EventEnvelope.OtelEvent> children = java.util.List.of();
             JsonNode childrenNode = n.path("events");
             if (childrenNode.isArray() && childrenNode.size() > 0) {
