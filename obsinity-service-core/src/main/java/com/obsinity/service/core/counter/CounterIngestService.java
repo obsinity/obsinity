@@ -24,7 +24,7 @@ public class CounterIngestService {
         if (eventConfig.counters() == null || eventConfig.counters().isEmpty()) {
             return;
         }
-        Map<String, Object> attributes = envelope.getAttributes();
+        Map<String, Object> attributes = normalizeAttributes(envelope.getAttributes());
         Instant occurredAt = envelope.getTimestamp();
         UUID eventTypeId = eventConfig.eventId();
 
@@ -100,5 +100,60 @@ public class CounterIngestService {
             }
         }
         return current;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> normalizeAttributes(Map<String, Object> attributes) {
+        if (attributes == null || attributes.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Object> normalized = new LinkedHashMap<>();
+        attributes.forEach((key, value) -> mergeAttribute(normalized, key, value));
+        return normalized;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void mergeAttribute(Map<String, Object> target, String rawKey, Object value) {
+        if (rawKey == null || rawKey.isBlank()) return;
+        String key = rawKey.trim();
+
+        if (value instanceof Map<?, ?> mapValue) {
+            Map<String, Object> child = target.containsKey(key) && target.get(key) instanceof Map<?, ?> existing
+                    ? toMutableMap((Map<?, ?>) existing)
+                    : new LinkedHashMap<>();
+            mapValue.forEach((k, v) -> {
+                if (k != null) mergeAttribute(child, k.toString(), v);
+            });
+            target.put(key, child);
+            return;
+        }
+
+        if (key.contains(".")) {
+            String[] segments = key.split("\\.");
+            Map<String, Object> current = target;
+            for (int i = 0; i < segments.length - 1; i++) {
+                String segment = segments[i];
+                Object next = current.get(segment);
+                if (!(next instanceof Map<?, ?> nextMap)) {
+                    Map<String, Object> fresh = new LinkedHashMap<>();
+                    current.put(segment, fresh);
+                    current = fresh;
+                } else {
+                    Map<String, Object> mutable = toMutableMap(nextMap);
+                    current.put(segment, mutable);
+                    current = mutable;
+                }
+            }
+            current.put(segments[segments.length - 1], value);
+            return;
+        }
+
+        target.put(key, value);
+    }
+
+    private Map<String, Object> toMutableMap(Map<?, ?> source) {
+        Map<String, Object> copy = new LinkedHashMap<>();
+        source.forEach((k, v) -> copy.put(k != null ? k.toString() : null, v));
+        return copy;
     }
 }

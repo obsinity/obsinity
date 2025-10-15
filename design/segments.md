@@ -228,7 +228,7 @@ spec:
 
 Queries now target the segment via **`resource.telemetry.segment`** and use **`attributes.correlation_id`**.
 
-### 6.1 JSON Search — Aggregate HTTP requests in `riskops`
+### 6.1 JSON Search — Rollup HTTP requests in `riskops`
 
 ```json
 {
@@ -299,7 +299,7 @@ limit 25",
 
 * **Unified collaboration layer:** Multiple services share a single observability surface.
 * **Fine-grained access:** Segments define who can write or read.
-* **Simplified analytics:** Correlation and aggregation within a segment are natural.
+* **Simplified analytics:** Correlation and rollup within a segment are natural.
 * **Clear boundaries:** Cross-segment access is explicit and governed.
 
 ---

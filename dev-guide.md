@@ -60,7 +60,7 @@ Developers ship a compact, OTEL‑aligned envelope plus structured attributes:
 
 * Prefer integers for status codes (`http.status = 201`).
 * Version strings are explicit (`api.version = "v2"`).
-* Add attributes you’ll want to filter/aggregate on; Obsinity’s index will do the rest.
+* Add attributes you’ll want to filter/rollup on; Obsinity’s index will do the rest.
 
 ---
 
@@ -166,7 +166,7 @@ Obsinity’s API responses are **HAL‑compliant**, making them navigable and se
 
 * **Append‑only raw store**: durable, time‑partitioned by `service` for efficient pruning & scans.
 * **Attribute index**: selective inverted maps over popular paths (configurable) for sub‑second lookups.
-* **Rollup fabric**: idempotent aggregation into 5s/1m/1h/1d/7d buckets for counters & histograms.
+* **Rollup fabric**: idempotent rollup into 5s/1m/1h/1d/7d buckets for counters & histograms.
 * **Late arrivals**: delta recompute updates affected buckets; raw timelines remain consistent.
 * **Trace stitching**: follow flows using `trace_id`/`span_id`/`correlation_id` without custom joins.
 
@@ -216,7 +216,7 @@ Obsinity’s API responses are **HAL‑compliant**, making them navigable and se
 
 * [ ] Stable `event.name` and `resource.service.name`.
 * [ ] `started_at` set in UTC (ISO‑8601).
-* [ ] Attributes for everything you’ll filter/aggregate by.
+* [ ] Attributes for everything you’ll filter/rollup by.
 * [ ] Common paths in the index (or requested for indexing).
 * [ ] Queries written in OB‑JQL and OB‑SQL (readable for dashboards).
 * [ ] Responses interpreted via HAL links (`self`, `first`, `last`, …).
