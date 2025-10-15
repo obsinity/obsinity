@@ -323,6 +323,30 @@ resources:
           "resource": { "service": { "name": "obsinity-demo-client" } },
           "event": { "name": "demo.checkout" },
           "attributes": {
+            "user": { "id": "alice" },
+            "cart": { "size": 3 },
+            "outcome": "SUCCESS"
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+  - _id: req_publish_demo_checkout_flat
+    parentId: fld_publish
+    created: 1754639740401
+    modified: 1754639740401
+    name: publish_event obsinity-demo-client/demo.checkout (flat)
+    description: Publish a obsinity-demo-client demo.checkout event using dotted attributes.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "obsinity-demo-client" } },
+          "event": { "name": "demo.checkout" },
+          "attributes": {
             "user.id": "alice",
             "cart.size": 3,
             "outcome": "SUCCESS"
@@ -333,12 +357,36 @@ resources:
         value: application/json
     _type: request
 
+
   - _id: req_publish_demo_client_call
     parentId: fld_publish
     created: 1754639740500
     modified: 1754639740500
     name: publish_event obsinity-demo-client/demo.client.call
     description: Publish a obsinity-demo-client demo.client.call event.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "obsinity-demo-client" } },
+          "event": { "name": "demo.client.call" },
+          "attributes": {
+            "client": { "target": "service-x" },
+            "outcome": "SUCCESS"
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+  - _id: req_publish_demo_client_call_flat
+    parentId: fld_publish
+    created: 1754639740501
+    modified: 1754639740501
+    name: publish_event obsinity-demo-client/demo.client.call (flat)
+    description: Publish a obsinity-demo-client demo.client.call event using dotted attributes.
     method: POST
     url: "{{ base_url }}/events/publish"
     body:
@@ -357,12 +405,36 @@ resources:
         value: application/json
     _type: request
 
+
   - _id: req_publish_demo_produce
     parentId: fld_publish
     created: 1754639740600
     modified: 1754639740600
     name: publish_event obsinity-demo-client/demo.produce
     description: Publish a obsinity-demo-client demo.produce event.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "obsinity-demo-client" } },
+          "event": { "name": "demo.produce" },
+          "attributes": {
+            "messaging": { "topic": "demo-topic" },
+            "outcome": "SUCCESS"
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+  - _id: req_publish_demo_produce_flat
+    parentId: fld_publish
+    created: 1754639740601
+    modified: 1754639740601
+    name: publish_event obsinity-demo-client/demo.produce (flat)
+    description: Publish a obsinity-demo-client demo.produce event using dotted attributes.
     method: POST
     url: "{{ base_url }}/events/publish"
     body:
@@ -380,6 +452,7 @@ resources:
       - name: Content-Type
         value: application/json
     _type: request
+
 
   - _id: req_publish_demo_orphan_step
     parentId: fld_publish
@@ -404,6 +477,30 @@ resources:
       - name: Content-Type
         value: application/json
     _type: request
+  - _id: req_publish_demo_orphan_step_flat
+    parentId: fld_publish
+    created: 1754639740701
+    modified: 1754639740701
+    name: publish_event obsinity-demo-client/demo.orphan.step (flat)
+    description: Publish a obsinity-demo-client demo.orphan.step event using dotted attributes.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "obsinity-demo-client" } },
+          "event": { "name": "demo.orphan.step" },
+          "attributes": {
+            "note": "compensating step",
+            "outcome": "SUCCESS"
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
 
   - _id: req_publish_demo_orphan_fail
     parentId: fld_publish
@@ -428,6 +525,30 @@ resources:
       - name: Content-Type
         value: application/json
     _type: request
+  - _id: req_publish_demo_orphan_fail_flat
+    parentId: fld_publish
+    created: 1754639740801
+    modified: 1754639740801
+    name: publish_event obsinity-demo-client/demo.orphan.fail (flat)
+    description: Publish a obsinity-demo-client demo.orphan.fail event using dotted attributes.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "obsinity-demo-client" } },
+          "event": { "name": "demo.orphan.fail" },
+          "attributes": {
+            "reason": "timeout",
+            "outcome": "FAIL"
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
 
   - _id: req_publish_demo_reserve
     parentId: fld_publish
@@ -452,6 +573,30 @@ resources:
       - name: Content-Type
         value: application/json
     _type: request
+  - _id: req_publish_demo_reserve_flat
+    parentId: fld_publish
+    created: 1754639740901
+    modified: 1754639740901
+    name: publish_event obsinity-demo-client/demo.reserve (flat)
+    description: Publish a obsinity-demo-client demo.reserve event using dotted attributes.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "obsinity-demo-client" } },
+          "event": { "name": "demo.reserve" },
+          "attributes": {
+            "sku": "sku-123",
+            "outcome": "SUCCESS"
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
 
   - _id: req_publish_demo_reserve_stock
     parentId: fld_publish
@@ -476,6 +621,30 @@ resources:
       - name: Content-Type
         value: application/json
     _type: request
+  - _id: req_publish_demo_reserve_stock_flat
+    parentId: fld_publish
+    created: 1754639741001
+    modified: 1754639741001
+    name: publish_event obsinity-demo-client/demo.reserve.stock (flat)
+    description: Publish a obsinity-demo-client demo.reserve.stock event using dotted attributes.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "obsinity-demo-client" } },
+          "event": { "name": "demo.reserve.stock" },
+          "attributes": {
+            "sku": "sku-123",
+            "outcome": "SUCCESS"
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
 
   - _id: req_publish_header_validation
     parentId: fld_publish
@@ -483,6 +652,35 @@ resources:
     modified: 1754639741100
     name: publish_event open-finance/header.validation
     description: Publish a header.validation event for open-finance-end-user-data-management.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "open-finance-end-user-data-management" } },
+          "event": { "name": "header.validation" },
+          "attributes": {
+            "auth": {
+              "consent": { "id": "consent-1" },
+              "partner": {
+                "id": "partner-42",
+                "application": { "id": "app-7" }
+              },
+              "error": "NONE"
+            }
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+  - _id: req_publish_header_validation_flat
+    parentId: fld_publish
+    created: 1754639741101
+    modified: 1754639741101
+    name: publish_event open-finance/header.validation (flat)
+    description: Publish a header.validation event using dotted attributes.
     method: POST
     url: "{{ base_url }}/events/publish"
     body:
@@ -502,6 +700,7 @@ resources:
       - name: Content-Type
         value: application/json
     _type: request
+
 
   - _id: req_publish_payments_http_flat
     parentId: fld_publish
