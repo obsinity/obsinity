@@ -503,6 +503,124 @@ resources:
         value: application/json
     _type: request
 
+  - _id: req_publish_payments_http_flat
+    parentId: fld_publish
+    created: 1754639740001
+    modified: 1754639740001
+    name: publish_event payments/http_request (flat)
+    description: Publish a payments http_request event using dotted attributes.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": {
+            "service": { "name": "payments" },
+            "attributes": { "environment": "demo" }
+          },
+          "event": { "name": "http_request" },
+          "time": {
+            "startedAt": "{% now 'iso-8601', 'utc', -5 %}",
+            "endedAt": "{% now 'iso-8601', 'utc' %}"
+          },
+          "attributes": {
+            "api.name": "checkout",
+            "api.version": "v1",
+            "http.method": "GET",
+            "http.status": 200,
+            "http.route": "/api/checkout"
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_publish_payments_auth_flat
+    parentId: fld_publish
+    created: 1754639740101
+    modified: 1754639740101
+    name: publish_event payments/auth_decision (flat)
+    description: Publish a payments auth_decision event using dotted attributes.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "payments" } },
+          "event": { "name": "auth_decision" },
+          "attributes": {
+            "auth.user_id": "user-123",
+            "auth.subject": "checkout",
+            "auth.decision": "ALLOW"
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_publish_reference_http_flat
+    parentId: fld_publish
+    created: 1754639740201
+    modified: 1754639740201
+    name: publish_event obsinity-reference-service/http_request (flat)
+    description: Publish an obsinity-reference-service http_request event using dotted attributes.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": {
+            "service": { "name": "obsinity-reference-service" },
+            "attributes": { "environment": "demo" }
+          },
+          "event": { "name": "http_request" },
+          "time": {
+            "startedAt": "{% now 'iso-8601', 'utc', -5 %}",
+            "endedAt": "{% now 'iso-8601', 'utc' %}"
+          },
+          "attributes": {
+            "api.name": "catalog",
+            "api.version": "v1",
+            "http.method": "GET",
+            "http.status": 200,
+            "http.route": "/api/catalog/event-type"
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_publish_reference_auth_flat
+    parentId: fld_publish
+    created: 1754639740301
+    modified: 1754639740301
+    name: publish_event obsinity-reference-service/auth_decision (flat)
+    description: Publish an obsinity-reference-service auth_decision event using dotted attributes.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "obsinity-reference-service" } },
+          "event": { "name": "auth_decision" },
+          "attributes": {
+            "auth.user_id": "user-789",
+            "auth.subject": "catalog",
+            "auth.decision": "DENY"
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
   # ===================== Search =====================
   - _id: req_search_exact_and
     parentId: fld_search
