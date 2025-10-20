@@ -163,6 +163,68 @@ FIND EVENTS
 * **`filter`** operates on the full row (envelope + attributes). Use it for expressive predicates that aren’t in the index.
 * **Ordering & paging**: stable ordering is by `time.started_at` with `event_id` tiebreakers under the hood; client uses `limit/offset` (or cursors in streaming mode).
 
+### Counter interval query (HAL)
+
+Obsinity’s counter endpoint reuses the same HAL pattern. Request a counter by name, interval, and optional key matrix:
+
+```json
+POST /api/counters/query
+{
+  "serviceKey": "payments",
+  "eventType": "transaction.completed",
+  "counterName": "http_requests_total",
+  "interval": "5m",
+  "start": "2025-01-01T00:00:00Z",
+  "end": "2025-01-01T02:00:00Z",
+  "key": {
+    "region": ["us-east"],
+    "http.status_code_group": ["2xx", "5xx"]
+  },
+  "limits": { "offset": 0, "limit": 24 }
+}
+```
+
+Response mirrors the events search structure but emits `intervals` instead of rows:
+
+```json
+{
+  "count": 1,
+  "total": 120,
+  "limit": 24,
+  "offset": 0,
+  "data": {
+    "intervals": [
+      {
+        "from": "2025-01-01T00:00:00Z",
+        "to": "2025-01-01T00:05:00Z",
+        "counts": [
+          {
+            "key": { "region": "us-east", "http.status_code_group": "2xx" },
+            "count": 128
+          }
+        ]
+      }
+    ]
+  },
+  "links": {
+    "self": {
+      "href": "/api/counters/query",
+      "method": "POST",
+      "body": { "serviceKey": "payments", "eventType": "transaction.completed", "counterName": "http_requests_total", "interval": "5m", "start": "2025-01-01T00:00:00Z", "end": "2025-01-01T02:00:00Z", "limits": { "offset": 0, "limit": 24 } }
+    },
+    "next": {
+      "href": "/api/counters/query",
+      "method": "POST",
+      "body": { "serviceKey": "payments", "eventType": "transaction.completed", "counterName": "http_requests_total", "interval": "5m", "start": "2025-01-01T00:00:00Z", "end": "2025-01-01T02:00:00Z", "limits": { "offset": 24, "limit": 24 } }
+    }
+  }
+}
+```
+
+* `count`, `total`, `limit`, and `offset` measure intervals, not rows.
+* Each interval block contains every key combination requested with an aggregated `count`.
+* HAL links make pagination and replay trivial—copy `links.next.body` back into the request to fetch the next slice.
+
 ---
 
 ## 5) Response Experience (HAL‑compliant)

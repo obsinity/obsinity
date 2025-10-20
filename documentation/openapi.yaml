@@ -84,7 +84,7 @@ paths:
   /api/counters/query:
     post:
       tags: [Counters]
-      summary: Query counter windows (HAL)
+      summary: Query counter intervals (HAL)
       requestBody:
         required: true
         content:
@@ -93,7 +93,7 @@ paths:
               $ref: '#/components/schemas/CounterQueryRequest'
       responses:
         "200":
-          description: Counter windows (HAL)
+          description: Counter intervals (HAL)
           content:
             application/json:
               schema:
@@ -422,15 +422,15 @@ components:
         data:
           type: object
           properties:
-            windows:
+            intervals:
               type: array
               items:
-                $ref: '#/components/schemas/CounterWindow'
+                $ref: '#/components/schemas/CounterInterval'
         links:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/HalLink'
-    CounterWindow:
+    CounterInterval:
       type: object
       properties:
         from:
@@ -440,8 +440,8 @@ components:
         counts:
           type: array
           items:
-            $ref: '#/components/schemas/CounterCount'
-    CounterCount:
+            $ref: '#/components/schemas/CounterIntervalCount'
+    CounterIntervalCount:
       type: object
       properties:
         key:

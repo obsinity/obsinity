@@ -1,23 +1,18 @@
 package com.obsinity.controller.rest;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.obsinity.service.core.counter.CounterQueryRequest;
 import com.obsinity.service.core.counter.CounterQueryResult;
 import com.obsinity.service.core.counter.CounterQueryWindow;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import com.fasterxml.jackson.annotation.JsonInclude;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record CounterQueryHalResponse(
-        int count,
-        int total,
-        int limit,
-        int offset,
-        Data data,
-        Map<String, HalLink> links) {
+        int count, int total, int limit, int offset, Data data, Map<String, HalLink> links) {
 
-    record Data(List<CounterQueryWindow> windows) {}
+    record Data(List<CounterQueryWindow> intervals) {}
 
     record HalLink(String href, String method, Object body) {}
 

@@ -63,7 +63,7 @@ Response shape:
   "limit": 24,
   "offset": 0,
   "data": {
-    "windows": [
+    "intervals": [
       {
         "from": "2025-01-01T00:00:00Z",
         "to": "2025-01-01T00:05:00Z",
@@ -93,7 +93,7 @@ Response shape:
 }
 ```
 
-The payload returns a list of `windows`, each with `from`, `to`, and `counts` for every key combination. Requests finer than the configured granularity (for example `"5s"` against a `5m` counter) still lead to `400 Bad Request`.
+The payload returns a list of `intervals`, each with `from`, `to`, and `counts` for every key combination. Requests finer than the configured granularity (for example `"5s"` against a `5m` counter) still lead to `400 Bad Request`.
 
 ## Operational Notes
 
