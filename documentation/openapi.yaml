@@ -1,0 +1,529 @@
+openapi: 3.0.3
+info:
+  title: Obsinity API (Manual Definition)
+  version: 0.1.0
+  description: |
+    Manually curated OpenAPI definition for the Obsinity REST controllers.
+    Telemetry events are ingested via OTEL-shaped envelopes, queried with OB-JQL,
+    and enriched with HAL-compliant responses for pagination.
+servers:
+  - url: https://api.example.com
+paths:
+  /events/publish:
+    post:
+      tags: [Ingest]
+      summary: Publish a single event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventEnvelope'
+      responses:
+        "202":
+          description: Event accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishResponse'
+  /events/publish/batch:
+    post:
+      tags: [Ingest]
+      summary: Publish a batch of events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/EventEnvelope'
+      responses:
+        "202":
+          description: Batch accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchPublishResponse'
+  /api/search/events:
+    post:
+      tags: [Search]
+      summary: Search events (HAL)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchRequest'
+      responses:
+        "200":
+          description: HAL search response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+  /api/objql/query:
+    post:
+      tags: [Search]
+      summary: Execute raw OBJQL query
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjqlQueryRequest'
+      responses:
+        "200":
+          description: Result rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /api/counters/query:
+    post:
+      tags: [Counters]
+      summary: Query counter windows (HAL)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CounterQueryRequest'
+      responses:
+        "200":
+          description: Counter windows (HAL)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CounterQueryResponse'
+  /api/catalog/event-type:
+    get:
+      tags: [Catalog]
+      summary: List event types
+      responses:
+        "200":
+          description: Event types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventTypeSummary'
+  /api/catalog/event-type/{type}:
+    post:
+      tags: [Catalog]
+      summary: Ensure event type
+      parameters:
+        - $ref: '#/components/parameters/EventTypePath'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventTypeUpsertRequest'
+      responses:
+        "201":
+          description: Upserted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleStatus'
+  /api/catalog/event-type/{type}/index:
+    post:
+      tags: [Catalog]
+      summary: Add index path to event type
+      parameters:
+        - $ref: '#/components/parameters/EventTypePath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventIndexRequest'
+      responses:
+        "200":
+          description: Index accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleStatus'
+  /api/catalog/attributes/{service}/names:
+    get:
+      tags: [Catalog]
+      summary: List attribute names (HAL)
+      parameters:
+        - $ref: '#/components/parameters/ServicePath'
+        - $ref: '#/components/parameters/Prefix'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        "200":
+          description: Attribute names
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttributeNamesResponse'
+  /api/catalog/attributes/{service}/{attrName}/values:
+    get:
+      tags: [Catalog]
+      summary: List attribute values (HAL)
+      parameters:
+        - $ref: '#/components/parameters/ServicePath'
+        - $ref: '#/components/parameters/AttributePath'
+        - $ref: '#/components/parameters/Prefix'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        "200":
+          description: Attribute values
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttributeValuesResponse'
+components:
+  parameters:
+    ServicePath:
+      name: service
+      in: path
+      required: true
+      schema:
+        type: string
+    AttributePath:
+      name: attrName
+      in: path
+      required: true
+      schema:
+        type: string
+    EventTypePath:
+      name: type
+      in: path
+      required: true
+      schema:
+        type: string
+    Prefix:
+      name: prefix
+      in: query
+      required: false
+      schema:
+        type: string
+    Offset:
+      name: offset
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 50
+  schemas:
+    EventEnvelope:
+      type: object
+      properties:
+        event:
+          type: object
+          properties:
+            name:
+              type: string
+            kind:
+              type: string
+        resource:
+          type: object
+          properties:
+            service:
+              type: object
+              properties:
+                name:
+                  type: string
+        trace:
+          type: object
+          properties:
+            correlationId:
+              type: string
+            traceId:
+              type: string
+            spanId:
+              type: string
+            parentSpanId:
+              type: string
+        time:
+          type: object
+          properties:
+            startedAt:
+              type: string
+              format: date-time
+            startUnixNano:
+              type: integer
+            endedAt:
+              type: string
+              format: date-time
+            endUnixNano:
+              type: integer
+            elapsedNanos:
+              type: integer
+        attributes:
+          type: object
+          additionalProperties: true
+        status:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+        events:
+          type: array
+          items:
+            type: object
+        links:
+          type: array
+          items:
+            type: object
+        synthetic:
+          type: boolean
+        return:
+          nullable: true
+          description: Return value when intercepted method is non-void.
+    PublishResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        eventId:
+          type: string
+      required: [status, eventId]
+    BatchPublishResponse:
+      type: object
+      properties:
+        stored:
+          type: integer
+        duplicates:
+          type: integer
+    SearchRequest:
+      type: object
+      properties:
+        service:
+          type: string
+        event:
+          type: string
+        period:
+          type: object
+          properties:
+            previous:
+              type: string
+            betweenTimestamps:
+              type: array
+              items:
+                type: string
+        matches:
+          type: array
+          items:
+            type: object
+        filter:
+          type: object
+        orders:
+          type: array
+          items:
+            type: object
+        limit:
+          type: integer
+        offset:
+          type: integer
+      required: [service, period]
+    SearchResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        embedded:
+          type: object
+          properties:
+            events:
+              type: array
+              items:
+                type: object
+        links:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/HalLink'
+    HalLink:
+      type: object
+      properties:
+        href:
+          type: string
+        method:
+          type: string
+        body:
+          type: object
+    ObjqlQueryRequest:
+      type: object
+      properties:
+        q:
+          type: string
+        offset:
+          type: integer
+        limit:
+          type: integer
+      required: [q]
+    CounterQueryRequest:
+      type: object
+      properties:
+        serviceKey:
+          type: string
+        eventType:
+          type: string
+        counterName:
+          type: string
+        interval:
+          type: string
+        start:
+          type: string
+        end:
+          type: string
+        key:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        limits:
+          type: object
+          properties:
+            offset:
+              type: integer
+            limit:
+              type: integer
+      required: [serviceKey, eventType, counterName]
+    CounterQueryResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        data:
+          type: object
+          properties:
+            windows:
+              type: array
+              items:
+                $ref: '#/components/schemas/CounterWindow'
+        links:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/HalLink'
+    CounterWindow:
+      type: object
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CounterCount'
+    CounterCount:
+      type: object
+      properties:
+        key:
+          type: object
+          additionalProperties:
+            type: string
+        count:
+          type: integer
+    EventTypeSummary:
+      type: object
+      additionalProperties: true
+    EventTypeUpsertRequest:
+      type: object
+      properties:
+        description:
+          type: string
+    EventIndexRequest:
+      type: object
+      properties:
+        path:
+          type: string
+      required: [path]
+    SimpleStatus:
+      type: object
+      properties:
+        status:
+          type: string
+    AttributeNamesResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        embedded:
+          type: object
+          properties:
+            attributes:
+              type: array
+              items:
+                type: object
+                properties:
+                  attribute:
+                    type: string
+                  valueCount:
+                    type: integer
+        links:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/HalLink'
+    AttributeValuesResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        embedded:
+          type: object
+          properties:
+            values:
+              type: array
+              items:
+                type: object
+                properties:
+                  attribute:
+                    type: string
+                  seenCount:
+                    type: integer
+                  firstSeen:
+                    type: string
+                  lastSeen:
+                    type: string
+        links:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/HalLink'
