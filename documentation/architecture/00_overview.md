@@ -42,8 +42,9 @@ Design Rationale
     - `resource.service.name` (service key)
     - `event.name` (type) with optional `event.kind`
     - `time.startedAt` (ISO) or `time.startUnixNano` (nanos)
+    - `time.elapsedNanos` (derived duration)
     - `attributes` (nested Map)
-    - Optional: `trace` (traceId/spanId/parentSpanId/tracestate), `status` (code/message), `events[]`, `links[]`
+    - Optional: `trace` (traceId/spanId/parentSpanId/tracestate), `status` (code/message), `events[]`, `links[]`, `return`, top-level `elapsedNanos`
   - Controller maps to a canonical `EventEnvelope` and writes via ingest service.
 
 - Stream Ingestion (Kafka/RabbitMQ)

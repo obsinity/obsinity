@@ -112,6 +112,9 @@ public class FlowObsinitySink {
                 time.put("endUnixNano", startUnix + nanos);
             }
         }
+        if (event.elapsedNanos() != null) {
+            time.put("elapsedNanos", event.elapsedNanos());
+        }
         if (!time.isEmpty()) {
             root.put("time", time);
         }
@@ -129,6 +132,14 @@ public class FlowObsinitySink {
         Map<String, Object> attributes = new LinkedHashMap<>(
                 event.attributes() == null ? Map.of() : event.attributes().map());
         root.put("attributes", attributes);
+
+        if (event.hasReturnValue()) {
+            root.put("return", event.returnValue());
+        }
+
+        if (event.elapsedNanos() != null) {
+            root.put("elapsedNanos", event.elapsedNanos());
+        }
 
         List<Map<String, Object>> eventsSerialized = serializeEvents(event.events());
         List<?> links = event.links() == null ? List.of() : event.links();

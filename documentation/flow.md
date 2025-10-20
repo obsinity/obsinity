@@ -17,6 +17,7 @@
 * `name` 🏷️ — span/operation name.
 * `timestamp` / `timeUnixNano` ⏰ — event start; must align.
 * `endTimestamp` ⏳ — optional event end.
+* `elapsedNanos` ⏱️ — derived duration once an end timestamp is present (also under `time.elapsedNanos`).
 
 **Trace context**
 
@@ -37,6 +38,7 @@
 * `events` 🗒️ — child annotations/steps.
 * `links` 🔀 — cross-span references.
 * `status` ✅/❌ — success/error with message.
+* `return` ↩️ — optional captured return value (absent for `void` flows).
 
 **Operational flags**
 

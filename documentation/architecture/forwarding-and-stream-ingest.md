@@ -28,8 +28,8 @@ This document details how Obsinity forwards events to additional targets (connec
 
 - Mapping
   - Flatten the REST body or serialize the canonical `EventEnvelope` as JSON.
-  - Preserve: `time.startedAt` (or `time.startUnixNano`), `event`, `resource.service`, `trace`, `status`, and `attributes`.
-  - If required by legacy consumers, also include `startedAt` as an alias to `time.startedAt`.
+  - Preserve: `time.startedAt` (or `time.startUnixNano`), `time.elapsedNanos`, `event`, `resource.service`, `trace`, `status`, and `attributes`.
+  - If required by legacy consumers, also include `startedAt` as an alias to `time.startedAt` and `elapsedNanos` mirroring `time.elapsedNanos`.
   - Optional projection: drop large fields (events/links) per target config.
 
 - Configuration

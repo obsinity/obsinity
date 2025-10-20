@@ -49,6 +49,11 @@ class FlowAspectBindingTest {
             public void checkout(@PushAttribute("user.id") String userId, @PushContextValue("cart.size") int items) {
                 // no-op
             }
+
+            @Flow(name = "demo.checkout.result")
+            public String checkoutResult(@PushAttribute("user.id") String userId) {
+                return "ok:" + userId;
+            }
         }
 
         /** Simple sink bean that captures FlowEvent fan-out. */
@@ -92,6 +97,30 @@ class FlowAspectBindingTest {
             assertThat(finished.attributes().map()).containsEntry("user.id", "alice");
             assertThat(started.eventContext()).containsEntry("cart.size", 3);
             assertThat(finished.eventContext()).containsEntry("cart.size", 3);
+            assertThat(finished.hasReturnValue()).isFalse();
+            assertThat(started.elapsedNanos()).isNull();
+            assertThat(finished.elapsedNanos()).isNotNull();
+            assertThat(finished.elapsedNanos()).isGreaterThan(0L);
+        }
+
+        @Test
+        void captures_return_value_for_non_void_flow() {
+            String value = flows.checkoutResult("bob");
+            assertThat(value).isEqualTo("ok:bob");
+
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException ignored) {
+            }
+
+            List<FlowEvent> seen = capturingSink.holders;
+            assertThat(seen).hasSize(2);
+            FlowEvent finished = seen.get(1);
+            assertThat(finished.name()).isEqualTo("demo.checkout.result");
+            assertThat(finished.hasReturnValue()).isTrue();
+            assertThat(finished.returnValue()).isEqualTo("ok:bob");
+            assertThat(finished.elapsedNanos()).isNotNull();
+            assertThat(finished.elapsedNanos()).isGreaterThan(0L);
         }
     }
 }

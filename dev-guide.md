@@ -33,28 +33,73 @@
 
 ## 3) Event Model (your sample event)
 
-Developers ship a compact, OTEL‑aligned envelope plus structured attributes:
+Developers ship a compact, OTEL-aligned envelope plus structured attributes. The Obsinity client serializes a `FlowEvent` into the following shape:
 
 ```json
 {
-  "event":   { "name": "{{ event_name }}", "kind": "SERVER" },
-  "resource":{ "service": { "name": "{{ service_id }}" } },
-  "trace":   { "correlation_id": "{{ correlation_id }}", "trace_id": "{{ trace_id }}", "span_id": "{{ span_id }}" },
-  "attributes": {
-    "api":  { "name": "getAccountHolders", "version": "v2" },
-    "http": { "status": 201, "method": "GET" }
+  "event": {
+    "name": "checkout.complete",
+    "kind": "SERVER"
   },
-  "started_at": "{{ nowIso }}"
+  "resource": {
+    "service": {
+      "name": "payments"
+    }
+  },
+  "trace": {
+    "traceId": "9f05d3a5c3a34f2ca5e2a9e9c8123456",
+    "spanId": "8a7654321fedcba0",
+    "parentSpanId": "2f9c6e54d1ab0987"
+  },
+  "time": {
+    "startedAt": "2025-01-18T12:34:56.789Z",
+    "startUnixNano": 1737203696789000000,
+    "endedAt": "2025-01-18T12:34:57.012Z",
+    "endUnixNano": 1737203697012000000,
+    "elapsedNanos": 233000000
+  },
+  "status": {
+    "code": "OK",
+    "message": null
+  },
+  "attributes": {
+    "api": {
+      "name": "getAccountHolders",
+      "version": "v2"
+    },
+    "http": {
+      "status": 201,
+      "method": "GET"
+    }
+  },
+  "events": [
+    {
+      "name": "db.save",
+      "attributes": {
+        "duration.nanos": 5200000
+      }
+    }
+  ],
+  "links": [],
+  "synthetic": false,
+  "elapsedNanos": 233000000,
+  "return": "OK"
 }
 ```
 
 ### Envelope at a glance
 
-* **event.name / event.kind** — semantic identity and SpanKind‑style role.
-* **resource.service.name** — short, stable slug (e.g., `payment`). Primary partition key.
-* \**trace.* \*\*— correlation and tracing identifiers for stitching flows.
-* \**attributes.* \*\*— flexible nested payloads (e.g., `api.*`, `http.*`).
-* **occurred\_at** — producer time (UTC ISO‑8601). The engine also records `received_at`.
+* **event.name / event.kind** — semantic identity and OTEL `SpanKind` role.
+* **resource.service.name** — required service identifier; must align with any embedded `service.id` attribute.
+* **trace.traceId / spanId / parentSpanId** — tracing identifiers harvested from incoming context.
+* **time.startedAt / endedAt** — wall-clock timestamps; `startUnixNano`/`endUnixNano` provide monotonic precision where available.
+* **elapsedNanos / time.elapsedNanos** — derived duration once completion is recorded.
+* **status.code / message** — maps to OTEL `StatusCode` plus optional detail.
+* **attributes** — arbitrary key/value map; nested objects reflect attribute namespaces (`api.*`, `http.*`).
+* **events** — nested timing/annotation entries created by `@Step` or manual helpers.
+* **links** — cross-flow associations (empty by default).
+* **synthetic** — whether the flow was synthetic/test generated.
+* **return** — optional captured return value for non-`void` intercepted methods (omitted otherwise).
 
 **Conventions**
 
@@ -86,7 +131,7 @@ You supplied the following **OB‑JQL**. It looks for a specific service & event
       }
     ]
   },
-  "order": [{ "field": "started_at", "dir": "desc" }],
+  "order": [{ "field": "time.startedAt", "dir": "desc" }],
   "limit": 100
 }
 ```
@@ -107,7 +152,7 @@ FIND EVENTS
       attributes.api.name ILIKE 'create%'
     )
   )
-  ORDER BY started_at DESC
+  ORDER BY time.started_at DESC
   LIMIT 100;
 ```
 
@@ -116,7 +161,7 @@ FIND EVENTS
 * **`period.between`** is UTC; presentation TZ can be controlled per request (e.g., `TZ 'Europe/Dublin'`).
 * **`match`** targets **indexed attributes** (fast). Prefer common paths there (`http.status`, `http.method`, `api.name`, …).
 * **`filter`** operates on the full row (envelope + attributes). Use it for expressive predicates that aren’t in the index.
-* **Ordering & paging**: stable ordering is by `started_at` with `event_id` tiebreakers under the hood; client uses `limit/offset` (or cursors in streaming mode).
+* **Ordering & paging**: stable ordering is by `time.started_at` with `event_id` tiebreakers under the hood; client uses `limit/offset` (or cursors in streaming mode).
 
 ---
 

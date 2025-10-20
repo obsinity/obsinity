@@ -178,6 +178,8 @@ class DemoAuditSink {
 What happens at runtime:
 - `FlowAspect` wraps annotated methods and emits `STARTED` → `COMPLETED` (or `FAILED`) events.
 - Attributes/context from parameters are merged into the current `FlowEvent`.
+- Methods with non-`void` signatures record their return value into the completed `FlowEvent` (`return` field).
+- When an end timestamp is recorded the SDK computes `elapsedNanos` (also echoed under `time.elapsedNanos`).
 - Flow sinks run on each lifecycle event:
   - Logging sink prints to application logs.
   - Obsinity sink serializes to JSON and posts to `obsinity.ingest.url` via the active `EventSender`.

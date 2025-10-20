@@ -38,8 +38,13 @@ What gets sent to Obsinity
 - The Obsinity sink converts an OEvent to a REST body accepted by UnifiedPublishController. Minimal fields below; optional richer fields are included when present (event.kind, trace, status, time, resource.telemetry, host, cloud).
 
   {
-    "startedAt": "2025-09-21T19:40:00Z",
-    "time": { "startedAt": "...", "endedAt": "...", "startUnixNano": 1726665303120000000 },
+    "time": {
+      "startedAt": "2025-09-21T19:40:00Z",
+      "endedAt": "2025-09-21T19:40:00.123Z",
+      "startUnixNano": 1726665303120000000,
+      "endUnixNano": 1726665303243000000,
+      "elapsedNanos": 123000000
+    },
     "resource": {
       "service": { "name": "payments", "namespace": "core", "version": "1.42.0", "instance": {"id": "p-1"} },
       "telemetry": { "sdk": { "name": "obsinity-java", "version": "0.9.0" } },
@@ -50,7 +55,9 @@ What gets sent to Obsinity
     "event": { "name": "checkout", "kind": "SERVER" },
     "trace": { "traceId": "...", "spanId": "...", "parentSpanId": "..." },
     "status": { "code": "OK", "message": "HTTP 200" },
-    "attributes": { "user.id": "alice" }
+    "attributes": { "user.id": "alice" },
+    "elapsedNanos": 123000000,
+    "return": "OK"
   }
 
 - Name suffixes produced by the aspect (:started|:completed|:failed) are stripped, and a status attribute is added if not present.
@@ -64,6 +71,7 @@ Reference Demo
 Builder helpers
 - OEvent.builder()
   - startedAt(Instant), endedAt(Instant), startUnixNano(long), endUnixNano(long)
+  - elapsedNanos(Long) — optional override; normally computed when `endedAt` is set
   - name(String), kind(String)
   - `events[]` may contain nested steps; each entry includes its own `time` object and `status` block when available.
   - trace(traceId, spanId, parentSpanId, state)

@@ -3,8 +3,10 @@ package com.obsinity.flow.model;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.StatusCode;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -49,6 +51,9 @@ public class FlowEvent {
         private String serviceId;
         private String correlationId;
         private Boolean synthetic;
+        private Long elapsedNanos;
+        private Object returnValue;
+        private boolean returnValueCaptured;
         private Map<String, Object> eventContext = new LinkedHashMap<>(); // flow-scoped (non-serialized)
 
         // step emulation metadata (non-serialized)
@@ -154,6 +159,23 @@ public class FlowEvent {
             return this;
         }
 
+        public Builder returnValue(Object returnValue) {
+            this.returnValue = returnValue;
+            this.returnValueCaptured = true;
+            return this;
+        }
+
+        public Builder clearReturnValue() {
+            this.returnValue = null;
+            this.returnValueCaptured = false;
+            return this;
+        }
+
+        public Builder elapsedNanos(Long elapsedNanos) {
+            this.elapsedNanos = elapsedNanos;
+            return this;
+        }
+
         public Builder eventContext(Map<String, Object> eventContext) {
             this.eventContext = (eventContext != null ? eventContext : new LinkedHashMap<>());
             return this;
@@ -192,7 +214,10 @@ public class FlowEvent {
                     status,
                     serviceId,
                     correlationId,
-                    synthetic);
+                    synthetic,
+                    elapsedNanos,
+                    returnValue,
+                    returnValueCaptured);
             if (eventContext != null && !eventContext.isEmpty()) {
                 holder.eventContext().putAll(eventContext);
             }
@@ -221,6 +246,13 @@ public class FlowEvent {
     private String serviceId; // required here OR in resource["service.id"]
     private String correlationId;
     private Boolean synthetic;
+    private Long elapsedNanos;
+
+    @JsonProperty("return")
+    private Object returnValue;
+
+    @JsonIgnore
+    private boolean returnValueCaptured;
 
     /* ── EventContext (flow-scoped, non-serialized) ──────────────── */
     @JsonIgnore
@@ -258,7 +290,10 @@ public class FlowEvent {
             OStatus status,
             String serviceId,
             String correlationId,
-            Boolean synthetic) {
+            Boolean synthetic,
+            Long elapsedNanos,
+            Object returnValue,
+            boolean returnValueCaptured) {
 
         this.name = name;
         this.timestamp = timestamp;
@@ -276,8 +311,14 @@ public class FlowEvent {
         this.serviceId = serviceId;
         this.correlationId = correlationId;
         this.synthetic = synthetic;
+        this.elapsedNanos = elapsedNanos;
+        this.returnValueCaptured = returnValueCaptured;
+        this.returnValue = returnValueCaptured ? returnValue : null;
 
         validateServiceIdConsistency();
+        if (this.elapsedNanos == null || this.elapsedNanos < 0L) {
+            recalculateElapsed();
+        }
     }
 
     /* ========================= Accessors (record-like) ========================= */
@@ -362,6 +403,59 @@ public class FlowEvent {
         return synthetic;
     }
 
+    public boolean hasReturnValue() {
+        return returnValueCaptured;
+    }
+
+    public Object returnValue() {
+        return returnValue;
+    }
+
+    public FlowEvent setReturnValue(Object returnValue) {
+        this.returnValue = returnValue;
+        this.returnValueCaptured = true;
+        return this;
+    }
+
+    public FlowEvent clearReturnValue() {
+        this.returnValue = null;
+        this.returnValueCaptured = false;
+        return this;
+    }
+
+    public Long elapsedNanos() {
+        return elapsedNanos;
+    }
+
+    public FlowEvent setElapsedNanos(Long elapsedNanos) {
+        if (elapsedNanos == null) {
+            this.elapsedNanos = null;
+        } else {
+            this.elapsedNanos = Math.max(0L, elapsedNanos);
+        }
+        return this;
+    }
+
+    private void recalculateElapsed() {
+        if (endTimestamp == null) {
+            this.elapsedNanos = null;
+            return;
+        }
+        Instant start = this.timestamp;
+        if (start != null) {
+            long nanos = Duration.between(start, endTimestamp).toNanos();
+            this.elapsedNanos = nanos < 0L ? 0L : nanos;
+            return;
+        }
+        if (timeUnixNano != null) {
+            long endUnix = endTimestamp.getEpochSecond() * 1_000_000_000L + endTimestamp.getNano();
+            long nanos = endUnix - timeUnixNano;
+            this.elapsedNanos = nanos < 0L ? 0L : nanos;
+            return;
+        }
+        this.elapsedNanos = null;
+    }
+
     /** Flow-scoped EventContext (non-serialized). */
     @JsonIgnore
     public Map<String, Object> eventContext() {
@@ -403,8 +497,17 @@ public class FlowEvent {
         return kind;
     }
 
+    public Object getReturnValue() {
+        return returnValue;
+    }
+
+    public Long getElapsedNanos() {
+        return elapsedNanos;
+    }
+
     public void setEndTimestamp(Instant endTimestamp) {
         this.endTimestamp = endTimestamp;
+        recalculateElapsed();
     }
 
     /* ========================= Throwable helpers ========================= */

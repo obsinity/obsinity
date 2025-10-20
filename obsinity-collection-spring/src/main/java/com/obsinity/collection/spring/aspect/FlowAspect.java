@@ -36,13 +36,23 @@ public class FlowAspect {
         String name = resolveFlowName(pjp);
         AttrCtx ac = AttributeParamExtractor.extract(pjp);
         FlowMeta meta = buildMeta(pjp, null);
+        MethodSignature ms = (MethodSignature) pjp.getSignature();
+        boolean returnsVoid = ms.getReturnType() == Void.TYPE;
         processor.onFlowStarted(name, ac.attributes(), ac.context(), meta);
         try {
             Object result = pjp.proceed();
+            if (!returnsVoid && support != null) {
+                FlowEvent holder = support.currentHolder();
+                if (holder != null) holder.setReturnValue(result);
+            }
             FlowMeta ok = buildMeta(pjp, new StatusHint("OK", null));
             processor.onFlowCompleted(name, ac.attributes(), ac.context(), ok);
             return result;
         } catch (Throwable t) {
+            if (support != null) {
+                FlowEvent holder = support.currentHolder();
+                if (holder != null) holder.clearReturnValue();
+            }
             var attrs = new java.util.LinkedHashMap<String, Object>(ac.attributes());
             attrs.put("error", t.toString());
             FlowMeta err = buildMeta(pjp, new StatusHint("ERROR", t.getMessage()));

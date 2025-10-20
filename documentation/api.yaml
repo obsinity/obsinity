@@ -8,7 +8,7 @@ info:
     pagination and HATEOAS navigation.
 
     ### Design notes
-    - **Event model** mirrors OTEL concepts (`event`, `resource.service`, `trace`, `attributes`, `startedAt`).
+    - **Event model** mirrors OTEL concepts (`event`, `resource.service`, `trace`, `attributes`, `time.startedAt`, `time.elapsedNanos`).
     - **Search** splits fast **indexed predicates** (`matches`) from expressive **row filters** (`filter`).
     - **Responses** use `links` (HAL-style). For strict HAL, rename `links` → `_links` and set `application/json`.'
   termsOfService: 'https://obsinity.dev/terms'
@@ -63,6 +63,9 @@ paths:
                 correlationId: 'req-123'
                 traceId: 'trace-456'
                 spanId: 'span-789'
+              time:
+                startedAt: 2025-09-15T12:00:00Z
+                startUnixNano: 1736990400000000000
               attributes:
                 api:
                   name: 'getAccountHolders'
@@ -70,7 +73,6 @@ paths:
                 http:
                   status: '201'
                   method: 'GET'
-              startedAt: 2025-09-15T12:00:00Z
       responses:
         '201':
           description: 'Event created and persisted successfully. Returns the created resource.'
@@ -112,7 +114,7 @@ paths:
                       - { path: 'attributes.api.name', operator: 'like',  value: '%account%' }
                       - { path: 'attributes.api.name', operator: 'ilike', value: 'create%' }
               orders:
-                - { field: 'startedAt', direction: 'desc' }
+                - { field: 'time.startedAt', direction: 'desc' }
               limit: 100
       responses:
         '200':
@@ -130,8 +132,13 @@ paths:
                   events:
                     - event: { name: 'http_request', kind: 'SERVER' }
                       resource: { service: { name: 'payments' } }
+                      time:
+                        startedAt: 2025-09-15T12:00:00Z
+                        endUnixNano: 1736990401234000000
+                        elapsedNanos: 123400000
                       attributes: { http: { status: 201, method: 'GET' } }
-                      startedAt: 2025-09-15T12:00:00Z
+                      elapsedNanos: 123400000
+                      return: 'OK'
                 links:
                   self:
                     href: '/api/searches/events'
@@ -179,12 +186,6 @@ components:
           type: object
           description: 'Trace identifiers.'
           properties:
-            correlationId:
-              type: string
-              description: 'Cross-system correlation id (request/session).'
-              example: 'req-123'
-              minLength: 1
-              maxLength: 128
             traceId:
               type: string
               description: 'Identifier of the distributed trace for this event (W3C/OTEL aligned).'
@@ -197,17 +198,89 @@ components:
               example: 'span-789'
               minLength: 1
               maxLength: 128
+            parentSpanId:
+              type: string
+              description: 'Optional parent span identifier (if this event is a child of another span).'
+              example: 'parent-1234'
+              minLength: 1
+              maxLength: 128
+            correlationId:
+              type: string
+              description: 'Cross-system correlation id (request/session).'
+              example: 'req-123'
+              minLength: 1
+              maxLength: 128
+        time:
+          type: object
+          description: 'Producer timestamps and derived duration.'
+          properties:
+            startedAt:
+              type: string
+              format: date-time
+              description: 'Producer timestamp in UTC (RFC3339 date-time).'
+              example: 2025-09-17T12:34:56Z
+            startUnixNano:
+              type: integer
+              format: int64
+              description: 'Start timestamp expressed as UNIX epoch nanoseconds.'
+              example: 1737203696789000000
+            endedAt:
+              type: string
+              format: date-time
+              description: 'Producer end timestamp in UTC (RFC3339).'
+              example: 2025-09-17T12:34:57Z
+            endUnixNano:
+              type: integer
+              format: int64
+              description: 'End timestamp expressed as UNIX epoch nanoseconds.'
+              example: 1737203697012000000
+            elapsedNanos:
+              type: integer
+              format: int64
+              description: 'Derived duration in nanoseconds between start and end.'
+              example: 233000000
+          required: [startedAt]
+        status:
+          type: object
+          description: 'Outcome information.'
+          properties:
+            code:
+              type: string
+              description: 'OTEL StatusCode string (OK, ERROR, UNSET).'
+              example: 'OK'
+            message:
+              type: string
+              description: 'Optional human-readable detail about the outcome.'
+              example: 'HTTP 200'
         attributes:
           type: object
           description: 'A flexible, namespaced map of producer-defined key/value pairs that enrich the event with queryable context (for example `api.name`, `api.version`, `http.status`, `http.method`, or `client.ip`). Attributes are indexed where possible for fast filtering and rollup, and can be safely extended by producers without breaking consumers.'
           example:
             http: { status: 201, method: 'GET' }
-        startedAt:
-          type: string
-          format: date-time
-          description: 'Producer timestamp in UTC (RFC3339 date-time).'
-          example: 2025-09-17T12:34:56Z
-      required: [event, resource, startedAt]
+        events:
+          type: array
+          description: 'Nested step/annotation events captured within the flow.'
+          items:
+            type: object
+        links:
+          type: array
+          description: 'Zero or more related span links.'
+          items:
+            type: object
+        synthetic:
+          type: boolean
+          description: 'True when the event originates from synthetic/test traffic.'
+          example: false
+        return:
+          description: 'Captured return value when the intercepted method is non-void. Absent otherwise.'
+          nullable: true
+          example: 'OK'
+        elapsedNanos:
+          type: integer
+          format: int64
+          description: 'Top-level copy of the derived duration (mirrors `time.elapsedNanos`).'
+          example: 233000000
+      required: [event, resource, time]
 
     Query:
       type: object
@@ -355,7 +428,7 @@ components:
         field:
           type: string
           description: 'Field name to sort by.'
-          example: 'startedAt'
+          example: 'time.startedAt'
           minLength: 3
           maxLength: 63
         direction:
