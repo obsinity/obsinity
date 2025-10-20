@@ -145,6 +145,80 @@ paths:
                     method: 'POST'
                     body: { service: 'payments', event: 'http_request', period: { since: '-1h' } }
 
+  /api/counters/query:
+    post:
+      tags: ['Counters']
+      summary: 'Query counter windows'
+      description: 'Retrieve aggregated counter windows using HAL pagination.'
+      operationId: 'queryCounters'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CounterQueryRequestPayload'
+            example:
+              serviceKey: 'payments'
+              eventType: 'transaction.completed'
+              counterName: 'http_requests_total'
+              interval: '5m'
+              start: '2025-01-01T00:00:00Z'
+              end: '2025-01-01T02:00:00Z'
+              key:
+                region: ['us-east']
+                http.status_code_group: ['2xx', '5xx']
+              limits:
+                offset: 0
+                limit: 24
+      responses:
+        '200':
+          description: 'HAL-style counter response containing the requested windows and navigation links.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CounterQueryHalResponse'
+              example:
+                count: 1
+                total: 120
+                limit: 24
+                offset: 0
+                data:
+                  windows:
+                    - from: '2025-01-01T00:00:00Z'
+                      to: '2025-01-01T00:05:00Z'
+                      counts:
+                        - key: { region: 'us-east', http.status_code_group: '2xx' }
+                          count: 128
+                links:
+                  self:
+                    href: '/api/counters/query'
+                    method: 'POST'
+                    body:
+                      serviceKey: 'payments'
+                      eventType: 'transaction.completed'
+                      counterName: 'http_requests_total'
+                      interval: '5m'
+                      start: '2025-01-01T00:00:00Z'
+                      end: '2025-01-01T02:00:00Z'
+                      key:
+                        region: ['us-east']
+                        http.status_code_group: ['2xx', '5xx']
+                      limits: { offset: 0, limit: 24 }
+                  next:
+                    href: '/api/counters/query'
+                    method: 'POST'
+                    body:
+                      serviceKey: 'payments'
+                      eventType: 'transaction.completed'
+                      counterName: 'http_requests_total'
+                      interval: '5m'
+                      start: '2025-01-01T00:00:00Z'
+                      end: '2025-01-01T02:00:00Z'
+                      key:
+                        region: ['us-east']
+                        http.status_code_group: ['2xx', '5xx']
+                      limits: { offset: 24, limit: 24 }
+
 components:
   schemas:
 
@@ -281,6 +355,139 @@ components:
           description: 'Top-level copy of the derived duration (mirrors `time.elapsedNanos`).'
           example: 233000000
       required: [event, resource, time]
+
+    CounterQueryRequestPayload:
+      type: object
+      description: 'Counter query request payload.'
+      properties:
+        serviceKey:
+          type: string
+          description: 'Service slug (e.g., `payments`).'
+          example: 'payments'
+          minLength: 1
+          maxLength: 63
+        eventType:
+          type: string
+          description: 'Event name associated with the counter.'
+          example: 'transaction.completed'
+          minLength: 1
+          maxLength: 63
+        counterName:
+          type: string
+          description: 'Name of the counter to query.'
+          example: 'http_requests_total'
+          minLength: 1
+          maxLength: 128
+        key:
+          type: object
+          description: 'Optional key matrix for multi-dimensional counters.'
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          example:
+            region: ['us-east']
+            http.status_code_group: ['2xx', '5xx']
+        interval:
+          type: string
+          description: 'Interval to aggregate (multiple of the counter granularity).'
+          example: '5m'
+        start:
+          type: string
+          format: date-time
+          description: 'Inclusive start of the query window.'
+          example: '2025-01-01T00:00:00Z'
+        end:
+          type: string
+          format: date-time
+          description: 'Exclusive end of the query window.'
+          example: '2025-01-01T02:00:00Z'
+        limits:
+          $ref: '#/components/schemas/CounterPageLimits'
+      required: [serviceKey, eventType, counterName]
+
+    CounterPageLimits:
+      type: object
+      properties:
+        offset:
+          type: integer
+          description: 'Zero-based offset of the first window to return.'
+          example: 0
+          minimum: 0
+        limit:
+          type: integer
+          description: 'Maximum number of windows to return.'
+          example: 24
+          minimum: 1
+
+    CounterQueryHalResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+          description: 'Number of windows in this page.'
+          example: 1
+          minimum: 0
+        total:
+          type: integer
+          description: 'Total number of windows across the entire range.'
+          example: 120
+          minimum: 0
+        limit:
+          type: integer
+          description: 'Page size in effect for this response.'
+          example: 24
+          minimum: 0
+        offset:
+          type: integer
+          description: 'Zero-based starting window index for this page.'
+          example: 0
+          minimum: 0
+        data:
+          type: object
+          properties:
+            windows:
+              type: array
+              items: { $ref: '#/components/schemas/CounterQueryWindow' }
+        links:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/HalActionLink'
+      required: [count, total, limit, offset, data]
+
+    CounterQueryWindow:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date-time
+          description: 'Inclusive start of the window.'
+          example: '2025-01-01T00:00:00Z'
+        to:
+          type: string
+          format: date-time
+          description: 'Exclusive end of the window.'
+          example: '2025-01-01T00:05:00Z'
+        counts:
+          type: array
+          items: { $ref: '#/components/schemas/CounterQueryCountEntry' }
+      required: [from, to, counts]
+
+    CounterQueryCountEntry:
+      type: object
+      properties:
+        key:
+          type: object
+          description: 'Key combination represented by this count.'
+          additionalProperties:
+            type: string
+          example: { region: 'us-east', http.status_code_group: '2xx' }
+        count:
+          type: integer
+          description: 'Total count for the window and key combination.'
+          example: 128
+          minimum: 0
+      required: [key, count]
 
     Query:
       type: object

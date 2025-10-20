@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping(path = "/api/counters", produces = MediaType.APPLICATION_JSON_VALUE)
 public class CounterQueryController {
 
+    private static final String QUERY_PATH = "/api/counters/query";
+
     private final CounterQueryService queryService;
 
     public CounterQueryController(CounterQueryService queryService) {
@@ -20,7 +22,8 @@ public class CounterQueryController {
     }
 
     @PostMapping(path = "/query", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public CounterQueryResult query(@RequestBody CounterQueryRequest request) {
-        return queryService.runQuery(request);
+    public CounterQueryHalResponse query(@RequestBody CounterQueryRequest request) {
+        CounterQueryResult result = queryService.runQuery(request);
+        return CounterQueryHalResponse.from(QUERY_PATH, request, result);
     }
 }
