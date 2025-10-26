@@ -5,6 +5,7 @@ Obsinity is a modular telemetry system with a PostgreSQL backend, REST controlle
 - Build all modules: `mvn clean verify`
 - Run reference service: `cd obsinity-reference-service && ./build.sh && ./run.sh`
 - Start local DB: `docker compose up -d`
+- Run PIT mutation tests: `mvn -P mutation-testing clean verify [-pl <module> -am]` (add `-DskipTests` to omit regular unit tests; reports in `target/pit-reports`). Service-core is skipped by default; include it with `-Dpitest.excludedProjects=`. Add `-Dpitest.verbose=true -Dpitest.debug=true` if you need minion diagnostics.
 
 ## Collection SDK (Client-Side Only)
 

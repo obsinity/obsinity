@@ -54,6 +54,9 @@
     <maven.compiler.plugin.version>3.14.0</maven.compiler.plugin.version>
     <maven.surefire.plugin.version>3.5.3</maven.surefire.plugin.version>
     <maven.enforcer.plugin.version>3.6.1</maven.enforcer.plugin.version>
+    <pitest.maven.plugin.version>1.16.2</pitest.maven.plugin.version>
+    <pitest.junit5.plugin.version>1.2.1</pitest.junit5.plugin.version>
+    <junit.platform.launcher.version>1.12.2</junit.platform.launcher.version>
     <spring-boot.version>3.5.5</spring-boot.version>
 
     <!-- Spotless / Palantir -->
@@ -226,6 +229,88 @@
 
   <!-- Placeholder profiles for environment-specific tweaks -->
   <profiles>
+    <profile>
+      <id>mutation-testing</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <properties>
+        <pitest.targetClasses>com.obsinity.*</pitest.targetClasses>
+        <pitest.targetTests>com.obsinity.*Test</pitest.targetTests>
+        <pitest.report.dir>${project.build.directory}/pit-reports</pitest.report.dir>
+        <pitest.verbose>false</pitest.verbose>
+        <pitest.debug>false</pitest.debug>
+        <pitest.excludedProjects>obsinity-service-core</pitest.excludedProjects>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.pitest</groupId>
+            <artifactId>pitest-maven</artifactId>
+            <version>${pitest.maven.plugin.version}</version>
+            <dependencies>
+              <dependency>
+                <groupId>org.pitest</groupId>
+                <artifactId>pitest-junit5-plugin</artifactId>
+                <version>${pitest.junit5.plugin.version}</version>
+              </dependency>
+              <dependency>
+                <groupId>org.junit.platform</groupId>
+                <artifactId>junit-platform-launcher</artifactId>
+                <version>${junit.platform.launcher.version}</version>
+              </dependency>
+            </dependencies>
+            <configuration>
+              <testPlugin>junit5</testPlugin>
+              <targetClasses>
+                <param>${pitest.targetClasses}</param>
+              </targetClasses>
+              <targetTests>
+                <param>${pitest.targetTests}</param>
+              </targetTests>
+              <reportsDirectory>${pitest.report.dir}</reportsDirectory>
+              <timestampedReports>false</timestampedReports>
+              <failWhenNoMutations>false</failWhenNoMutations>
+              <threads>1</threads>
+              <outputFormats>
+                <param>HTML</param>
+                <param>XML</param>
+              </outputFormats>
+              <useClasspathJar>true</useClasspathJar>
+              <verbose>${pitest.verbose}</verbose>
+              <debug>${pitest.debug}</debug>
+              <excludedProjects>${pitest.excludedProjects}</excludedProjects>
+              <jvmArgs>
+                <param>--add-opens</param>
+                <param>java.base/java.lang=ALL-UNNAMED</param>
+                <param>--add-opens</param>
+                <param>java.base/java.lang.invoke=ALL-UNNAMED</param>
+                <param>--add-opens</param>
+                <param>java.base/java.util=ALL-UNNAMED</param>
+                <param>--add-opens</param>
+                <param>java.base/java.lang.reflect=ALL-UNNAMED</param>
+                <param>--add-opens</param>
+                <param>java.base/java.util.concurrent=ALL-UNNAMED</param>
+                <param>--add-opens</param>
+                <param>java.base/java.io=ALL-UNNAMED</param>
+                <param>--add-opens</param>
+                <param>java.sql/java.sql=ALL-UNNAMED</param>
+                <param>-XX:ErrorFile=${project.build.directory}/pit-hs_err_pid%p.log</param>
+              </jvmArgs>
+            </configuration>
+            <executions>
+              <execution>
+                <id>run-pitest</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>mutationCoverage</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
     <profile>
       <id>dev</id>
       <activation>
