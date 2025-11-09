@@ -180,10 +180,17 @@ metadata:
 spec:
   sourceEvent: { service: <string>, name: <event> }
 
-  value: <path>                  # numeric field to measure (raw or derived)
+  value: <path>                  # optional override; defaults to event elapsed time
   key:
-    dynamic: [ <path>, ... ]     # optional additional dims (e.g., http.latency_bucket, http.method)
+    dynamic: [ <path>, ... ]     # optional additional dims (e.g., http.method, http.route)
 
+  sketch:
+    kind: ddsketch               # first-class latency storage
+    relativeAccuracy: 0.01       # 1% default
+    minValue: 0.0005             # lower bound in seconds
+    maxValue: 120.0              # soft upper limit in seconds (controls memory footprint)
+
+  # Optional alternative when explicit bins are required. Skipped when sketch.kind = ddsketch.
   buckets:
     strategy: fixed|log|custom
     count: <int>
@@ -208,14 +215,14 @@ metadata:
   labels: { category: http }
 spec:
   sourceEvent: { service: payments, name: http_request }
-  value: http.server.duration_ms
+  value: http.server.duration_ms        # defaults to elapsed time if omitted
   key:
-    dynamic: [ http.method, http.route, http.latency_bucket ]
-  buckets:
-    strategy: fixed
-    count: 100
-    min: 1
-    max: 10000
+    dynamic: [ http.method, http.route ]
+  sketch:
+    kind: ddsketch
+    relativeAccuracy: 0.01
+    minValue: 0.0005                    # 0.5 ms
+    maxValue: 120.0                     # 2 minutes
   rollup:
     windowing: { granularities: [5s, 1m, 1h, 1d, 7d] }
     percentiles: [0.5, 0.9, 0.95, 0.99]

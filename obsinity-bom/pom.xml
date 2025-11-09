@@ -24,6 +24,9 @@
     <flyway.version>10.17.3</flyway.version>
     <postgres.version>42.7.4</postgres.version>
 
+    <!-- metrics -->
+    <ddsketch.version>0.8.3</ddsketch.version>
+
     <!-- test -->
     <junit.jupiter.version>5.13.4</junit.jupiter.version>
 
@@ -81,6 +84,7 @@
       <dependency><groupId>com.zaxxer</groupId><artifactId>HikariCP</artifactId><version>${hikari.version}</version></dependency>
       <dependency><groupId>org.flywaydb</groupId><artifactId>flyway-core</artifactId><version>${flyway.version}</version></dependency>
       <dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId><version>${postgres.version}</version></dependency>
+      <dependency><groupId>com.datadoghq</groupId><artifactId>sketches-java</artifactId><version>${ddsketch.version}</version></dependency>
 
       <!-- Test BOM -->
       <dependency>

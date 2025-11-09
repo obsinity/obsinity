@@ -7,6 +7,7 @@ flowchart TB
     A["attributes | PARTITION LIST(service_id) then RANGE(started_at)"]
     CFG["event_config | PARTITION LIST(service_id)"]
     EC["event_counts | PARTITION LIST(service_id) then LIST(bucket)"]
+    EH["event_histograms | PARTITION LIST(service_id) then LIST(bucket)"]
   end
 
   %% ===== Service: udm =====
@@ -16,6 +17,7 @@ flowchart TB
     A_udm["attributes_srv_udm"]
     CFG_udm["event_config_srv_udm"]
     EC_udm["event_counts_srv_udm"]
+    EH_udm["event_histograms_srv_udm"]
 
     %% events: six monthly partitions
     E_udm_01["events_udm_2025_01\n2025-01-01 to 2025-02-01"]
@@ -40,10 +42,18 @@ flowchart TB
     EC_udm_1d["event_counts_udm_1d"]
     EC_udm_7d["event_counts_udm_7d"]
 
+    %% event_histograms buckets under udm
+    EH_udm_5s["event_histograms_udm_5s"]
+    EH_udm_1m["event_histograms_udm_1m"]
+    EH_udm_1h["event_histograms_udm_1h"]
+    EH_udm_1d["event_histograms_udm_1d"]
+    EH_udm_7d["event_histograms_udm_7d"]
+
     %% links inside udm
     E_udm --> E_udm_01 --> E_udm_02 --> E_udm_03 --> E_udm_04 --> E_udm_05 --> E_udm_06
     A_udm --> A_udm_01 --> A_udm_02 --> A_udm_03 --> A_udm_04 --> A_udm_05 --> A_udm_06
     EC_udm --> EC_udm_5s --> EC_udm_1m --> EC_udm_1h --> EC_udm_1d --> EC_udm_7d
+    EH_udm --> EH_udm_5s --> EH_udm_1m --> EH_udm_1h --> EH_udm_1d --> EH_udm_7d
   end
 
   %% ===== Service: pdm =====
@@ -53,6 +63,7 @@ flowchart TB
     A_pdm["attributes_srv_pdm"]
     CFG_pdm["event_config_srv_pdm"]
     EC_pdm["event_counts_srv_pdm"]
+    EH_pdm["event_histograms_srv_pdm"]
 
     %% events: six monthly partitions
     E_pdm_01["events_pdm_2025_01\n2025-01-01 to 2025-02-01"]
@@ -77,10 +88,18 @@ flowchart TB
     EC_pdm_1d["event_counts_pdm_1d"]
     EC_pdm_7d["event_counts_pdm_7d"]
 
+    %% event_histograms buckets under pdm
+    EH_pdm_5s["event_histograms_pdm_5s"]
+    EH_pdm_1m["event_histograms_pdm_1m"]
+    EH_pdm_1h["event_histograms_pdm_1h"]
+    EH_pdm_1d["event_histograms_pdm_1d"]
+    EH_pdm_7d["event_histograms_pdm_7d"]
+
     %% links inside pdm
     E_pdm --> E_pdm_01 --> E_pdm_02 --> E_pdm_03 --> E_pdm_04 --> E_pdm_05 --> E_pdm_06
     A_pdm --> A_pdm_01 --> A_pdm_02 --> A_pdm_03 --> A_pdm_04 --> A_pdm_05 --> A_pdm_06
     EC_pdm --> EC_pdm_5s --> EC_pdm_1m --> EC_pdm_1h --> EC_pdm_1d --> EC_pdm_7d
+    EH_pdm --> EH_pdm_5s --> EH_pdm_1m --> EH_pdm_1h --> EH_pdm_1d --> EH_pdm_7d
   end
 
   %% Hook parents to service branches
@@ -92,6 +111,8 @@ flowchart TB
   CFG --> CFG_pdm
   EC --> EC_udm
   EC --> EC_pdm
+  EH --> EH_udm
+  EH --> EH_pdm
 
   %% Optional FK cues (labels kept simple)
   %% attributes reference events by event_id and started_at

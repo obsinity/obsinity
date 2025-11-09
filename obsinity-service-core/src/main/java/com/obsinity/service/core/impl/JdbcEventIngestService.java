@@ -3,6 +3,7 @@ package com.obsinity.service.core.impl;
 import com.obsinity.service.core.config.ConfigLookup;
 import com.obsinity.service.core.config.EventTypeConfig;
 import com.obsinity.service.core.counter.CounterIngestService;
+import com.obsinity.service.core.histogram.HistogramIngestService;
 import com.obsinity.service.core.index.AttributeIndexingService;
 import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.spi.EventIngestService;
@@ -49,9 +50,13 @@ public class JdbcEventIngestService implements EventIngestService {
     private final ConfigLookup configLookup;
     private final UnconfiguredEventQueue unconfiguredEventQueue;
     private final CounterIngestService counterIngestService;
+    private final HistogramIngestService histogramIngestService;
 
     @Value("${obsinity.counters.enabled:true}")
     private boolean countersEnabled;
+
+    @Value("${obsinity.histograms.enabled:true}")
+    private boolean histogramsEnabled;
 
     // tiny in-memory cache to avoid re-hashing/upserting each time
     private final Map<String, String> servicePartitionKeyCache = new ConcurrentHashMap<>();
@@ -61,12 +66,14 @@ public class JdbcEventIngestService implements EventIngestService {
             AttributeIndexingService attributeIndexingService,
             ConfigLookup configLookup,
             UnconfiguredEventQueue unconfiguredEventQueue,
-            CounterIngestService counterIngestService) {
+            CounterIngestService counterIngestService,
+            HistogramIngestService histogramIngestService) {
         this.jdbc = jdbc;
         this.attributeIndexingService = attributeIndexingService;
         this.configLookup = configLookup;
         this.unconfiguredEventQueue = unconfiguredEventQueue;
         this.counterIngestService = counterIngestService;
+        this.histogramIngestService = histogramIngestService;
     }
 
     @Override
@@ -204,6 +211,16 @@ public class JdbcEventIngestService implements EventIngestService {
                 counterIngestService.process(e, eventConfig);
             } catch (Exception counterEx) {
                 log.error("Failed to buffer counters for event {}:{}", serviceKey, eventType, counterEx);
+            }
+        }
+
+        if (histogramsEnabled
+                && eventConfig.histograms() != null
+                && !eventConfig.histograms().isEmpty()) {
+            try {
+                histogramIngestService.process(e, eventConfig);
+            } catch (Exception histogramEx) {
+                log.error("Failed to buffer histograms for event {}:{}", serviceKey, eventType, histogramEx);
             }
         }
 

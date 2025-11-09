@@ -62,7 +62,8 @@ public class ConfigMaterializer {
                         metric.uuid() != null ? metric.uuid() : deterministicId(eventId.toString(), metric.name());
                 JsonNode definition = toJson(metric.specJson());
                 if ("HISTOGRAM".equals(type)) {
-                    histograms.add(new HistogramConfig(metricId, metric.name(), definition));
+                    HistogramSpec spec = buildHistogramSpec(metric);
+                    histograms.add(new HistogramConfig(metricId, metric.name(), spec));
                 } else {
                     CounterGranularity granularity = resolveGranularity(metric);
                     List<String> keyedKeys = metric.keyedKeys() != null ? List.copyOf(metric.keyedKeys()) : List.of();
@@ -87,6 +88,85 @@ public class ConfigMaterializer {
 
     private JsonNode toJson(Map<String, Object> map) {
         return mapper.valueToTree(map != null ? map : Map.of());
+    }
+
+    private HistogramSpec buildHistogramSpec(MetricConfig metric) {
+        Map<String, Object> spec = metric.specJson();
+        if (spec == null) {
+            return new HistogramSpec(null, List.of(), null);
+        }
+
+        String valuePath = stringValue(spec.get("value"));
+        List<String> keyDimensions = extractDimensions(spec.get("key"));
+        HistogramSpec.SketchSpec sketchSpec = extractSketchSpec(spec.get("sketch"));
+        return new HistogramSpec(valuePath, keyDimensions, sketchSpec);
+    }
+
+    private List<String> extractDimensions(Object keyNode) {
+        Map<String, Object> keyMap = asMap(keyNode);
+        if (keyMap == null) {
+            return List.of();
+        }
+        Object dimensions = keyMap.containsKey("dimensions") ? keyMap.get("dimensions") : keyMap.get("dynamic");
+        if (!(dimensions instanceof List<?> list)) {
+            return List.of();
+        }
+        List<String> result = new ArrayList<>();
+        for (Object value : list) {
+            if (value == null) continue;
+            String trimmed = value.toString().trim();
+            if (!trimmed.isEmpty()) {
+                result.add(trimmed);
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    private HistogramSpec.SketchSpec extractSketchSpec(Object sketchNode) {
+        Map<String, Object> sketch = asMap(sketchNode);
+        if (sketch == null || sketch.isEmpty()) {
+            return null;
+        }
+        String kind = stringValue(sketch.get("kind"));
+        double accuracy = doubleValue(sketch.get("relativeAccuracy"), 0.01d);
+        double min = doubleValue(sketch.get("minValue"), 0.0005d);
+        double max = doubleValue(sketch.get("maxValue"), 120.0d);
+        return new HistogramSpec.SketchSpec(kind, accuracy, min, max);
+    }
+
+    private Map<String, Object> asMap(Object node) {
+        if (!(node instanceof Map<?, ?> map)) {
+            return null;
+        }
+        Map<String, Object> copy = new java.util.LinkedHashMap<>();
+        map.forEach((k, v) -> {
+            if (k != null) {
+                copy.put(k.toString(), v);
+            }
+        });
+        return copy;
+    }
+
+    private String stringValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        String s = value.toString().trim();
+        return s.isEmpty() ? null : s;
+    }
+
+    private double doubleValue(Object value, double defaultValue) {
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        if (value instanceof String s) {
+            try {
+                return Double.parseDouble(s);
+            } catch (NumberFormatException ignore) {
+                return defaultValue;
+            }
+        }
+        return defaultValue;
     }
 
     private CounterGranularity resolveGranularity(MetricConfig metric) {
