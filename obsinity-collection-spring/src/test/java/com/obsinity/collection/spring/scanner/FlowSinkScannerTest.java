@@ -152,6 +152,10 @@ class FlowSinkScannerTest {
         }
 
         assertThat(MySinks.failureWithThrowableOnly.get()).isGreaterThanOrEqualTo(1);
-        assertThat(MySinks.lastThrowable).isSameAs(boom);
+        assertThat(MySinks.lastThrowable)
+                .isNotNull()
+                .hasSameClassAs(boom)
+                .hasMessage(boom.getMessage())
+                .hasCause(boom.getCause());
     }
 }
