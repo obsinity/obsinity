@@ -112,6 +112,13 @@ resources:
     name: Histograms
     _type: request_group
 
+  - _id: fld_demo
+    parentId: wrk_68f2907246df440f96e2f024b4a89fee
+    created: 1756720100000
+    modified: 1756720100000
+    name: Demo Data
+    _type: request_group
+
   - _id: fld_admin
     parentId: wrk_68f2907246df440f96e2f024b4a89fee
     created: 1754511488005
@@ -1184,6 +1191,32 @@ resources:
             "offset": 0,
             "limit": 60
           }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  # ===================== Demo Data =====================
+  - _id: req_demo_generate_latency
+    parentId: fld_demo
+    created: 1756720101000
+    modified: 1756720101000
+    name: Demo - Generate latency sample data
+    description: Generate synthetic http_request events across the last 14 days for histogram testing.
+    method: POST
+    url: "{{ base_url }}/internal/demo/generate-latency"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "serviceKey": "{{ service_id }}",
+          "eventType": "{{ event_name }}",
+          "httpMethod": "GET",
+          "httpRoute": "/api/checkout",
+          "statusCodes": ["200", "500"],
+          "days": 14,
+          "eventsPerDay": 24
         }
     headers:
       - name: Content-Type
