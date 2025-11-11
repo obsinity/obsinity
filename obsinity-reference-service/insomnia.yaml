@@ -1218,7 +1218,7 @@ resources:
           "httpRoute": "/api/checkout",
           "statusCodes": ["200", "500"],
           "days": 14,
-          "eventsPerDay": 24
+          "eventsPerDay": 5000
         }
     headers:
       - name: Content-Type
