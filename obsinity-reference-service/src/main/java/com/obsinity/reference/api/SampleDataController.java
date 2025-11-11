@@ -117,16 +117,14 @@ public class SampleDataController {
                     emptyToDefault(maybe.eventType, "http_request"),
                     emptyToDefault(maybe.httpMethod, "GET"),
                     emptyToDefault(maybe.httpRoute, "/api/checkout"),
-                    (maybe.statusCodes == null || maybe.statusCodes.isEmpty()) ? List.of("200", "500") : maybe.statusCodes,
+                    (maybe.statusCodes == null || maybe.statusCodes.isEmpty())
+                            ? List.of("200", "500")
+                            : maybe.statusCodes,
                     emptyToDefault(maybe.apiName, "checkout"),
                     emptyToDefault(maybe.apiVersion, "v1"),
                     emptyToDefault(maybe.environment, "demo"),
                     maybe.days <= 0 ? 14 : maybe.days,
                     maybe.eventsPerDay <= 0 ? 24 : maybe.eventsPerDay);
-        }
-
-        List<String> statusCodes() {
-            return statusCodes;
         }
 
         private static String emptyToDefault(String value, String fallback) {
