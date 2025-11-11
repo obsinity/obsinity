@@ -76,7 +76,16 @@ public class HistogramQueryService {
 
         Instant defaultEnd = Instant.now();
         Instant defaultStart = defaultEnd.minus(Duration.ofDays(14));
+        Instant earliestData = repository.findEarliestTimestamp(histogramConfig.id());
+        if (earliestData != null && earliestData.isAfter(defaultStart)) {
+            defaultStart = earliestData;
+        }
+
         Instant start = request.start() != null ? Instant.parse(request.start()) : defaultStart;
+        if (earliestData != null && start.isBefore(earliestData)) {
+            start = earliestData;
+        }
+
         Instant end = request.end() != null ? Instant.parse(request.end()) : defaultEnd;
         if (!end.isAfter(start)) {
             throw new IllegalArgumentException("The requested end time must be after start");
