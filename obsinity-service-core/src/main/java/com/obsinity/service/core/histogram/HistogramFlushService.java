@@ -52,7 +52,12 @@ public class HistogramFlushService {
             }
         });
 
+        int maxEpochsPerRun = 100;
+        int processed = 0;
         for (Long epoch : epochsToFlush) {
+            if (processed >= maxEpochsPerRun) {
+                break;
+            }
             Map<String, HistogramBuffer.BufferedHistogramEntry> entries = buffer.removeEpoch(granularity, epoch);
             if (entries.isEmpty()) {
                 continue;
@@ -68,6 +73,7 @@ public class HistogramFlushService {
                         Instant.ofEpochSecond(epoch),
                         entries.size(),
                         totalSamples);
+                processed++;
             } catch (Exception ex) {
                 log.error(
                         "Histogram flush failed granularity={} epoch={} keys={}",
