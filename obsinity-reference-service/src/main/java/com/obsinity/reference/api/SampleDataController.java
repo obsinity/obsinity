@@ -30,7 +30,7 @@ public class SampleDataController {
         SampleRequest req = SampleRequest.defaults(request);
         Instant now = Instant.now();
         List<EventEnvelope> events = new ArrayList<>();
-        double[] latencyProfile = {15, 25, 40, 60, 80, 120, 180, 250, 400, 750, 1100, 1500};
+        double[] latencyProfile = {50, 75, 110, 160, 220, 320, 480, 700, 950, 1400, 2100, 3000};
         int statusesSize = req.statusCodes().size();
         int eventsPerDay = Math.max(1, req.eventsPerDay());
         long millisPerSlot = Duration.ofDays(1).toMillis() / eventsPerDay;
@@ -41,8 +41,8 @@ public class SampleDataController {
             for (int slot = 0; slot < eventsPerDay; slot++) {
                 Instant start = dayStart.plusMillis(slot * millisPerSlot);
                 double baseLatency = latencyProfile[slot % latencyProfile.length];
-                double jitterFactor = 1.0 + ((day % 5) * 0.05);
-                long latencyMillis = Math.max(5, Math.round(baseLatency * jitterFactor));
+                double jitterFactor = 0.8 + ((day % 7) * 0.1);
+                long latencyMillis = Math.max(25, Math.round(baseLatency * jitterFactor));
                 Instant end = start.plusMillis(latencyMillis);
                 String status = req.statusCodes().get((day + slot) % statusesSize);
                 events.add(buildEvent(req, start, end, status));
