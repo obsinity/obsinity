@@ -22,8 +22,6 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class HistogramIngestService {
 
-    private static final CounterGranularity BASE_GRANULARITY = CounterGranularity.S5;
-
     private final HistogramBuffer buffer;
     private final CounterHashService hashService;
 
@@ -43,6 +41,7 @@ public class HistogramIngestService {
                 continue;
             }
 
+            CounterGranularity granularity = spec.granularity();
             double sample = resolveSampleValue(envelope, attributes, spec);
             if (Double.isNaN(sample) || sample < 0) {
                 continue;
@@ -50,11 +49,11 @@ public class HistogramIngestService {
 
             Map<String, String> dimensionValues = extractKeyData(spec.keyDimensions(), attributes);
             String keyHash = hashService.getOrCreateHash(dimensionValues);
-            Instant aligned = BASE_GRANULARITY.baseBucket().align(occurredAt);
+            Instant aligned = granularity.baseBucket().align(occurredAt);
             long epoch = aligned.getEpochSecond();
 
             buffer.recordSample(
-                    BASE_GRANULARITY,
+                    granularity,
                     epoch,
                     histogram.id(),
                     eventTypeId,

@@ -44,14 +44,21 @@ public class HistogramPersistService {
             return;
         }
 
-        CounterBucket bucket = granularity.baseBucket();
-        Instant timestamp = Instant.ofEpochSecond(epochSeconds);
+        Instant baseInstant = Instant.ofEpochSecond(epochSeconds);
         List<HistogramBuffer.BufferedHistogramEntry> entries =
                 batch.stream().filter(entry -> entry.getSamples() > 0).toList();
         if (entries.isEmpty()) {
             return;
         }
 
+        for (CounterBucket bucket : granularity.materialisedBuckets()) {
+            Instant timestamp = bucket.align(baseInstant);
+            persistBucket(bucket, timestamp, entries);
+        }
+    }
+
+    private void persistBucket(
+            CounterBucket bucket, Instant timestamp, List<HistogramBuffer.BufferedHistogramEntry> entries) {
         List<HistogramBuffer.BufferedHistogramEntry> mutable = new ArrayList<>(entries);
         jdbcTemplate.batchUpdate(INSERT_SQL, new BatchPreparedStatementSetter() {
             @Override

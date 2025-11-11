@@ -93,13 +93,15 @@ public class ConfigMaterializer {
     private HistogramSpec buildHistogramSpec(MetricConfig metric) {
         Map<String, Object> spec = metric.specJson();
         if (spec == null) {
-            return new HistogramSpec(null, List.of(), null);
+            return new HistogramSpec(null, List.of(), null, CounterGranularity.S5, null);
         }
 
         String valuePath = stringValue(spec.get("value"));
         List<String> keyDimensions = extractDimensions(spec.get("key"));
         HistogramSpec.SketchSpec sketchSpec = extractSketchSpec(spec.get("sketch"));
-        return new HistogramSpec(valuePath, keyDimensions, sketchSpec);
+        CounterGranularity granularity = extractHistogramGranularity(spec);
+        List<Double> percentiles = extractPercentiles(spec);
+        return new HistogramSpec(valuePath, keyDimensions, sketchSpec, granularity, percentiles);
     }
 
     private List<String> extractDimensions(Object keyNode) {
@@ -134,6 +136,50 @@ public class ConfigMaterializer {
         return new HistogramSpec.SketchSpec(kind, accuracy, min, max);
     }
 
+    private CounterGranularity extractHistogramGranularity(Map<String, Object> spec) {
+        Map<String, Object> rollup = asMap(spec.get("rollup"));
+        Map<String, Object> windowing = rollup != null ? asMap(rollup.get("windowing")) : null;
+        List<String> granularities = windowing != null ? toStringList(windowing.get("granularities")) : List.of();
+        if (granularities.isEmpty()) {
+            return CounterGranularity.S5;
+        }
+        String smallest = granularities.stream()
+                .filter(g -> g != null && !g.isBlank())
+                .min((a, b) -> {
+                    try {
+                        long da = com.obsinity.service.core.counter.DurationParser.parse(a)
+                                .toMillis();
+                        long db = com.obsinity.service.core.counter.DurationParser.parse(b)
+                                .toMillis();
+                        return Long.compare(da, db);
+                    } catch (Exception ex) {
+                        return a.compareTo(b);
+                    }
+                })
+                .orElse("S5");
+        return CounterGranularity.fromConfigValue(smallest);
+    }
+
+    private List<Double> extractPercentiles(Map<String, Object> spec) {
+        Map<String, Object> rollup = asMap(spec.get("rollup"));
+        if (rollup == null) {
+            return null;
+        }
+        Object percentilesNode = rollup.get("percentiles");
+        if (!(percentilesNode instanceof List<?> list)) {
+            return null;
+        }
+        List<Double> percentiles = new ArrayList<>();
+        for (Object value : list) {
+            if (value == null) continue;
+            try {
+                percentiles.add(Double.parseDouble(value.toString()));
+            } catch (NumberFormatException ignore) {
+            }
+        }
+        return percentiles.isEmpty() ? null : List.copyOf(percentiles);
+    }
+
     private Map<String, Object> asMap(Object node) {
         if (!(node instanceof Map<?, ?> map)) {
             return null;
@@ -145,6 +191,22 @@ public class ConfigMaterializer {
             }
         });
         return copy;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> toStringList(Object value) {
+        if (!(value instanceof List<?> list)) {
+            return List.of();
+        }
+        List<String> result = new ArrayList<>();
+        for (Object entry : list) {
+            if (entry == null) continue;
+            String s = entry.toString().trim();
+            if (!s.isEmpty()) {
+                result.add(s);
+            }
+        }
+        return List.copyOf(result);
     }
 
     private String stringValue(Object value) {

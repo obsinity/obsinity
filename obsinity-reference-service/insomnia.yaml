@@ -105,6 +105,13 @@ resources:
     name: Counters
     _type: request_group
 
+  - _id: fld_histograms
+    parentId: wrk_68f2907246df440f96e2f024b4a89fee
+    created: 1756720000000
+    modified: 1756720000000
+    name: Histograms
+    _type: request_group
+
   - _id: fld_admin
     parentId: wrk_68f2907246df440f96e2f024b4a89fee
     created: 1754511488005
@@ -1144,6 +1151,38 @@ resources:
           "limits": {
             "offset": 0,
             "limit": 12
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  # ===================== Histograms =====================
+  - _id: req_histogram_query_latency
+    parentId: fld_histograms
+    created: 1756720000100
+    modified: 1756720000100
+    name: Histograms - HTTP latency (1m percentiles)
+    description: Query the histogram API to retrieve latency percentiles over the last hour.
+    method: POST
+    url: "{{ base_url }}/api/histograms/query"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "serviceKey": "{{ service_id }}",
+          "eventType": "{{ event_name }}",
+          "histogramName": "http_request_latency_ms",
+          "interval": "1m",
+          "key": {
+            "http.method": ["GET"],
+            "http.route": ["/api/checkout"]
+          },
+          "percentiles": [0.5, 0.9, 0.95, 0.99],
+          "limits": {
+            "offset": 0,
+            "limit": 60
           }
         }
     headers:

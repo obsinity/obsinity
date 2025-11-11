@@ -219,6 +219,74 @@ paths:
                         http.status_code_group: ['2xx', '5xx']
                       limits: { offset: 24, limit: 24 }
 
+  /api/histograms/query:
+    post:
+      tags: ['Histograms']
+      summary: 'Query histogram intervals'
+      description: 'Retrieve latency/size histogram summaries with percentiles.'
+      operationId: 'queryHistograms'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HistogramQueryRequestPayload'
+            example:
+              serviceKey: 'payments'
+              eventType: 'http_request'
+              histogramName: 'http_request_latency_ms'
+              interval: '1m'
+              start: '2025-01-01T00:00:00Z'
+              end: '2025-01-01T01:00:00Z'
+              key:
+                http.method: ['GET']
+                http.route: ['/payments']
+              percentiles: [0.5, 0.9, 0.99]
+              limits:
+                offset: 0
+                limit: 60
+      responses:
+        '200':
+          description: 'HAL-style histogram response containing windowed summaries and navigation links.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistogramQueryHalResponse'
+              example:
+                count: 1
+                total: 60
+                limit: 60
+                offset: 0
+                data:
+                  intervals:
+                    - from: '2025-01-01T00:00:00Z'
+                      to: '2025-01-01T00:01:00Z'
+                      series:
+                        - key: { http.method: 'GET', http.route: '/payments' }
+                          samples: 120
+                          sum: 4800.0
+                          mean: 40.0
+                          percentiles:
+                            0.5: 32.0
+                            0.9: 70.0
+                            0.99: 180.0
+                links:
+                  self:
+                    href: '/api/histograms/query'
+                    method: 'POST'
+                    body:
+                      serviceKey: 'payments'
+                      eventType: 'http_request'
+                      histogramName: 'http_request_latency_ms'
+                      interval: '1m'
+                      start: '2025-01-01T00:00:00Z'
+                      end: '2025-01-01T01:00:00Z'
+                      key:
+                        http.method: ['GET']
+                        http.route: ['/payments']
+                      percentiles: [0.5, 0.9, 0.99]
+                      limits: { offset: 0, limit: 60 }
+
 components:
   schemas:
 
@@ -418,6 +486,102 @@ components:
           type: integer
           description: 'Maximum number of intervals to return.'
           example: 24
+
+    HistogramQueryRequestPayload:
+      type: object
+      description: 'Histogram query request payload.'
+      properties:
+        serviceKey:
+          type: string
+          example: 'payments'
+          minLength: 1
+          maxLength: 63
+        eventType:
+          type: string
+          example: 'http_request'
+          minLength: 1
+          maxLength: 63
+        histogramName:
+          type: string
+          description: 'Name of the histogram metric to query.'
+          example: 'http_request_latency_ms'
+          minLength: 1
+          maxLength: 128
+        key:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: 'Optional key matrix for per-dimension histograms.'
+        interval:
+          type: string
+          description: 'Interval to aggregate (multiple of the histogram granularity).'
+          example: '1m'
+        start:
+          type: string
+          format: date-time
+          description: 'Inclusive start of the query window.'
+        end:
+          type: string
+          format: date-time
+          description: 'Exclusive end of the query window.'
+        percentiles:
+          type: array
+          description: 'Optional percentile list (0–1). Defaults to the metric definition.'
+          items:
+              type: number
+              format: double
+          example: [0.5, 0.9, 0.99]
+        limits:
+          $ref: '#/components/schemas/CounterPageLimits'
+      required: [serviceKey, eventType, histogramName]
+
+    HistogramQueryHalResponse:
+      type: object
+      properties:
+        count: { type: integer }
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+        data:
+          type: object
+          properties:
+            intervals:
+              type: array
+              items:
+                type: object
+                properties:
+                  from: { type: string, format: date-time }
+                  to: { type: string, format: date-time }
+                  series:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          type: object
+                          additionalProperties: { type: string }
+                        samples:
+                          type: integer
+                          format: int64
+                        sum:
+                          type: number
+                          format: double
+                        mean:
+                          type: number
+                          format: double
+                        percentiles:
+                          type: object
+                          additionalProperties: { type: number, format: double }
+        links:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              href: { type: string }
+              method: { type: string }
+              body: { type: object }
           minimum: 1
 
     CounterQueryHalResponse:
