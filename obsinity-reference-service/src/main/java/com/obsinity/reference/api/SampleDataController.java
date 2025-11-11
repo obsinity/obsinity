@@ -112,7 +112,7 @@ public class SampleDataController {
                         "v1",
                         "demo",
                         14,
-                        24);
+                        5000);
             }
             return new SampleRequest(
                     emptyToDefault(maybe.serviceKey, "payments"),
@@ -126,7 +126,7 @@ public class SampleDataController {
                     emptyToDefault(maybe.apiVersion, "v1"),
                     emptyToDefault(maybe.environment, "demo"),
                     maybe.days <= 0 ? 14 : maybe.days,
-                    maybe.eventsPerDay <= 0 ? 24 : maybe.eventsPerDay);
+                    maybe.eventsPerDay <= 0 ? 5000 : maybe.eventsPerDay);
         }
 
         private static String emptyToDefault(String value, String fallback) {
