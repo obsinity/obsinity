@@ -32,12 +32,14 @@ public class SampleDataController {
         List<EventEnvelope> events = new ArrayList<>();
         double[] latencyProfile = {15, 25, 40, 60, 80, 120, 180, 250, 400, 750, 1100, 1500};
         int statusesSize = req.statusCodes().size();
-        long secondsPerDaySlot = Duration.ofDays(1).toSeconds() / Math.max(1, req.eventsPerDay());
+        int eventsPerDay = Math.max(1, req.eventsPerDay());
+        long millisPerSlot = Duration.ofDays(1).toMillis() / eventsPerDay;
 
         for (int day = 0; day < req.days(); day++) {
-            Instant dayStart = now.minus(Duration.ofDays(req.days() - day));
-            for (int slot = 0; slot < req.eventsPerDay(); slot++) {
-                Instant start = dayStart.plusSeconds(slot * secondsPerDaySlot);
+            long dayOffset = req.days() - 1L - day;
+            Instant dayStart = now.minus(Duration.ofDays(dayOffset));
+            for (int slot = 0; slot < eventsPerDay; slot++) {
+                Instant start = dayStart.plusMillis(slot * millisPerSlot);
                 double baseLatency = latencyProfile[slot % latencyProfile.length];
                 double jitterFactor = 1.0 + ((day % 5) * 0.05);
                 long latencyMillis = Math.max(5, Math.round(baseLatency * jitterFactor));
