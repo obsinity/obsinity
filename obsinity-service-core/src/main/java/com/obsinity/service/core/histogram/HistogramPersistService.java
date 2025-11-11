@@ -5,18 +5,16 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.obsinity.service.core.config.HistogramSpec;
 import com.obsinity.service.core.counter.CounterBucket;
 import com.obsinity.service.core.counter.CounterGranularity;
-import java.sql.PreparedStatement;
 import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +34,25 @@ public class HistogramPersistService {
         ON CONFLICT (ts, bucket, histogram_config_id, key_hash) DO NOTHING
         """;
 
+    private static final String SELECT_EXISTING_SQL =
+            """
+        SELECT sketch_payload, sample_count, sample_sum
+        FROM obsinity.event_histograms
+        WHERE ts = ? AND bucket = ? AND histogram_config_id = ? AND key_hash = ?
+        FOR UPDATE
+        """;
+
+    private static final String UPDATE_SQL =
+            """
+        UPDATE obsinity.event_histograms
+        SET sketch_cfg = ?::jsonb,
+            sketch_payload = ?::jsonb,
+            sample_count = ?,
+            sample_sum = ?
+        WHERE ts = ? AND bucket = ? AND histogram_config_id = ? AND key_hash = ?
+        """;
+
+    @Transactional
     public void persist(
             CounterGranularity granularity,
             long epochSeconds,
@@ -59,28 +76,69 @@ public class HistogramPersistService {
 
     private void persistBucket(
             CounterBucket bucket, Instant timestamp, List<HistogramBuffer.BufferedHistogramEntry> entries) {
-        List<HistogramBuffer.BufferedHistogramEntry> mutable = new ArrayList<>(entries);
-        jdbcTemplate.batchUpdate(INSERT_SQL, new BatchPreparedStatementSetter() {
-            @Override
-            public void setValues(PreparedStatement ps, int i) throws java.sql.SQLException {
-                HistogramBuffer.BufferedHistogramEntry entry = mutable.get(i);
-                ps.setTimestamp(1, Timestamp.from(timestamp));
-                ps.setString(2, bucket.label());
-                ps.setObject(3, entry.getHistogramConfigId());
-                ps.setObject(4, entry.getEventTypeId());
-                ps.setString(5, entry.getKeyHash());
-                ps.setString(6, canonicalJson(entry.getKeyData()));
-                ps.setString(7, sketchSpecJson(entry.getSketchSpec()));
-                ps.setBytes(8, HistogramSketchCodec.serialize(entry.getSketch()));
-                ps.setLong(9, entry.getSamples());
-                ps.setDouble(10, entry.getSum());
+        for (HistogramBuffer.BufferedHistogramEntry entry : entries) {
+            if (entry.getSamples() <= 0) {
+                continue;
             }
+            boolean inserted = tryInsert(bucket, timestamp, entry);
+            if (!inserted) {
+                mergeAndUpdate(bucket, timestamp, entry);
+            }
+        }
+    }
 
-            @Override
-            public int getBatchSize() {
-                return mutable.size();
-            }
-        });
+    private boolean tryInsert(
+            CounterBucket bucket, Instant timestamp, HistogramBuffer.BufferedHistogramEntry entry) {
+        int rows = jdbcTemplate.update(
+                INSERT_SQL,
+                Timestamp.from(timestamp),
+                bucket.label(),
+                entry.getHistogramConfigId(),
+                entry.getEventTypeId(),
+                entry.getKeyHash(),
+                canonicalJson(entry.getKeyData()),
+                sketchSpecJson(entry.getSketchSpec()),
+                HistogramSketchCodec.serialize(entry.getSketch()),
+                entry.getSamples(),
+                entry.getSum());
+        return rows == 1;
+    }
+
+    private void mergeAndUpdate(
+            CounterBucket bucket, Instant timestamp, HistogramBuffer.BufferedHistogramEntry entry) {
+        ExistingRow existing = jdbcTemplate.query(SELECT_EXISTING_SQL,
+                rs -> rs.next()
+                        ? new ExistingRow(
+                                rs.getBytes("sketch_payload"),
+                                rs.getLong("sample_count"),
+                                rs.getDouble("sample_sum"))
+                        : null,
+                Timestamp.from(timestamp),
+                bucket.label(),
+                entry.getHistogramConfigId(),
+                entry.getKeyHash());
+
+        DDSketch mergedSketch = HistogramSketchCodec.deserialize(
+                existing != null ? existing.sketchPayload() : null);
+        if (mergedSketch == null) {
+            mergedSketch = HistogramSketchCodec.deserialize(HistogramSketchCodec.serialize(entry.getSketch()));
+        } else {
+            mergedSketch.mergeWith(entry.getSketch());
+        }
+
+        long mergedSamples = entry.getSamples() + (existing != null ? existing.sampleCount() : 0L);
+        double mergedSum = entry.getSum() + (existing != null ? existing.sampleSum() : 0.0d);
+
+        jdbcTemplate.update(
+                UPDATE_SQL,
+                sketchSpecJson(entry.getSketchSpec()),
+                HistogramSketchCodec.serialize(mergedSketch),
+                mergedSamples,
+                mergedSum,
+                Timestamp.from(timestamp),
+                bucket.label(),
+                entry.getHistogramConfigId(),
+                entry.getKeyHash());
     }
 
     private String canonicalJson(Map<String, String> data) {
@@ -99,4 +157,6 @@ public class HistogramPersistService {
         node.put("maxValue", spec.maxValue());
         return node.toString();
     }
+
+    private record ExistingRow(byte[] sketchPayload, long sampleCount, double sampleSum) {}
 }

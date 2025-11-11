@@ -50,13 +50,13 @@ public class HistogramQueryRepository {
     public record Row(String keyHash, byte[] sketchPayload, long sampleCount, double sampleSum) {}
 
     public Instant findEarliestTimestamp(UUID histogramConfigId) {
-        String sql = """
+        String sql =
+                """
                 SELECT MIN(ts) AS earliest
                 FROM obsinity.event_histograms
                 WHERE histogram_config_id = :histogramConfigId
                 """;
-        MapSqlParameterSource params =
-                new MapSqlParameterSource().addValue("histogramConfigId", histogramConfigId);
+        MapSqlParameterSource params = new MapSqlParameterSource().addValue("histogramConfigId", histogramConfigId);
         return jdbcTemplate.query(sql, params, rs -> {
             if (rs.next()) {
                 Timestamp ts = rs.getTimestamp("earliest");
