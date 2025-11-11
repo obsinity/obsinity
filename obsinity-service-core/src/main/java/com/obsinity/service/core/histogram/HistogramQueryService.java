@@ -74,10 +74,10 @@ public class HistogramQueryService {
 
         CounterBucket bucket = resolveBucket(granularity, requestedInterval);
 
-        Instant start = request.start() != null
-                ? Instant.parse(request.start())
-                : Instant.now().minus(requestedInterval);
-        Instant end = request.end() != null ? Instant.parse(request.end()) : Instant.now();
+        Instant defaultEnd = Instant.now();
+        Instant defaultStart = defaultEnd.minus(Duration.ofDays(14));
+        Instant start = request.start() != null ? Instant.parse(request.start()) : defaultStart;
+        Instant end = request.end() != null ? Instant.parse(request.end()) : defaultEnd;
         if (!end.isAfter(start)) {
             throw new IllegalArgumentException("The requested end time must be after start");
         }

@@ -1182,6 +1182,8 @@ resources:
           "eventType": "{{ event_name }}",
           "histogramName": "http_request_latency_ms",
           "interval": "1m",
+          "start": "{% now 'iso-8601', 'utc', -60 %}",
+          "end": "{% now 'iso-8601', 'utc' %}",
           "key": {
             "http.method": ["GET"],
             "http.route": ["/api/checkout"]
