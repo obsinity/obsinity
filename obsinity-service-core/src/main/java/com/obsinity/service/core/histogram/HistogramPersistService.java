@@ -47,7 +47,7 @@ public class HistogramPersistService {
             """
         UPDATE obsinity.event_histograms
         SET sketch_cfg = ?::jsonb,
-            sketch_payload = ?::jsonb,
+            sketch_payload = ?,
             sample_count = ?,
             sample_sum = ?
         WHERE ts = ? AND bucket = ? AND histogram_config_id = ? AND key_hash = ?
