@@ -150,8 +150,6 @@ public class HistogramPersistService {
         ObjectNode node = mapper.createObjectNode();
         node.put("kind", spec.kind());
         node.put("relativeAccuracy", spec.relativeAccuracy());
-        node.put("minValue", spec.minValue());
-        node.put("maxValue", spec.maxValue());
         return node.toString();
     }
 

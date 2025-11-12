@@ -187,8 +187,6 @@ spec:
   sketch:
     kind: ddsketch               # first-class latency storage
     relativeAccuracy: 0.01       # 1% default
-    minValue: 0.0005             # lower bound in seconds
-    maxValue: 120.0              # soft upper limit in seconds (controls memory footprint)
 
   # Optional alternative when explicit bins are required. Skipped when sketch.kind = ddsketch.
   buckets:
@@ -221,8 +219,6 @@ spec:
   sketch:
     kind: ddsketch
     relativeAccuracy: 0.01
-    minValue: 0.0005                    # 0.5 ms
-    maxValue: 120.0                     # 2 minutes
   rollup:
     windowing: { granularities: [5s, 1m, 1h, 1d, 7d] }
     percentiles: [0.5, 0.9, 0.95, 0.99]

@@ -131,9 +131,7 @@ public class ConfigMaterializer {
         }
         String kind = stringValue(sketch.get("kind"));
         double accuracy = doubleValue(sketch.get("relativeAccuracy"), 0.01d);
-        double min = doubleValue(sketch.get("minValue"), 0.0005d);
-        double max = doubleValue(sketch.get("maxValue"), 120.0d);
-        return new HistogramSpec.SketchSpec(kind, accuracy, min, max);
+        return new HistogramSpec.SketchSpec(kind, accuracy);
     }
 
     private CounterGranularity extractHistogramGranularity(Map<String, Object> spec) {

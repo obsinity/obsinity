@@ -19,8 +19,6 @@ spec:
   sketch:
     kind: ddsketch
     relativeAccuracy: 0.01
-    minValue: 0.0005
-    maxValue: 120.0
   rollup:
     windowing:
       granularities: [5s, 1m, 1h, 1d, 7d]

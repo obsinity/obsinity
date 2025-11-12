@@ -23,7 +23,7 @@ public class HistogramQueryRepository {
         }
         String sql =
                 """
-                SELECT key_hash, sketch_payload, sample_count, sample_sum, overflow_low, overflow_high
+                SELECT key_hash, sketch_payload, sample_count, sample_sum
                 FROM obsinity.event_histograms
                 WHERE histogram_config_id = :histogramConfigId
                   AND bucket = :bucket
@@ -44,13 +44,10 @@ public class HistogramQueryRepository {
                         rs.getString("key_hash"),
                         rs.getBytes("sketch_payload"),
                         rs.getLong("sample_count"),
-                        rs.getDouble("sample_sum"),
-                        rs.getLong("overflow_low"),
-                        rs.getLong("overflow_high")));
+                        rs.getDouble("sample_sum")));
     }
 
-    public record Row(
-            String keyHash, byte[] sketchPayload, long sampleCount, double sampleSum, long overflowLow, long overflowHigh) {}
+    public record Row(String keyHash, byte[] sketchPayload, long sampleCount, double sampleSum) {}
 
     public Instant findEarliestTimestamp(UUID histogramConfigId) {
         String sql =

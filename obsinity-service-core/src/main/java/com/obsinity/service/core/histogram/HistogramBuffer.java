@@ -123,7 +123,6 @@ public class HistogramBuffer {
             samples++;
         }
 
-
         public double mean() {
             return samples == 0 ? 0.0d : sum / samples;
         }
