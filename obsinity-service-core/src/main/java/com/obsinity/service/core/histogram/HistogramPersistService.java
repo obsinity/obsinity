@@ -1,5 +1,6 @@
 package com.obsinity.service.core.histogram;
 
+import com.datadoghq.sketch.ddsketch.DDSketch;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.obsinity.service.core.config.HistogramSpec;
@@ -87,8 +88,7 @@ public class HistogramPersistService {
         }
     }
 
-    private boolean tryInsert(
-            CounterBucket bucket, Instant timestamp, HistogramBuffer.BufferedHistogramEntry entry) {
+    private boolean tryInsert(CounterBucket bucket, Instant timestamp, HistogramBuffer.BufferedHistogramEntry entry) {
         int rows = jdbcTemplate.update(
                 INSERT_SQL,
                 Timestamp.from(timestamp),
@@ -104,22 +104,19 @@ public class HistogramPersistService {
         return rows == 1;
     }
 
-    private void mergeAndUpdate(
-            CounterBucket bucket, Instant timestamp, HistogramBuffer.BufferedHistogramEntry entry) {
-        ExistingRow existing = jdbcTemplate.query(SELECT_EXISTING_SQL,
+    private void mergeAndUpdate(CounterBucket bucket, Instant timestamp, HistogramBuffer.BufferedHistogramEntry entry) {
+        ExistingRow existing = jdbcTemplate.query(
+                SELECT_EXISTING_SQL,
                 rs -> rs.next()
                         ? new ExistingRow(
-                                rs.getBytes("sketch_payload"),
-                                rs.getLong("sample_count"),
-                                rs.getDouble("sample_sum"))
+                                rs.getBytes("sketch_payload"), rs.getLong("sample_count"), rs.getDouble("sample_sum"))
                         : null,
                 Timestamp.from(timestamp),
                 bucket.label(),
                 entry.getHistogramConfigId(),
                 entry.getKeyHash());
 
-        DDSketch mergedSketch = HistogramSketchCodec.deserialize(
-                existing != null ? existing.sketchPayload() : null);
+        DDSketch mergedSketch = HistogramSketchCodec.deserialize(existing != null ? existing.sketchPayload() : null);
         if (mergedSketch == null) {
             mergedSketch = HistogramSketchCodec.deserialize(HistogramSketchCodec.serialize(entry.getSketch()));
         } else {
