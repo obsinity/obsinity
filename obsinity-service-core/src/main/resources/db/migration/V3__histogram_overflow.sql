@@ -1,0 +1,3 @@
+ALTER TABLE obsinity.event_histograms
+    ADD COLUMN IF NOT EXISTS overflow_low BIGINT NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS overflow_high BIGINT NOT NULL DEFAULT 0;

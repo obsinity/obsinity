@@ -63,6 +63,19 @@ public class HistogramIngestService {
             Instant aligned = granularity.baseBucket().align(occurredAt);
             long epoch = aligned.getEpochSecond();
 
+            boolean overflowLow = false;
+            boolean overflowHigh = false;
+            HistogramSpec.SketchSpec sketchSpec = spec.sketchSpec();
+            if (sketchSpec != null) {
+                if (sample < sketchSpec.minValue()) {
+                    sample = sketchSpec.minValue();
+                    overflowLow = true;
+                } else if (sample > sketchSpec.maxValue()) {
+                    sample = sketchSpec.maxValue();
+                    overflowHigh = true;
+                }
+            }
+
             buffer.recordSample(
                     granularity,
                     epoch,
@@ -71,7 +84,9 @@ public class HistogramIngestService {
                     keyHash,
                     dimensionValues,
                     sample,
-                    spec.sketchSpec());
+                    sketchSpec,
+                    overflowLow,
+                    overflowHigh);
         }
     }
 

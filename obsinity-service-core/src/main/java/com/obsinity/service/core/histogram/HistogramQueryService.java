@@ -105,8 +105,14 @@ public class HistogramQueryService {
         List<Double> percentiles = request.percentiles() != null && !request.percentiles().isEmpty()
                 ? request.percentiles()
                 : defaultPercentiles;
-        if (percentiles.size() > defaultPercentiles.size()) {
-            percentiles = defaultPercentiles;
+        if (spec != null && spec.percentiles() != null && !spec.percentiles().isEmpty()) {
+            List<Double> allowed = spec.percentiles();
+            percentiles = percentiles.stream()
+                    .filter(allowed::contains)
+                    .toList();
+            if (percentiles.isEmpty()) {
+                percentiles = allowed;
+            }
         }
 
         int offset = request.limits() != null && request.limits().offset() != null
@@ -136,7 +142,14 @@ public class HistogramQueryService {
                 Map<Double, Double> percentileValues =
                         computePercentiles(aggregation.sketch(), percentiles, aggregation.samples());
                 Double mean = aggregation.samples() > 0 ? aggregation.sum() / aggregation.samples() : null;
-                series.add(new Series(key, aggregation.samples(), aggregation.sum(), mean, percentileValues));
+                series.add(new Series(
+                        key,
+                        aggregation.samples(),
+                        aggregation.sum(),
+                        mean,
+                        percentileValues,
+                        aggregation.overflowLow(),
+                        aggregation.overflowHigh()));
             }
 
             windows.add(new HistogramQueryWindow(ISO_INSTANT.format(cursor), ISO_INSTANT.format(next), series));
@@ -148,7 +161,7 @@ public class HistogramQueryService {
     }
 
     private HistogramAggregation aggregate(List<HistogramQueryRepository.Row> rows, HistogramSpec spec) {
-        HistogramAggregation aggregation = new HistogramAggregation(createSketch(spec), 0, 0.0d);
+        HistogramAggregation aggregation = new HistogramAggregation(createSketch(spec), 0, 0.0d, 0, 0);
         if (rows == null || rows.isEmpty()) {
             return aggregation;
         }
@@ -157,8 +170,11 @@ public class HistogramQueryService {
             if (rowSketch != null) {
                 aggregation.sketch().mergeWith(rowSketch);
             }
-            aggregation = aggregation.withSamples(aggregation.samples() + row.sampleCount());
-            aggregation = aggregation.withSum(aggregation.sum() + row.sampleSum());
+            aggregation
+                    .addSamples(row.sampleCount())
+                    .addSum(row.sampleSum())
+                    .addOverflowLow(row.overflowLow())
+                    .addOverflowHigh(row.overflowHigh());
         }
         return aggregation;
     }
@@ -233,13 +249,59 @@ public class HistogramQueryService {
         return (int) Math.max(0, millis / stepMillis);
     }
 
-    private record HistogramAggregation(DDSketch sketch, long samples, double sum) {
-        HistogramAggregation withSamples(long newSamples) {
-            return new HistogramAggregation(sketch, newSamples, sum);
+    private static final class HistogramAggregation {
+        private final DDSketch sketch;
+        private long samples;
+        private double sum;
+        private long overflowLow;
+        private long overflowHigh;
+
+        HistogramAggregation(DDSketch sketch, long samples, double sum, long overflowLow, long overflowHigh) {
+            this.sketch = sketch;
+            this.samples = samples;
+            this.sum = sum;
+            this.overflowLow = overflowLow;
+            this.overflowHigh = overflowHigh;
         }
 
-        HistogramAggregation withSum(double newSum) {
-            return new HistogramAggregation(sketch, samples, newSum);
+        DDSketch sketch() {
+            return sketch;
+        }
+
+        long samples() {
+            return samples;
+        }
+
+        double sum() {
+            return sum;
+        }
+
+        long overflowLow() {
+            return overflowLow;
+        }
+
+        long overflowHigh() {
+            return overflowHigh;
+        }
+
+        HistogramAggregation addSamples(long delta) {
+            this.samples += delta;
+            return this;
+        }
+
+        HistogramAggregation addSum(double delta) {
+            this.sum += delta;
+            return this;
+        }
+
+        HistogramAggregation addOverflowLow(long delta) {
+            this.overflowLow += delta;
+            return this;
+        }
+
+        HistogramAggregation addOverflowHigh(long delta) {
+            this.overflowHigh += delta;
+            return this;
         }
     }
 }

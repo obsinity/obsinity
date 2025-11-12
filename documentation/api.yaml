@@ -270,6 +270,8 @@ paths:
                             0.5: 32.0
                             0.9: 70.0
                             0.99: 180.0
+                          overflowLow: 0
+                          overflowHigh: 3
                 links:
                   self:
                     href: '/api/histograms/query'
@@ -574,6 +576,14 @@ components:
                         percentiles:
                           type: object
                           additionalProperties: { type: number, format: double }
+                        overflowLow:
+                          type: integer
+                          format: int64
+                          description: 'Number of samples clamped to the configured minimum.'
+                        overflowHigh:
+                          type: integer
+                          format: int64
+                          description: 'Number of samples clamped to the configured maximum.'
         links:
           type: object
           additionalProperties:

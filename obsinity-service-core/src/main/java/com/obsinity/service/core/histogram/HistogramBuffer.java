@@ -34,7 +34,9 @@ public class HistogramBuffer {
             String keyHash,
             Map<String, String> keyData,
             double sampleValue,
-            HistogramSpec.SketchSpec sketchSpec) {
+            HistogramSpec.SketchSpec sketchSpec,
+            boolean overflowLow,
+            boolean overflowHigh) {
         ConcurrentMap<Long, ConcurrentMap<String, BufferedHistogramEntry>> granularityBuffer = buffers.get(granularity);
         ConcurrentMap<String, BufferedHistogramEntry> epochMap =
                 granularityBuffer.computeIfAbsent(epoch, ignored -> new ConcurrentHashMap<>());
@@ -44,9 +46,21 @@ public class HistogramBuffer {
                 BufferedHistogramEntry entry = new BufferedHistogramEntry(
                         histogramConfigId, eventTypeId, keyHash, keyData, sketchSpec, sketch);
                 entry.addSample(sampleValue);
+                if (overflowLow) {
+                    entry.addOverflowLow();
+                }
+                if (overflowHigh) {
+                    entry.addOverflowHigh();
+                }
                 return entry;
             }
             existing.addSample(sampleValue);
+            if (overflowLow) {
+                existing.addOverflowLow();
+            }
+            if (overflowHigh) {
+                existing.addOverflowHigh();
+            }
             return existing;
         });
     }
@@ -98,6 +112,8 @@ public class HistogramBuffer {
         private final DDSketch sketch;
         private double sum;
         private long samples;
+        private long overflowLow;
+        private long overflowHigh;
 
         private BufferedHistogramEntry(
                 UUID histogramConfigId,
@@ -121,6 +137,14 @@ public class HistogramBuffer {
             sketch.accept(value);
             sum += value;
             samples++;
+        }
+
+        public void addOverflowLow() {
+            overflowLow++;
+        }
+
+        public void addOverflowHigh() {
+            overflowHigh++;
         }
 
         public double mean() {
