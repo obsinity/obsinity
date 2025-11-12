@@ -148,7 +148,8 @@ public class HistogramQueryService {
             intervalsAdded++;
         }
 
-        return new HistogramQueryResult(windows, offset, limit, computeTotalIntervals(alignedStart, alignedEnd, step));
+        return new HistogramQueryResult(
+                windows, offset, limit, computeTotalIntervals(alignedStart, alignedEnd, step), defaultPercentiles);
     }
 
     private HistogramAggregation aggregate(List<HistogramQueryRepository.Row> rows, HistogramSpec spec) {

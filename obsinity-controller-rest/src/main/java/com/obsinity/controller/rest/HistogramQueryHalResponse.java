@@ -10,7 +10,13 @@ import java.util.Map;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record HistogramQueryHalResponse(
-        int count, int total, int limit, int offset, Data data, Map<String, HalLink> links) {
+        int count,
+        int total,
+        int limit,
+        int offset,
+        List<Double> defaultPercentiles,
+        Data data,
+        Map<String, HalLink> links) {
 
     record Data(List<HistogramQueryWindow> intervals) {}
 
@@ -23,7 +29,8 @@ public record HistogramQueryHalResponse(
         int limit = determineLimit(request, count, total);
 
         Map<String, HalLink> links = buildLinks(href, request, offset, limit, count, total);
-        return new HistogramQueryHalResponse(count, total, limit, offset, new Data(result.windows()), links);
+        return new HistogramQueryHalResponse(
+                count, total, limit, offset, result.defaultPercentiles(), new Data(result.windows()), links);
     }
 
     private static int determineLimit(HistogramQueryRequest request, int count, int total) {
