@@ -105,15 +105,6 @@ public class HistogramQueryService {
         List<Double> percentiles = request.percentiles() != null && !request.percentiles().isEmpty()
                 ? request.percentiles()
                 : defaultPercentiles;
-        if (spec != null && spec.percentiles() != null && !spec.percentiles().isEmpty()) {
-            List<Double> allowed = spec.percentiles();
-            percentiles = percentiles.stream()
-                    .filter(allowed::contains)
-                    .toList();
-            if (percentiles.isEmpty()) {
-                percentiles = allowed;
-            }
-        }
 
         int offset = request.limits() != null && request.limits().offset() != null
                 ? request.limits().offset()
