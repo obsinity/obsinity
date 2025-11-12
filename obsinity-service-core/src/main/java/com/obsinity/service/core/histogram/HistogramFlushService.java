@@ -52,7 +52,7 @@ public class HistogramFlushService {
             }
         });
 
-        int maxEpochsPerRun = 100;
+        int maxEpochsPerRun = 5000;
         int processed = 0;
         for (Long epoch : epochsToFlush) {
             if (processed >= maxEpochsPerRun) {
