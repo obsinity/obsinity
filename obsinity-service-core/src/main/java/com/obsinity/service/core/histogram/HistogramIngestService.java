@@ -43,7 +43,7 @@ public class HistogramIngestService {
 
             CounterGranularity granularity = spec.granularity();
             double sample = resolveSampleValue(envelope, attributes, spec);
-            if (Double.isNaN(sample) || sample < 0) {
+            if (Double.isNaN(sample) || sample <= 0) {
                 continue;
             }
 
@@ -63,19 +63,6 @@ public class HistogramIngestService {
             Instant aligned = granularity.baseBucket().align(occurredAt);
             long epoch = aligned.getEpochSecond();
 
-            boolean overflowLow = false;
-            boolean overflowHigh = false;
-            HistogramSpec.SketchSpec sketchSpec = spec.sketchSpec();
-            if (sketchSpec != null) {
-                if (sample < sketchSpec.minValue()) {
-                    sample = sketchSpec.minValue();
-                    overflowLow = true;
-                } else if (sample > sketchSpec.maxValue()) {
-                    sample = sketchSpec.maxValue();
-                    overflowHigh = true;
-                }
-            }
-
             buffer.recordSample(
                     granularity,
                     epoch,
@@ -84,9 +71,7 @@ public class HistogramIngestService {
                     keyHash,
                     dimensionValues,
                     sample,
-                    sketchSpec,
-                    overflowLow,
-                    overflowHigh);
+                    spec.sketchSpec());
         }
     }
 
