@@ -41,9 +41,9 @@ public class SampleDataController {
             for (int slot = 0; slot < eventsPerDay; slot++) {
                 Instant start = dayStart.plusMillis(slot * millisPerSlot);
                 double baseLatency = latencyProfile[slot % latencyProfile.length];
-                boolean spike = ((day * eventsPerDay) + slot) % 500 == 0;
+                boolean spike = ((day * eventsPerDay) + slot) % 200 == 0;
                 if (spike) {
-                    baseLatency = 1600 + (slot % 5) * 60;
+                    baseLatency = 1600 + (slot % 8) * 80;
                 }
                 double jitterFactor = 0.9 + ((day % 4) * 0.05);
                 long latencyMillis = Math.max(25, Math.round(baseLatency * jitterFactor));
