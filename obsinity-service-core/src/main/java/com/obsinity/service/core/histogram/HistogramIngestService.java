@@ -47,6 +47,17 @@ public class HistogramIngestService {
                 continue;
             }
 
+            if (spec != null && spec.sketchSpec() != null) {
+                HistogramSpec.SketchSpec sketchSpec = spec.sketchSpec();
+                if (sample < sketchSpec.minValue() || sample > sketchSpec.maxValue()) {
+                    log.debug(
+                            "Skipping histogram sample outside configured bounds metric={} value={}",
+                            histogram.name(),
+                            sample);
+                    continue;
+                }
+            }
+
             Map<String, String> dimensionValues = extractKeyData(spec.keyDimensions(), attributes);
             String keyHash = hashService.getOrCreateHash(dimensionValues);
             Instant aligned = granularity.baseBucket().align(occurredAt);

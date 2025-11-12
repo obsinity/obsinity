@@ -100,10 +100,14 @@ public class HistogramQueryService {
                 keyMatrix.stream().map(hashService::getOrCreateHash).collect(Collectors.toList());
         String[] hashArray = hashes.toArray(String[]::new);
 
-        List<Double> percentiles =
-                request.percentiles() != null && !request.percentiles().isEmpty()
-                        ? request.percentiles()
-                        : (spec != null ? spec.percentiles() : List.of(0.5d, 0.9d, 0.95d, 0.99d));
+        List<Double> defaultPercentiles =
+                spec != null ? spec.percentiles() : List.of(0.5d, 0.9d, 0.95d, 0.99d);
+        List<Double> percentiles = request.percentiles() != null && !request.percentiles().isEmpty()
+                ? request.percentiles()
+                : defaultPercentiles;
+        if (percentiles.size() > defaultPercentiles.size()) {
+            percentiles = defaultPercentiles;
+        }
 
         int offset = request.limits() != null && request.limits().offset() != null
                 ? request.limits().offset()
