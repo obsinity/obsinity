@@ -29,15 +29,15 @@ public class HistogramPersistService {
             """
         INSERT INTO obsinity.event_histograms (
             ts, bucket, histogram_config_id, event_type_id, key_hash, key_data,
-            sketch_cfg, sketch_payload, sample_count, sample_sum, overflow_low, overflow_high
+            sketch_cfg, sketch_payload, sample_count, sample_sum
         )
-        VALUES (?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?)
         ON CONFLICT (ts, bucket, histogram_config_id, key_hash) DO NOTHING
         """;
 
     private static final String SELECT_EXISTING_SQL =
             """
-        SELECT sketch_payload, sample_count, sample_sum, overflow_low, overflow_high
+        SELECT sketch_payload, sample_count, sample_sum
         FROM obsinity.event_histograms
         WHERE ts = ? AND bucket = ? AND histogram_config_id = ? AND key_hash = ?
         FOR UPDATE
@@ -49,9 +49,7 @@ public class HistogramPersistService {
         SET sketch_cfg = ?::jsonb,
             sketch_payload = ?,
             sample_count = ?,
-            sample_sum = ?,
-            overflow_low = ?,
-            overflow_high = ?
+            sample_sum = ?
         WHERE ts = ? AND bucket = ? AND histogram_config_id = ? AND key_hash = ?
         """;
 
@@ -102,9 +100,7 @@ public class HistogramPersistService {
                 sketchSpecJson(entry.getSketchSpec()),
                 HistogramSketchCodec.serialize(entry.getSketch()),
                 entry.getSamples(),
-                entry.getSum(),
-                entry.getOverflowLow(),
-                entry.getOverflowHigh());
+                entry.getSum());
         return rows == 1;
     }
 
@@ -113,11 +109,7 @@ public class HistogramPersistService {
                 SELECT_EXISTING_SQL,
                 rs -> rs.next()
                         ? new ExistingRow(
-                                rs.getBytes("sketch_payload"),
-                                rs.getLong("sample_count"),
-                                rs.getDouble("sample_sum"),
-                                rs.getLong("overflow_low"),
-                                rs.getLong("overflow_high"))
+                                rs.getBytes("sketch_payload"), rs.getLong("sample_count"), rs.getDouble("sample_sum"))
                         : null,
                 Timestamp.from(timestamp),
                 bucket.label(),
@@ -133,8 +125,6 @@ public class HistogramPersistService {
 
         long mergedSamples = entry.getSamples() + (existing != null ? existing.sampleCount() : 0L);
         double mergedSum = entry.getSum() + (existing != null ? existing.sampleSum() : 0.0d);
-        long mergedOverflowLow = entry.getOverflowLow() + (existing != null ? existing.overflowLow() : 0L);
-        long mergedOverflowHigh = entry.getOverflowHigh() + (existing != null ? existing.overflowHigh() : 0L);
 
         jdbcTemplate.update(
                 UPDATE_SQL,
@@ -142,8 +132,6 @@ public class HistogramPersistService {
                 HistogramSketchCodec.serialize(mergedSketch),
                 mergedSamples,
                 mergedSum,
-                mergedOverflowLow,
-                mergedOverflowHigh,
                 Timestamp.from(timestamp),
                 bucket.label(),
                 entry.getHistogramConfigId(),
@@ -167,5 +155,5 @@ public class HistogramPersistService {
         return node.toString();
     }
 
-    private record ExistingRow(byte[] sketchPayload, long sampleCount, double sampleSum, long overflowLow, long overflowHigh) {}
+    private record ExistingRow(byte[] sketchPayload, long sampleCount, double sampleSum) {}
 }
