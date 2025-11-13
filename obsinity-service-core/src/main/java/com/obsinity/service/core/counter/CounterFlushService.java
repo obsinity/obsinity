@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 public class CounterFlushService {
 
     private final CounterBuffer buffer;
-    private final CounterPersistService persistService;
+    private final CounterPersistExecutor persistExecutor;
 
     @Value("${obsinity.counters.flush.max-batch-size:5000}")
     private int maxBatchSize;
@@ -94,11 +94,8 @@ public class CounterFlushService {
         int total = batch.size();
         for (int i = 0; i < total; i += maxBatchSize) {
             int toIndex = Math.min(i + maxBatchSize, total);
-            List<CounterPersistService.BatchItem> chunk = batch.subList(i, toIndex);
-            persistService.persistBatch(granularity, chunk);
-            for (CounterPersistService.BatchItem item : chunk) {
-                buffer.decrement(granularity, epoch, item.keyHash(), item.delta());
-            }
+            List<CounterPersistService.BatchItem> chunk = new ArrayList<>(batch.subList(i, toIndex));
+            persistExecutor.submit(new CounterPersistExecutor.Job(granularity, epoch, chunk));
         }
     }
 }

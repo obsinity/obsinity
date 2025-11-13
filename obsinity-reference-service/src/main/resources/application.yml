@@ -29,3 +29,7 @@ obsinity:
     persist:
       workers: 10
       queue-capacity: 20000
+  counters:
+    persist:
+      workers: 10
+      queue-capacity: 20000
