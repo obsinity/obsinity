@@ -4,6 +4,7 @@ import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.spi.EventIngestService;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -28,7 +29,12 @@ public class SampleDataController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public Map<String, Object> generateLatencyData(@RequestBody(required = false) SampleRequest request) {
         SampleRequest req = SampleRequest.defaults(request);
-        Instant now = Instant.now();
+        Instant requestTime = Instant.now();
+        Instant startOfCurrentDay = requestTime
+                .atZone(ZoneOffset.UTC)
+                .toLocalDate()
+                .atStartOfDay(ZoneOffset.UTC)
+                .toInstant();
         List<EventEnvelope> events = new ArrayList<>();
         double[] latencyProfile = {50, 65, 90, 120, 160, 210, 280, 360, 450, 560, 700, 900, 1150, 1400};
         int statusesSize = req.statusCodes().size();
@@ -37,9 +43,17 @@ public class SampleDataController {
 
         for (int day = 0; day < req.days(); day++) {
             long dayOffset = req.days() - 1L - day;
-            Instant dayStart = now.minus(Duration.ofDays(dayOffset));
+            Instant dayStart = startOfCurrentDay.minus(Duration.ofDays(dayOffset));
+            Instant dayEndExclusive = dayStart.plus(Duration.ofDays(1));
+            Instant upperBound = dayOffset == 0 ? requestTime : dayEndExclusive;
+            if (!dayStart.isBefore(upperBound)) {
+                continue;
+            }
             for (int slot = 0; slot < eventsPerDay; slot++) {
                 Instant start = dayStart.plusMillis(slot * millisPerSlot);
+                if (!start.isBefore(upperBound)) {
+                    break;
+                }
                 double baseLatency = latencyProfile[slot % latencyProfile.length];
                 boolean spike = ((day * eventsPerDay) + slot) % 50 == 0;
                 if (spike) {
@@ -48,6 +62,12 @@ public class SampleDataController {
                 double jitterFactor = 0.9 + ((day % 4) * 0.05);
                 long latencyMillis = Math.max(25, Math.round(baseLatency * jitterFactor));
                 Instant end = start.plusMillis(latencyMillis);
+                if (end.isAfter(upperBound)) {
+                    end = upperBound;
+                }
+                if (!end.isAfter(start)) {
+                    continue;
+                }
                 String status = req.statusCodes().get((day + slot) % statusesSize);
                 events.add(buildEvent(req, start, end, status));
             }

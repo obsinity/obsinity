@@ -1,13 +1,11 @@
 package com.obsinity.service.core.counter;
 
-import java.time.Instant;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -100,20 +98,11 @@ public class CounterBuffer {
             }
         });
 
-        String remaining = granularityBuffer.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .map(entry -> String.format(
-                        "%s=%d",
-                        Instant.ofEpochSecond(entry.getKey()).toString(),
-                        entry.getValue() != null ? entry.getValue().size() : 0))
-                .collect(Collectors.joining(", "));
-
         log.info(
-                "Buffer cleanup granularity={} epochsRemoved={} keysRemoved={} remainingEpochs={} [{}]",
+                "Buffer cleanup granularity={} epochsRemoved={} keysRemoved={} remainingEpochs={}",
                 granularity,
                 removedEpochs.get(),
                 removedKeys.get(),
-                granularityBuffer.size(),
-                remaining);
+                granularityBuffer.size());
     }
 }
