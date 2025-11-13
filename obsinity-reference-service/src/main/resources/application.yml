@@ -25,3 +25,7 @@ obsinity:
     hal:
       embedded: data
       links: links
+  histograms:
+    persist:
+      workers: 10
+      queue-capacity: 20000
