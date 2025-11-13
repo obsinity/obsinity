@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 public class HistogramFlushService {
 
     private final HistogramBuffer buffer;
-    private final HistogramPersistService persistService;
+    private final HistogramPersistExecutor persistExecutor;
 
     @Scheduled(fixedRateString = "${obsinity.histograms.flush.rate.s5:5000}")
     public void flushFiveSecond() {
@@ -62,26 +62,8 @@ public class HistogramFlushService {
             if (entries.isEmpty()) {
                 continue;
             }
-            try {
-                persistService.persist(granularity, epoch, entries.values());
-                long totalSamples = entries.values().stream()
-                        .mapToLong(HistogramBuffer.BufferedHistogramEntry::getSamples)
-                        .sum();
-                log.info(
-                        "Histogram flush complete granularity={} epoch={} keys={} samples={}",
-                        granularity,
-                        Instant.ofEpochSecond(epoch),
-                        entries.size(),
-                        totalSamples);
-                processed++;
-            } catch (Exception ex) {
-                log.error(
-                        "Histogram flush failed granularity={} epoch={} keys={}",
-                        granularity,
-                        Instant.ofEpochSecond(epoch),
-                        entries.size(),
-                        ex);
-            }
+            persistExecutor.submit(new HistogramPersistExecutor.Job(granularity, epoch, entries.values()));
+            processed++;
         }
 
         buffer.cleanupOldEntries(granularity);
