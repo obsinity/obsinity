@@ -75,12 +75,9 @@ public class HistogramQueryService {
         CounterBucket bucket = resolveBucket(granularity, requestedInterval);
 
         Instant defaultEnd = Instant.now();
-        Instant defaultStartCandidate = defaultEnd.minus(Duration.ofDays(14));
-        Instant defaultStart = bucket.align(defaultStartCandidate);
         Instant earliestData = repository.findEarliestTimestamp(histogramConfig.id(), bucket);
-        if (earliestData != null && earliestData.isAfter(defaultStart)) {
-            defaultStart = earliestData;
-        }
+        Instant defaultStart =
+                earliestData != null ? bucket.align(earliestData) : bucket.align(defaultEnd.minus(Duration.ofDays(14)));
 
         Instant start = request.start() != null ? Instant.parse(request.start()) : defaultStart;
         if (earliestData != null && start.isBefore(earliestData)) {
@@ -143,7 +140,13 @@ public class HistogramQueryService {
         }
 
         return new HistogramQueryResult(
-                windows, offset, limit, computeTotalIntervals(alignedStart, alignedEnd, step), defaultPercentiles);
+                windows,
+                offset,
+                limit,
+                computeTotalIntervals(alignedStart, alignedEnd, step),
+                defaultPercentiles,
+                start,
+                end);
     }
 
     private HistogramAggregation aggregate(List<HistogramQueryRepository.Row> rows, HistogramSpec spec) {

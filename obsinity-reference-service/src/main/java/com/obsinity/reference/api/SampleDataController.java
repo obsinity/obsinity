@@ -1,5 +1,8 @@
 package com.obsinity.reference.api;
 
+import com.obsinity.service.core.counter.CounterFlushService;
+import com.obsinity.service.core.counter.CounterGranularity;
+import com.obsinity.service.core.histogram.HistogramFlushService;
 import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.spi.EventIngestService;
 import java.time.Duration;
@@ -11,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -21,9 +25,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/internal/demo")
 @RequiredArgsConstructor
+@Slf4j
 public class SampleDataController {
 
+    private static final int ERROR_FREQUENCY = 20;
+
     private final EventIngestService ingestService;
+    private final CounterFlushService counterFlushService;
+    private final HistogramFlushService histogramFlushService;
 
     @PostMapping("/generate-latency")
     @ResponseStatus(HttpStatus.ACCEPTED)
@@ -37,7 +46,6 @@ public class SampleDataController {
                 .toInstant();
         List<EventEnvelope> events = new ArrayList<>();
         double[] latencyProfile = {50, 65, 90, 120, 160, 210, 280, 360, 450, 560, 700, 900, 1150, 1400};
-        int statusesSize = req.statusCodes().size();
         int eventsPerDay = Math.max(1, req.eventsPerDay());
         long millisPerSlot = Duration.ofDays(1).toMillis() / eventsPerDay;
 
@@ -68,17 +76,52 @@ public class SampleDataController {
                 if (!end.isAfter(start)) {
                     continue;
                 }
-                String status = req.statusCodes().get((day + slot) % statusesSize);
+                int eventIndex = (day * eventsPerDay) + slot;
+                String status = selectStatus(req.statusCodes(), eventIndex);
                 events.add(buildEvent(req, start, end, status));
             }
         }
 
         int stored = ingestService.ingestBatch(events);
+        triggerFlushes();
         return Map.of(
                 "generated", events.size(),
                 "stored", stored,
                 "service", req.serviceKey(),
                 "eventType", req.eventType());
+    }
+
+    private String selectStatus(List<String> statusCodes, int eventIndex) {
+        if (statusCodes == null || statusCodes.isEmpty()) {
+            return "200";
+        }
+        if (statusCodes.size() == 1) {
+            return statusCodes.get(0);
+        }
+        String success = statusCodes.get(0);
+        List<String> errors = statusCodes.subList(1, statusCodes.size());
+        // default error frequency ~5%
+        if (ERROR_FREQUENCY <= 0) {
+            return success;
+        }
+        if (eventIndex % ERROR_FREQUENCY == 0) {
+            int errorIndex = (eventIndex / ERROR_FREQUENCY) % errors.size();
+            return errors.get(errorIndex);
+        }
+        return success;
+    }
+
+    private void triggerFlushes() {
+        try {
+            for (CounterGranularity granularity : CounterGranularity.values()) {
+                counterFlushService.flushAndWait(granularity);
+            }
+            histogramFlushService.flushFiveSecond();
+            histogramFlushService.flushOneMinute();
+            histogramFlushService.flushFiveMinute();
+        } catch (Exception ex) {
+            log.warn("Demo data flush failed", ex);
+        }
     }
 
     private EventEnvelope buildEvent(SampleRequest req, Instant start, Instant end, String status) {

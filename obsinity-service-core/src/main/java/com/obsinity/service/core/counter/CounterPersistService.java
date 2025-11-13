@@ -1,7 +1,5 @@
 package com.obsinity.service.core.counter;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.sql.PreparedStatement;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -23,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class CounterPersistService {
 
     private final JdbcTemplate jdbcTemplate;
-    private final ObjectMapper mapper;
 
     @Transactional
     public void persistBatch(CounterGranularity baseGranularity, List<BatchItem> batch) {
@@ -52,7 +49,7 @@ public class CounterPersistService {
                     ps.setObject(3, item.counterConfigId());
                     ps.setObject(4, item.eventTypeId());
                     ps.setString(5, item.keyHash());
-                    ps.setString(6, canonicalJson(item.keyData()));
+                    ps.setString(6, item.keyDataJson());
                     ps.setLong(7, item.delta());
                 }
 
@@ -69,17 +66,15 @@ public class CounterPersistService {
         for (BatchItem item : batch) {
             Instant ts = bucket.align(item.timestamp());
             aligned.add(new BatchItem(
-                    ts, item.counterConfigId(), item.eventTypeId(), item.keyHash(), item.keyData(), item.delta()));
+                    ts,
+                    item.counterConfigId(),
+                    item.eventTypeId(),
+                    item.keyHash(),
+                    item.keyData(),
+                    item.keyDataJson(),
+                    item.delta()));
         }
         return aligned;
-    }
-
-    private String canonicalJson(Map<String, String> map) {
-        ObjectNode node = mapper.createObjectNode();
-        map.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .forEach(entry -> node.put(entry.getKey(), entry.getValue()));
-        return node.toString();
     }
 
     public record BatchItem(
@@ -88,5 +83,6 @@ public class CounterPersistService {
             UUID eventTypeId,
             String keyHash,
             Map<String, String> keyData,
+            String keyDataJson,
             long delta) {}
 }
