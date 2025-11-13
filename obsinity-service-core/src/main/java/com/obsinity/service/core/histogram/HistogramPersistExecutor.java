@@ -50,6 +50,8 @@ public class HistogramPersistExecutor {
     public void submit(Job job) {
         try {
             queue.put(new PersistJob(job.granularity(), job.epoch(), job.entries()));
+            log.info(
+                    "Histogram persist queue depth={}/{}", queue.size(), queueCapacity);
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Interrupted while submitting histogram persist job", ie);

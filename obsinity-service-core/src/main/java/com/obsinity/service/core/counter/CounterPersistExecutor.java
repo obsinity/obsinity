@@ -55,6 +55,7 @@ public class CounterPersistExecutor {
     public void submit(Job job) {
         try {
             queue.put(job);
+            log.info("Counter persist queue depth={}/{}", queue.size(), queueCapacity);
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Interrupted while submitting counter persist job", ie);
