@@ -33,15 +33,16 @@ public class CounterPersistExecutor {
 
     @PostConstruct
     void start() {
-        queue = new ArrayBlockingQueue<>(queueCapacity);
-        executor = Executors.newFixedThreadPool(workerCount);
-        for (int i = 0; i < workerCount; i++) {
+        init(queueCapacity, workerCount);
+    }
+
+    void init(int capacity, int workers) {
+        queue = new ArrayBlockingQueue<>(capacity);
+        executor = Executors.newFixedThreadPool(workers);
+        for (int i = 0; i < workers; i++) {
             executor.submit(this::drainLoop);
         }
-        log.info(
-                "Counter persist executor started workers={}, queueCapacity={}",
-                workerCount,
-                queueCapacity);
+        log.info("Counter persist executor started workers={}, queueCapacity={}", workers, capacity);
     }
 
     @PreDestroy
@@ -60,7 +61,7 @@ public class CounterPersistExecutor {
         }
     }
 
-    private void drainLoop() {
+    void drainLoop() {
         try {
             while (!Thread.currentThread().isInterrupted()) {
                 Job job = queue.take();

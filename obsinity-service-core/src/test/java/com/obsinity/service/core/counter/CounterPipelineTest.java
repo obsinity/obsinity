@@ -38,6 +38,7 @@ class CounterPipelineTest {
         CounterBuffer buffer = new CounterBuffer(hashService);
         InMemoryPersistService persistService = new InMemoryPersistService();
         CounterPersistExecutor executor = new CounterPersistExecutor(persistService, buffer);
+        executor.init(2000, 4);
         CounterFlushService flushService = new CounterFlushService(buffer, executor);
         setField(flushService, "maxBatchSize", 1000);
 
