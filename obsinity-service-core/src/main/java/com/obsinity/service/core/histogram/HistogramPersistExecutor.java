@@ -5,7 +5,6 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.time.Instant;
 import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -38,10 +37,7 @@ public class HistogramPersistExecutor {
         for (int i = 0; i < workerCount; i++) {
             executor.submit(this::drainLoop);
         }
-        log.info(
-                "Histogram persist executor started workers={}, queueCapacity={}",
-                workerCount,
-                queueCapacity);
+        log.info("Histogram persist executor started workers={}, queueCapacity={}", workerCount, queueCapacity);
     }
 
     @PreDestroy
