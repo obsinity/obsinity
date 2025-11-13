@@ -18,5 +18,5 @@ obsinity:
 
 logging:
   level:
-    root: DEBUG
-    com.obsinity: DEBUG
+    root: INFO
+    com.obsinity: INFO
