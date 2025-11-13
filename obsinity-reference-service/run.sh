@@ -16,10 +16,10 @@ if [[ "$1" == "--clean" ]]; then
   docker volume rm -f obsinity-reference-service_obsinity_pg || true
 
   echo "🔄 Rebuilding image(s) and starting fresh stack (SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE})..."
-  (cd "$APP_DIR" && SPRING_PROFILES_ACTIVE="$SPRING_PROFILES_ACTIVE" docker compose --env-file .env up -d --build)
+  (cd "$APP_DIR" && SPRING_PROFILES_ACTIVE="$SPRING_PROFILES_ACTIVE" SPRING_LOGGING_LEVEL_ROOT=INFO docker compose --env-file .env up -d --build)
 else
   echo "🚀 Starting Obsinity Reference Service (profile: ${SPRING_PROFILES_ACTIVE}, HTTP port 8086)..."
-  (cd "$APP_DIR" && SPRING_PROFILES_ACTIVE="$SPRING_PROFILES_ACTIVE" docker compose --env-file .env up -d)
+  (cd "$APP_DIR" && SPRING_PROFILES_ACTIVE="$SPRING_PROFILES_ACTIVE" SPRING_LOGGING_LEVEL_ROOT=INFO docker compose --env-file .env up -d)
 fi
 
 echo "📜 Tailing logs..."
