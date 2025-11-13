@@ -68,10 +68,19 @@ public class CounterQueryService {
 
         CounterBucket bucket = resolveBucket(granularity, requestedInterval);
 
-        Instant start = request.start() != null
-                ? Instant.parse(request.start())
-                : Instant.now().minus(requestedInterval);
-        Instant end = request.end() != null ? Instant.parse(request.end()) : Instant.now();
+        Instant defaultEnd = Instant.now();
+        Instant defaultStart = bucket.align(defaultEnd.minus(Duration.ofDays(14)));
+        Instant earliestData = repository.findEarliestTimestamp(counterConfig.id(), bucket);
+        if (earliestData != null && defaultStart.isBefore(earliestData)) {
+            defaultStart = bucket.align(earliestData);
+        }
+
+        Instant start = request.start() != null ? Instant.parse(request.start()) : defaultStart;
+        if (earliestData != null && start.isBefore(earliestData)) {
+            start = earliestData;
+        }
+
+        Instant end = request.end() != null ? Instant.parse(request.end()) : defaultEnd;
         if (!end.isAfter(start)) {
             throw new IllegalArgumentException("The requested end time must be after start");
         }

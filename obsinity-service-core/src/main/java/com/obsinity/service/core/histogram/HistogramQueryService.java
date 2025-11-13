@@ -14,7 +14,6 @@ import com.obsinity.service.core.histogram.HistogramQueryWindow.Series;
 import com.obsinity.service.core.repo.ServicesCatalogRepository;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -76,13 +75,9 @@ public class HistogramQueryService {
         CounterBucket bucket = resolveBucket(granularity, requestedInterval);
 
         Instant defaultEnd = Instant.now();
-        Instant defaultStart = defaultEnd
-                .minus(Duration.ofDays(14))
-                .atZone(ZoneOffset.UTC)
-                .toLocalDate()
-                .atStartOfDay(ZoneOffset.UTC)
-                .toInstant();
-        Instant earliestData = repository.findEarliestTimestamp(histogramConfig.id());
+        Instant defaultStartCandidate = defaultEnd.minus(Duration.ofDays(14));
+        Instant defaultStart = bucket.align(defaultStartCandidate);
+        Instant earliestData = repository.findEarliestTimestamp(histogramConfig.id(), bucket);
         if (earliestData != null && earliestData.isAfter(defaultStart)) {
             defaultStart = earliestData;
         }

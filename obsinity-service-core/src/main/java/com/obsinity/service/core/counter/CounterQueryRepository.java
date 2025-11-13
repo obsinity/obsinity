@@ -43,4 +43,24 @@ public class CounterQueryRepository {
     }
 
     public record KeyTotal(String keyHash, long total) {}
+
+    public Instant findEarliestTimestamp(UUID counterConfigId, CounterBucket bucket) {
+        String sql =
+                """
+                SELECT MIN(ts) AS earliest
+                FROM obsinity.event_counts
+                WHERE counter_config_id = :counterConfigId
+                  AND bucket = :bucket
+                """;
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("counterConfigId", counterConfigId)
+                .addValue("bucket", bucket.label());
+        return jdbcTemplate.query(sql, params, rs -> {
+            if (rs.next()) {
+                Timestamp ts = rs.getTimestamp("earliest");
+                return ts != null ? ts.toInstant() : null;
+            }
+            return null;
+        });
+    }
 }
