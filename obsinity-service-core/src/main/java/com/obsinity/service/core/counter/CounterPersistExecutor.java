@@ -77,6 +77,7 @@ public class CounterPersistExecutor {
                         Instant.ofEpochSecond(job.epoch()),
                         job.batch().size(),
                         total);
+                log.info("Counter persist queue depth after drain={}/{}", queue.size(), queueCapacity);
             }
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
