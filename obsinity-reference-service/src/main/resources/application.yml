@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: obsinity-reference-service
+  main:
+    banner-mode: "off"
   datasource:
     url: jdbc:postgresql://obsinity-db:5432/obsinity
     username: obsinity
@@ -33,3 +35,7 @@ obsinity:
     persist:
       workers: 10
       queue-capacity: 20000
+
+logging:
+  level:
+    root: INFO
