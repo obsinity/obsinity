@@ -86,5 +86,17 @@ public class CounterPersistExecutor {
         }
     }
 
+    /** Blocks until the queue is empty or the thread is interrupted. Intended for tests. */
+    public void waitForDrain() {
+        while (!queue.isEmpty()) {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+    }
+
     public record Job(CounterGranularity granularity, long epoch, List<BatchItem> batch) {}
 }

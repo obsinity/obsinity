@@ -98,6 +98,7 @@ class CounterPipelineTest {
         flushService.flushAndWait(CounterGranularity.S5);
         flushService.flushAndWait(CounterGranularity.M1);
         flushService.flushAndWait(CounterGranularity.M5);
+        executor.waitForDrain();
 
         ConfigLookup configLookup = Mockito.mock(ConfigLookup.class);
         Mockito.when(configLookup.get(serviceId, eventType)).thenReturn(Optional.of(eventConfig));
