@@ -2,6 +2,7 @@ package com.obsinity.service.core.repo;
 
 import com.obsinity.service.core.counter.CounterGranularity;
 import java.time.Instant;
+import java.sql.Types;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -30,7 +31,7 @@ public class StateSnapshotRepository {
         Instant timestamp = occurredAt != null ? occurredAt : Instant.now();
         Instant aligned = CounterGranularity.S5.baseBucket().align(timestamp);
         MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("ts", aligned)
+                .addValue("ts", aligned, Types.TIMESTAMP_WITH_TIMEZONE)
                 .addValue("bucket", CounterGranularity.S5.name())
                 .addValue("service_id", serviceId)
                 .addValue("object_type", objectType)
