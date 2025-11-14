@@ -1,12 +1,5 @@
 service: payments
-snapshotId: local-state-extractors
 stateExtractors:
-  - rawType: http_request
-    objectType: ApiRoute
-    objectIdField: api.name
-    stateAttributes:
-      - http.status
-      - http.method
   - rawType: user_profile.updated
     objectType: UserProfile
     objectIdField: user.profile_id

@@ -119,6 +119,14 @@ resources:
     name: Demo Data
     _type: request_group
 
+  - _id: fld_state
+    parentId: wrk_68f2907246df440f96e2f024b4a89fee
+    created: 1758900000000
+    modified: 1758900000000
+    name: State Counters
+    description: Requests that exercise state extractor configs (api.name + http.* attributes).
+    _type: request_group
+
   - _id: fld_admin
     parentId: wrk_68f2907246df440f96e2f024b4a89fee
     created: 1754511488005
@@ -201,6 +209,79 @@ resources:
             }
           }
         ]
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  # ===================== State Counters =====================
+  - _id: req_state_user_profile_active
+    parentId: fld_state
+    created: 1758900500000
+    modified: 1758900500000
+    name: state → user profile ACTIVE
+    description: >
+      Publishes a user_profile.updated event that puts profile-123 into ACTIVE state.
+      Send this first to establish the baseline snapshot for the user profile extractor.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "{{ service_id }}" } },
+          "event": {
+            "name": "user_profile.updated",
+            "id": "{% uuid 'v4' %}"
+          },
+          "time": {
+            "startedAt": "{% now 'iso-8601', 'utc' %}",
+            "endedAt": "{% now 'iso-8601', 'utc' %}"
+          },
+          "attributes": {
+            "user": {
+              "profile_id": "profile-123",
+              "email": "profile123@example.com",
+              "status": "ACTIVE"
+            }
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_state_user_profile_blocked
+    parentId: fld_state
+    created: 1758900500001
+    modified: 1758900500001
+    name: state → user profile BLOCKED
+    description: >
+      Publish after the ACTIVE request to transition the same profile to BLOCKED
+      and trigger a state change detection/log entry.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "resource": { "service": { "name": "{{ service_id }}" } },
+          "event": {
+            "name": "user_profile.updated",
+            "id": "{% uuid 'v4' %}"
+          },
+          "time": {
+            "startedAt": "{% now 'iso-8601', 'utc' %}",
+            "endedAt": "{% now 'iso-8601', 'utc' %}"
+          },
+          "attributes": {
+            "user": {
+              "profile_id": "profile-123",
+              "email": "profile123@example.com",
+              "status": "BLOCKED"
+            }
+          }
+        }
     headers:
       - name: Content-Type
         value: application/json
