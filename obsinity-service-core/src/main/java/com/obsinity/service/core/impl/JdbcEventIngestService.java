@@ -7,6 +7,7 @@ import com.obsinity.service.core.histogram.HistogramIngestService;
 import com.obsinity.service.core.index.AttributeIndexingService;
 import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.spi.EventIngestService;
+import com.obsinity.service.core.state.StateDetectionService;
 import com.obsinity.service.core.unconfigured.UnconfiguredEventQueue;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -51,12 +52,16 @@ public class JdbcEventIngestService implements EventIngestService {
     private final UnconfiguredEventQueue unconfiguredEventQueue;
     private final CounterIngestService counterIngestService;
     private final HistogramIngestService histogramIngestService;
+    private final StateDetectionService stateDetectionService;
 
     @Value("${obsinity.counters.enabled:true}")
     private boolean countersEnabled;
 
     @Value("${obsinity.histograms.enabled:true}")
     private boolean histogramsEnabled;
+
+    @Value("${obsinity.stateExtractors.enabled:true}")
+    private boolean stateExtractorsEnabled;
 
     // tiny in-memory cache to avoid re-hashing/upserting each time
     private final Map<String, String> servicePartitionKeyCache = new ConcurrentHashMap<>();
@@ -67,13 +72,15 @@ public class JdbcEventIngestService implements EventIngestService {
             ConfigLookup configLookup,
             UnconfiguredEventQueue unconfiguredEventQueue,
             CounterIngestService counterIngestService,
-            HistogramIngestService histogramIngestService) {
+            HistogramIngestService histogramIngestService,
+            StateDetectionService stateDetectionService) {
         this.jdbc = jdbc;
         this.attributeIndexingService = attributeIndexingService;
         this.configLookup = configLookup;
         this.unconfiguredEventQueue = unconfiguredEventQueue;
         this.counterIngestService = counterIngestService;
         this.histogramIngestService = histogramIngestService;
+        this.stateDetectionService = stateDetectionService;
     }
 
     @Override
@@ -221,6 +228,14 @@ public class JdbcEventIngestService implements EventIngestService {
                 histogramIngestService.process(e, eventConfig);
             } catch (Exception histogramEx) {
                 log.error("Failed to buffer histograms for event {}:{}", serviceKey, eventType, histogramEx);
+            }
+        }
+
+        if (stateExtractorsEnabled) {
+            try {
+                stateDetectionService.process(serviceId, e);
+            } catch (Exception stateEx) {
+                log.warn("State detection failed for event {}:{}", serviceKey, eventType, stateEx);
             }
         }
 

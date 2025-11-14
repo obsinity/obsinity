@@ -106,7 +106,8 @@ public class ServiceConfigArchiveLoader {
                 }
 
                 String snapshotId = shortHash(service + "|" + Instant.now());
-                return new ServiceConfig(service, snapshotId, Instant.now(), ServiceConfig.EMPTY_DEFAULTS, evs);
+                return new ServiceConfig(
+                        service, snapshotId, Instant.now(), ServiceConfig.EMPTY_DEFAULTS, evs, List.of());
             }
         } catch (IOException io) {
             throw new RuntimeException("Failed to read config archive", io);

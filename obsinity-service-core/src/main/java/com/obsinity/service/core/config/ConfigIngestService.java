@@ -51,7 +51,11 @@ public class ConfigIngestService {
         merged.put(
                 meta.serviceId(),
                 new com.obsinity.service.core.config.ServiceConfig(
-                        meta.serviceId(), meta.serviceKey(), view.updatedAt(), view.eventTypes()));
+                        meta.serviceId(),
+                        meta.serviceKey(),
+                        view.updatedAt(),
+                        view.eventTypes(),
+                        view.stateExtractors()));
         registry.swap(new RegistrySnapshot(Map.copyOf(merged), Instant.now()));
 
         Counts counts = countArtifacts(request);

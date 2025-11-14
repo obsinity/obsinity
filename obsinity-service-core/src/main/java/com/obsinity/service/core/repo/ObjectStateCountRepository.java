@@ -1,7 +1,5 @@
 package com.obsinity.service.core.repo;
 
-import com.obsinity.service.core.counter.CounterGranularity;
-import java.time.Instant;
 import java.util.UUID;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;

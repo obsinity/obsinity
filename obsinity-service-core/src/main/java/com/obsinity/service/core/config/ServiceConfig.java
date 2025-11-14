@@ -8,4 +8,8 @@ import java.util.UUID;
  * Materialized view of a single service and its event types.
  */
 public record ServiceConfig(
-        UUID serviceId, String serviceKey, Instant updatedAt, Map<String, EventTypeConfig> eventTypes) {}
+        UUID serviceId,
+        String serviceKey,
+        Instant updatedAt,
+        Map<String, EventTypeConfig> eventTypes,
+        java.util.List<StateExtractorDefinition> stateExtractors) {}

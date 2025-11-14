@@ -59,7 +59,8 @@ public class StateSnapshotRepository {
                 .addValue("attribute", attribute)
                 .addValue("bucket", CounterGranularity.S5.name());
 
-        return jdbc.query(
+        return jdbc
+                .query(
                         """
                 select state_value
                 from obsinity.object_state

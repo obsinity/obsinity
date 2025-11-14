@@ -7,6 +7,7 @@ import com.obsinity.service.core.model.config.EventConfig;
 import com.obsinity.service.core.model.config.EventIndexConfig;
 import com.obsinity.service.core.model.config.MetricConfig;
 import com.obsinity.service.core.model.config.ServiceConfig;
+import com.obsinity.service.core.model.config.StateExtractorConfig;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -34,8 +35,13 @@ public class ConfigMaterializer {
                 eventTypes.put(etc.eventType(), etc);
             }
         }
+        List<StateExtractorDefinition> extractors = materializeStateExtractors(model.stateExtractors());
         return new ServiceConfigView(
-                serviceId, serviceKey, updatedAt != null ? updatedAt : Instant.now(), Map.copyOf(eventTypes));
+                serviceId,
+                serviceKey,
+                updatedAt != null ? updatedAt : Instant.now(),
+                Map.copyOf(eventTypes),
+                extractors);
     }
 
     private EventTypeConfig materializeEvent(EventConfig cfg, String serviceKey, Instant updatedAt) {
@@ -268,7 +274,44 @@ public class ConfigMaterializer {
         return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
     }
 
+    private List<StateExtractorDefinition> materializeStateExtractors(List<StateExtractorConfig> configs) {
+        if (configs == null || configs.isEmpty()) {
+            return List.of();
+        }
+        List<StateExtractorDefinition> out = new ArrayList<>();
+        for (StateExtractorConfig cfg : configs) {
+            if (cfg == null) continue;
+            String rawType = safeTrim(cfg.rawType());
+            String objectType = safeTrim(cfg.objectType());
+            String objectIdField = safeTrim(cfg.objectIdField());
+            List<String> attributes = normalizeStateAttributes(cfg.stateAttributes());
+            if (rawType == null || objectType == null || objectIdField == null || attributes.isEmpty()) {
+                continue;
+            }
+            out.add(new StateExtractorDefinition(rawType, objectType, objectIdField, attributes));
+        }
+        return out.isEmpty() ? List.of() : List.copyOf(out);
+    }
+
+    private List<String> normalizeStateAttributes(List<String> stateAttributes) {
+        if (stateAttributes == null || stateAttributes.isEmpty()) {
+            return List.of();
+        }
+        List<String> cleaned = new ArrayList<>();
+        for (String attr : stateAttributes) {
+            String trimmed = safeTrim(attr);
+            if (trimmed != null) {
+                cleaned.add(trimmed);
+            }
+        }
+        return cleaned.isEmpty() ? List.of() : List.copyOf(cleaned);
+    }
+
     /** Immutable projection so callers do not depend on runtime record constructors. */
     public record ServiceConfigView(
-            UUID serviceId, String serviceKey, Instant updatedAt, Map<String, EventTypeConfig> eventTypes) {}
+            UUID serviceId,
+            String serviceKey,
+            Instant updatedAt,
+            Map<String, EventTypeConfig> eventTypes,
+            List<StateExtractorDefinition> stateExtractors) {}
 }

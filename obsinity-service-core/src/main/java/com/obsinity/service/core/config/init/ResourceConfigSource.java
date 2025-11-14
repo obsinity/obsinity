@@ -7,6 +7,7 @@ import com.obsinity.service.core.model.config.EventConfig;
 import com.obsinity.service.core.model.config.EventIndexConfig;
 import com.obsinity.service.core.model.config.MetricConfig;
 import com.obsinity.service.core.model.config.ServiceConfig;
+import com.obsinity.service.core.model.config.StateExtractorConfig;
 import com.obsinity.service.core.support.CrdKeys;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -330,7 +331,8 @@ public class ResourceConfigSource {
             }
         }
 
-        return ServiceConfig.of(a.service(), a.snapshotId(), new ArrayList<>(byKey.values()));
+        List<StateExtractorConfig> mergedExtractors = mergeStateExtractors(a.stateExtractors(), b.stateExtractors());
+        return ServiceConfig.of(a.service(), a.snapshotId(), new ArrayList<>(byKey.values()), mergedExtractors);
     }
 
     private static String eventKey(com.obsinity.service.core.model.config.EventConfig e) {
@@ -362,6 +364,42 @@ public class ResourceConfigSource {
             for (MetricConfig m : b) if (m != null && m.name() != null) byName.put(m.name(), m);
         }
         return new ArrayList<>(byName.values());
+    }
+
+    private static List<StateExtractorConfig> mergeStateExtractors(
+            List<StateExtractorConfig> first, List<StateExtractorConfig> second) {
+        Map<String, StateExtractorConfig> byKey = new LinkedHashMap<>();
+        if (first != null) {
+            for (StateExtractorConfig cfg : first) {
+                String key = extractorKey(cfg);
+                if (!key.isEmpty()) {
+                    byKey.put(key, cfg);
+                }
+            }
+        }
+        if (second != null) {
+            for (StateExtractorConfig cfg : second) {
+                String key = extractorKey(cfg);
+                if (!key.isEmpty()) {
+                    byKey.put(key, cfg);
+                }
+            }
+        }
+        return byKey.isEmpty() ? List.of() : new ArrayList<>(byKey.values());
+    }
+
+    private static String extractorKey(StateExtractorConfig cfg) {
+        if (cfg == null) {
+            return "";
+        }
+        String rawType = cfg.rawType() != null ? cfg.rawType().trim().toLowerCase(Locale.ROOT) : "";
+        String objectType = cfg.objectType() != null ? cfg.objectType().trim().toLowerCase(Locale.ROOT) : "";
+        String objectId =
+                cfg.objectIdField() != null ? cfg.objectIdField().trim().toLowerCase(Locale.ROOT) : "";
+        if (rawType.isEmpty() || objectType.isEmpty() || objectId.isEmpty()) {
+            return "";
+        }
+        return rawType + "|" + objectType + "|" + objectId;
     }
 
     private static String firstNonBlank(String first, String fallback) {
