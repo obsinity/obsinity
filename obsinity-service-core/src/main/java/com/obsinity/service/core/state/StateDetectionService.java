@@ -3,6 +3,7 @@ package com.obsinity.service.core.state;
 import com.obsinity.service.core.config.ConfigLookup;
 import com.obsinity.service.core.config.StateExtractorDefinition;
 import com.obsinity.service.core.model.EventEnvelope;
+import com.obsinity.service.core.repo.StateSnapshotRepository;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Service;
 public class StateDetectionService {
 
     private final ConfigLookup configLookup;
+    private final StateSnapshotRepository snapshotRepository;
 
     @org.springframework.beans.factory.annotation.Value("${obsinity.stateExtractors.loggingEnabled:true}")
     private boolean loggingEnabled;
@@ -32,8 +34,11 @@ public class StateDetectionService {
             return;
         }
         List<StateMatch> matches = detectMatches(extractors, envelope.getAttributes(), envelope.getEventId());
-        if (!matches.isEmpty() && loggingEnabled) {
-            for (StateMatch match : matches) {
+        if (matches.isEmpty()) {
+            return;
+        }
+        for (StateMatch match : matches) {
+            if (loggingEnabled) {
                 log.info(
                         "StateExtractor matched: event={} objectType={} objectId={} states={} extractor={}",
                         envelope.getEventId(),
@@ -42,6 +47,8 @@ public class StateDetectionService {
                         match.stateValues(),
                         match.extractor().rawType());
             }
+            match.stateValues().forEach((attr, value) -> snapshotRepository.upsert(
+                    serviceId, match.extractor().objectType(), match.objectId(), attr, value));
         }
     }
 
