@@ -30,7 +30,7 @@ public class StateSnapshotRepository {
 
         jdbc.update(
                 """
-            insert into obs_state_snapshots(service_id, object_type, object_id, attribute, state_value, updated_at)
+            insert into obsinity.obs_state_snapshots(service_id, object_type, object_id, attribute, state_value, updated_at)
             values (:service_id, :object_type, :object_id, :attribute, :state_value, :updated_at)
             on conflict (service_id, object_type, object_id, attribute)
             do update set state_value = excluded.state_value, updated_at = excluded.updated_at
@@ -43,7 +43,7 @@ public class StateSnapshotRepository {
             return;
         }
         jdbc.update(
-                "delete from obs_state_snapshots where service_id = :service_id and object_type = :object_type "
+                "delete from obsinity.obs_state_snapshots where service_id = :service_id and object_type = :object_type "
                         + "and object_id = :object_id and attribute = :attribute",
                 Map.of(
                         "service_id", serviceId,

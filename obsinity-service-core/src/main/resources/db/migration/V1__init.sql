@@ -238,7 +238,7 @@ END $$;
 -- ================================================
 -- State snapshot storage for state extractor feature
 -- ================================================
-CREATE TABLE IF NOT EXISTS obs_state_snapshots (
+CREATE TABLE IF NOT EXISTS obsinity.obs_state_snapshots (
   service_id UUID NOT NULL,
   object_type TEXT NOT NULL,
   object_id TEXT NOT NULL,
@@ -246,10 +246,23 @@ CREATE TABLE IF NOT EXISTS obs_state_snapshots (
   state_value TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (service_id, object_type, object_id, attribute)
-);
+)
+PARTITION BY HASH (service_id);
+
+DO $$
+BEGIN
+    FOR i IN 0..7 LOOP
+        EXECUTE format(
+            'CREATE TABLE IF NOT EXISTS obsinity.obs_state_snapshots_p%s
+             PARTITION OF obsinity.obs_state_snapshots
+             FOR VALUES WITH (MODULUS 8, REMAINDER %s);',
+            i,
+            i);
+    END LOOP;
+END $$;
 
 CREATE INDEX IF NOT EXISTS ix_state_snapshots_object
-  ON obs_state_snapshots(object_type, object_id);
+  ON obsinity.obs_state_snapshots(object_type, object_id);
 
 DO $$
 DECLARE
