@@ -62,6 +62,7 @@ class StateDetectionServiceTest {
         EventEnvelope envelope = EventEnvelope.builder()
                 .serviceId("payments")
                 .eventType("user_profile.updated")
+                .name("user_profile.updated")
                 .eventId(UUID.randomUUID().toString())
                 .timestamp(Instant.now())
                 .ingestedAt(Instant.now())
