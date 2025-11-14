@@ -1,97 +1,49 @@
-# (DRAFT) 📊 Obsinity: State Change Events & Counters
+# 📊 Obsinity: Implicit State Change Detection & Counters
 
-This document outlines the design for **state change tracking** in Obsinity, including event format, counting, snapshotting, and how to derive these events from existing raw telemetry.
+This document outlines the design for **state change detection** in Obsinity, using declarative configuration and existing raw events — without requiring any explicit `state.change` event type.
 
 ---
 
 ## 🧩 Overview
 
-Obsinity supports two key features:
+Obsinity supports two key state-driven features:
 
 1. **State Snapshot Counters**
 
-    * Current count of objects in each state (e.g., how many accounts are "active")
-    * Historical snapshots over time to support time-series graphs and retroactive analysis
+   * Track how many objects are currently in each state (e.g., how many accounts are "active")
+   * Emit **historical snapshots** periodically for time-series trend analysis
+
 2. **State Transition Counters**
 
-    * Time-bucketed counts of transitions (e.g., how many accounts moved from "pending" → "active" in a 5m window)
+   * Count how many times objects have transitioned between states (e.g., from `pending → active`), bucketed over time (5s, 1m, 1h, etc.)
 
-All this is done **without requiring the producer to emit the old state**—Obsinity computes the `from` state by looking up the previous snapshot.
-
----
-
-## 🗃️ Event Format: `state.change`
-
-### ✅ Minimal required format:
-
-```json
-{
-  "type": "state.change",
-  "object_id": "account-xyz",
-  "object_type": "Account",
-  "attribute": "status",          // optional, defaults to "state"
-  "to": "active",
-  "timestamp": "2025-11-14T08:00:00Z"
-}
-```
-
-* `object_id`: Unique identifier for the object.
-* `object_type`: E.g., Account, Payment, SyncJob.
-* `attribute`: Optional; used if multiple attributes have independent state.
-* `to`: New state value.
-* `timestamp`: Standard event timestamp (from raw event metadata).
-
-> ❌ No `from` is required — Obsinity looks it up based on the current known state.
+All of this is derived **implicitly** from existing raw events, using configured extractors and a live view of current object state. **No `state.change` events need to be emitted.**
 
 ---
 
-## 🔁 Deriving `state.change` from Raw Events
+## 🧠 Key Concept: State is Inferred, Not Emitted
 
-Rather than emitting explicit `state.change` events, existing raw events can be **used as source material** to derive state transitions.
+> A state change is **detected**, not declared.
 
-### ✅ Example
+Obsinity compares:
 
-Raw event:
+* The **new value** of a configured attribute in an incoming event
+* The **current known value** for the object (from the snapshot store)
 
-```json
-{
-  "type": "account.updated",
-  "account_id": "abc123",
-  "status": "suspended",
-  "timestamp": "2025-11-14T08:00:00Z"
-}
-```
+If the values differ → a state transition has occurred.
 
-Derived `state.change`:
+This powers both:
 
-```json
-{
-  "type": "state.change",
-  "object_id": "abc123",
-  "object_type": "Account",
-  "attribute": "status",
-  "to": "suspended",
-  "timestamp": "2025-11-14T08:00:00Z"
-}
-```
+* Live snapshot updates
+* Historical transition counter metrics
 
 ---
 
-## ⚙️ Configuration: `stateCounters` + `stateExtractors`
-
-### `stateCounters`
-
-```yaml
-stateCounters:
-  - objectType: Account
-    attribute: status
-    allowedStates: [pending, active, suspended, closed]
-```
-
-* Required for tracking and validation
-* If state or attribute is not listed → ignore or route to dead-letter
+## ⚙️ Configuration Model
 
 ### `stateExtractors`
+
+Define which raw event types contain stateful attributes:
 
 ```yaml
 stateExtractors:
@@ -109,14 +61,34 @@ stateExtractors:
       - sync_phase
 ```
 
-* Enables derived `state.change` event projection from raw input
-* No timestamp field is needed — uses the raw event’s canonical `timestamp`
+> The system will monitor raw events of type `rawType`, extract the specified `stateAttributes`, and check for state changes by comparing with the current snapshot.
 
 ---
 
-## 🧮 Metrics Emitted
+## 🔎 Detection Workflow
 
-### 1. `state.count`
+For every ingested event:
+
+1. **Match** the event's `type` to a configured `rawType`
+2. **Extract** the `object_id` and any `stateAttributes` present in the payload
+3. **Look up** the current state snapshot for that object
+4. **Compare** previous and new values
+5. **If different:**
+
+   * Update the snapshot
+   * Record a transition (from → to)
+   * Emit metrics:
+
+      * `state.count` (current state counts)
+      * `state.transition.count` (time-bucketed transitions)
+
+No intermediate `state.change` event is required.
+
+---
+
+## 📈 Metrics Emitted
+
+### 1. `state.count` (Current & Historical)
 
 ```json
 {
@@ -129,9 +101,8 @@ stateExtractors:
 }
 ```
 
-* Emitted by snapshotting the latest known state of all objects
-* Used for dashboards and trend graphs
-* Snapshots are retained historically in partitioned/bucketed form (e.g. every 5s, 1m, etc.)
+* Emitted periodically (5s, 1m, etc.)
+* Snapshots are retained historically for time-series dashboards
 
 ### 2. `state.transition.count`
 
@@ -148,50 +119,48 @@ stateExtractors:
 }
 ```
 
-* Emitted by aggregators that detect transitions over time
-* Bucketed (5s → 1m → 1h, etc.) for trend visualizations
+* Emitted on transition detection
+* Bucketed for time-based trend analysis
 
 ---
 
-## 🗂 Storage & Partitioning
+## 🗃 Storage & Partitioning
 
-* `obs_state_change_events`: Raw or derived state change events
-* `obs_current_state_snapshots`: Latest known state per object
-* `obs_state_transition_counts_5s`, `_1m`, `_1h`: Transition metrics by bucket
-* `obs_state_count_snapshots_5s`, `_1m`, `_1h`: Snapshot counts over time for time-series graphs
-* `obs_unconfigured_state_events`: Validation failures
+* `obs_current_state_snapshots`: Stores the latest state for each object
+* `obs_state_count_snapshots_5s`, `_1m`, `_1h`: Historical point-in-time state counts
+* `obs_state_transition_counts_5s`, `_1m`, `_1h`: Transition counts by bucket
 
-Partitioning follows the existing model:
+Partitioning follows existing Obsinity strategy:
 
 ```
 obs_events/
   └── 2025/
       └── 11/
           └── 14/
-              └── state_change/
+              └── sync.job.updated/
 ```
 
 ---
 
 ## ✅ Implementation Plan (Staged)
 
-| Stage | Task                                                                               |
-| ----- | ---------------------------------------------------------------------------------- |
-| 0️⃣   | Ingest & validate `state.change` events                                            |
-| 1️⃣   | Emit `state.transition.count` from change deltas                                   |
-| 2️⃣   | Implement current-state snapshotting                                               |
-| 3️⃣   | Emit `state.count` snapshots periodically (5s, 1m, 1h) and store them historically |
-| 4️⃣   | Enable raw→derived event projection using `stateExtractors`                        |
-| 5️⃣   | Backfill transitions from historical raw event logs                                |
+| Stage | Task                                                       |
+| ----- | ---------------------------------------------------------- |
+| 0️⃣   | Define and load `stateExtractors` config                   |
+| 1️⃣   | Implement state comparison and snapshot update logic       |
+| 2️⃣   | Emit `state.transition.count` metrics when values change   |
+| 3️⃣   | Emit periodic `state.count` metrics and store historically |
+| 4️⃣   | Backfill from historical raw events if needed              |
 
 ---
 
-## 🧪 Notes
+## 🧪 Notes & Guarantees
 
-* Snapshots always reflect the most recent known `to` state.
-* Historical snapshots are persisted for trend and analytics use cases.
-* Validation layer ensures only configured types/states are counted.
-* Unconfigured events are safely captured for audit/debug.
-* Derived events avoid code duplication by leveraging existing telemetry.
+* State is detected via comparison: no need for `from` in events
+* Snapshots are versioned and retained for reproducibility
+* Transitions are only counted when `old ≠ new`
+* System works with any raw event structure — as long as config is present
 
 ---
+
+> ✅ This design minimizes duplication, maximizes reusability of raw events, and allows full historical and real-time tracking without changing the producer interface.
