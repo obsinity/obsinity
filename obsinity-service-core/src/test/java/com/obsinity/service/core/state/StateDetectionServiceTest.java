@@ -78,8 +78,8 @@ class StateDetectionServiceTest {
         service.process(serviceId, envelope);
 
         verify(snapshotRepository).upsert(serviceId, "UserProfile", "profile-123", "user.status", "ACTIVE", now);
-        verify(countRepository).increment(serviceId, "UserProfile", "user.status", "ACTIVE", now);
-        verify(countRepository, never()).decrement(serviceId, "UserProfile", "user.status", "ACTIVE", now);
+        verify(countRepository).increment(serviceId, "UserProfile", "user.status", "ACTIVE");
+        verify(countRepository, never()).decrement(serviceId, "UserProfile", "user.status", "ACTIVE");
     }
 
     @Test
@@ -112,7 +112,7 @@ class StateDetectionServiceTest {
 
         verify(snapshotRepository, never())
                 .upsert(serviceId, "UserProfile", "profile-123", "user.status", "ACTIVE", now);
-        verify(countRepository, never()).increment(serviceId, "UserProfile", "user.status", "ACTIVE", now);
-        verify(countRepository, never()).decrement(serviceId, "UserProfile", "user.status", "ACTIVE", now);
+        verify(countRepository, never()).increment(serviceId, "UserProfile", "user.status", "ACTIVE");
+        verify(countRepository, never()).decrement(serviceId, "UserProfile", "user.status", "ACTIVE");
     }
 }
