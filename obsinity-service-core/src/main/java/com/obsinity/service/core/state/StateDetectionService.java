@@ -47,8 +47,14 @@ public class StateDetectionService {
                         match.stateValues(),
                         match.extractor().rawType());
             }
-            match.stateValues().forEach((attr, value) -> snapshotRepository.upsert(
-                    serviceId, match.extractor().objectType(), match.objectId(), attr, value));
+            match.stateValues()
+                    .forEach((attr, value) -> snapshotRepository.upsert(
+                            serviceId,
+                            match.extractor().objectType(),
+                            match.objectId(),
+                            attr,
+                            value,
+                            envelope.getTimestamp()));
         }
     }
 

@@ -59,18 +59,20 @@ class StateDetectionServiceTest {
 
         when(lookup.stateExtractors(serviceId, "user_profile.updated")).thenReturn(List.of(extractor));
 
+        Instant now = Instant.now();
         EventEnvelope envelope = EventEnvelope.builder()
                 .serviceId("payments")
                 .eventType("user_profile.updated")
                 .name("user_profile.updated")
                 .eventId(UUID.randomUUID().toString())
-                .timestamp(Instant.now())
-                .ingestedAt(Instant.now())
+                .timestamp(now)
+                .ingestedAt(now)
                 .attributes(Map.of("user", Map.of("profile_id", "profile-123", "status", "ACTIVE")))
                 .build();
 
         service.process(serviceId, envelope);
 
-        verify(repo).upsert(serviceId, "UserProfile", "profile-123", "user.status", "ACTIVE");
+        verify(repo)
+                .upsert(serviceId, "UserProfile", "profile-123", "user.status", "ACTIVE", now);
     }
 }

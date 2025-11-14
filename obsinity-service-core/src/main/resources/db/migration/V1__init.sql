@@ -236,33 +236,80 @@ END LOOP;
 END $$;
 
 -- ================================================
--- State snapshot storage for state extractor feature
+-- Object state storage for state extractor feature
 -- ================================================
-CREATE TABLE IF NOT EXISTS obsinity.obs_state_snapshots (
+CREATE TABLE IF NOT EXISTS obsinity.object_state (
+  ts TIMESTAMPTZ NOT NULL,
+  bucket VARCHAR(10) NOT NULL,
   service_id UUID NOT NULL,
   object_type TEXT NOT NULL,
   object_id TEXT NOT NULL,
   attribute TEXT NOT NULL,
   state_value TEXT,
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (service_id, object_type, object_id, attribute)
+  PRIMARY KEY (ts, bucket, service_id, object_type, object_id, attribute)
 )
-PARTITION BY HASH (service_id);
+PARTITION BY LIST (bucket);
 
 DO $$
+DECLARE
+    bucket_name TEXT;
+    parent_table TEXT;
 BEGIN
-    FOR i IN 0..7 LOOP
+    FOR bucket_name IN SELECT unnested FROM unnest(ARRAY['S5','M1','M5','H1','D1','D7']) AS unnested LOOP
+        parent_table := format('object_state_%s', lower(bucket_name));
         EXECUTE format(
-            'CREATE TABLE IF NOT EXISTS obsinity.obs_state_snapshots_p%s
-             PARTITION OF obsinity.obs_state_snapshots
-             FOR VALUES WITH (MODULUS 8, REMAINDER %s);',
-            i,
-            i);
+            'CREATE TABLE IF NOT EXISTS obsinity.%I
+             PARTITION OF obsinity.object_state
+             FOR VALUES IN (''%s'')
+             PARTITION BY RANGE (ts);',
+            parent_table,
+            bucket_name
+        );
     END LOOP;
 END $$;
 
-CREATE INDEX IF NOT EXISTS ix_state_snapshots_object
-  ON obsinity.obs_state_snapshots(object_type, object_id);
+DO $$
+DECLARE
+    start_date DATE := DATE '2025-01-01';
+    end_date   DATE := DATE '2027-01-01';
+    week_start DATE;
+    week_end   DATE;
+    bucket_name TEXT;
+    parent_table TEXT;
+    partition_name TEXT;
+BEGIN
+    week_start := start_date;
+    WHILE week_start < end_date LOOP
+        week_end := week_start + INTERVAL '7 days';
+
+        FOR bucket_name IN SELECT unnested FROM unnest(ARRAY['S5','M1','M5','H1','D1','D7']) AS unnested LOOP
+            parent_table := format('object_state_%s', lower(bucket_name));
+            partition_name := format(
+                'object_state_%s_%s',
+                to_char(week_start, 'IYYY_IW'),
+                lower(bucket_name)
+            );
+
+            EXECUTE format(
+                'CREATE UNLOGGED TABLE IF NOT EXISTS obsinity.%I
+                 PARTITION OF obsinity.%I
+                 FOR VALUES FROM (TIMESTAMPTZ %L) TO (TIMESTAMPTZ %L);',
+                partition_name,
+                parent_table,
+                week_start,
+                week_end
+            );
+
+            EXECUTE format(
+                'CREATE INDEX IF NOT EXISTS %I ON obsinity.%I(object_type, object_id);',
+                partition_name || '_object_idx',
+                partition_name
+            );
+        END LOOP;
+
+        week_start := week_end;
+    END LOOP;
+END $$;
 
 DO $$
 DECLARE

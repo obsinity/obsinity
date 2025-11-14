@@ -1,5 +1,6 @@
 package com.obsinity.service.core.repo;
 
+import com.obsinity.service.core.counter.CounterGranularity;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -16,24 +17,33 @@ public class StateSnapshotRepository {
         this.jdbc = jdbc;
     }
 
-    public void upsert(UUID serviceId, String objectType, String objectId, String attribute, String stateValue) {
+    public void upsert(
+            UUID serviceId,
+            String objectType,
+            String objectId,
+            String attribute,
+            String stateValue,
+            Instant occurredAt) {
         if (serviceId == null || objectType == null || objectId == null || attribute == null) {
             return;
         }
+        Instant timestamp = occurredAt != null ? occurredAt : Instant.now();
+        Instant aligned = CounterGranularity.S5.baseBucket().align(timestamp);
         MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("ts", aligned)
+                .addValue("bucket", CounterGranularity.S5.name())
                 .addValue("service_id", serviceId)
                 .addValue("object_type", objectType)
                 .addValue("object_id", objectId)
                 .addValue("attribute", attribute)
-                .addValue("state_value", stateValue)
-                .addValue("updated_at", Instant.now());
+                .addValue("state_value", stateValue);
 
         jdbc.update(
                 """
-            insert into obsinity.obs_state_snapshots(service_id, object_type, object_id, attribute, state_value, updated_at)
-            values (:service_id, :object_type, :object_id, :attribute, :state_value, :updated_at)
-            on conflict (service_id, object_type, object_id, attribute)
-            do update set state_value = excluded.state_value, updated_at = excluded.updated_at
+            insert into obsinity.object_state(ts, bucket, service_id, object_type, object_id, attribute, state_value)
+            values (:ts, :bucket, :service_id, :object_type, :object_id, :attribute, :state_value)
+            on conflict (ts, bucket, service_id, object_type, object_id, attribute)
+            do update set state_value = excluded.state_value
             """,
                 params);
     }
@@ -43,7 +53,7 @@ public class StateSnapshotRepository {
             return;
         }
         jdbc.update(
-                "delete from obsinity.obs_state_snapshots where service_id = :service_id and object_type = :object_type "
+                "delete from obsinity.object_state where service_id = :service_id and object_type = :object_type "
                         + "and object_id = :object_id and attribute = :attribute",
                 Map.of(
                         "service_id", serviceId,
