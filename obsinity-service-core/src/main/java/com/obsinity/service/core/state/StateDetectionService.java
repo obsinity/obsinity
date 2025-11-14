@@ -3,6 +3,8 @@ package com.obsinity.service.core.state;
 import com.obsinity.service.core.config.ConfigLookup;
 import com.obsinity.service.core.config.StateExtractorDefinition;
 import com.obsinity.service.core.model.EventEnvelope;
+import com.obsinity.service.core.repo.StateCountRepository;
+import com.obsinity.service.core.repo.StateCountRepository;
 import com.obsinity.service.core.repo.StateSnapshotRepository;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -21,6 +23,7 @@ public class StateDetectionService {
 
     private final ConfigLookup configLookup;
     private final StateSnapshotRepository snapshotRepository;
+    private final StateCountRepository stateCountRepository;
 
     @org.springframework.beans.factory.annotation.Value("${obsinity.stateExtractors.loggingEnabled:true}")
     private boolean loggingEnabled;
@@ -38,23 +41,36 @@ public class StateDetectionService {
             return;
         }
         for (StateMatch match : matches) {
-            if (loggingEnabled) {
-                log.info(
-                        "StateExtractor matched: event={} objectType={} objectId={} states={} extractor={}",
-                        envelope.getEventId(),
-                        match.extractor().objectType(),
-                        match.objectId(),
-                        match.stateValues(),
-                        match.extractor().rawType());
-            }
-            match.stateValues()
-                    .forEach((attr, value) -> snapshotRepository.upsert(
-                            serviceId,
+            match.stateValues().forEach((attr, value) -> {
+                String previous = snapshotRepository.findLatest(
+                        serviceId, match.extractor().objectType(), match.objectId(), attr);
+                if (previous != null && previous.equals(value)) {
+                    return;
+                }
+                if (loggingEnabled) {
+                    log.info(
+                            "StateExtractor matched: event={} objectType={} objectId={} attribute={} from={} to={} extractor={}",
+                            envelope.getEventId(),
                             match.extractor().objectType(),
                             match.objectId(),
                             attr,
+                            previous,
                             value,
-                            envelope.getTimestamp()));
+                            match.extractor().rawType());
+                }
+                snapshotRepository.upsert(
+                        serviceId,
+                        match.extractor().objectType(),
+                        match.objectId(),
+                        attr,
+                        value,
+                        envelope.getTimestamp());
+                if (previous != null && !previous.isBlank()) {
+                    stateCountRepository.decrement(
+                            serviceId, match.extractor().objectType(), attr, previous);
+                }
+                stateCountRepository.increment(serviceId, match.extractor().objectType(), attr, value);
+            });
         }
     }
 

@@ -268,6 +268,21 @@ BEGIN
     END LOOP;
 END $$;
 
+-- ================================================
+-- Object state counts (current snapshot per state)
+-- ================================================
+CREATE TABLE IF NOT EXISTS obsinity.state_counts (
+  service_id UUID NOT NULL,
+  object_type TEXT NOT NULL,
+  attribute TEXT NOT NULL,
+  state_value TEXT NOT NULL,
+  count BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (service_id, object_type, attribute, state_value)
+);
+
+CREATE INDEX IF NOT EXISTS ix_state_counts_type
+  ON obsinity.state_counts(object_type, attribute);
+
 DO $$
 DECLARE
     start_date DATE := (CURRENT_DATE - INTERVAL '28 days')::DATE;
