@@ -301,7 +301,7 @@ BEGIN
     END LOOP;
 END $$;
 
-DO $$(
+DO $$
 DECLARE
     start_date DATE := (CURRENT_DATE - INTERVAL '28 days')::DATE;
     end_date   DATE := (CURRENT_DATE + INTERVAL '28 days')::DATE;
