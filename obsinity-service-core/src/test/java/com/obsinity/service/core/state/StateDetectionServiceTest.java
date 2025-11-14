@@ -10,6 +10,7 @@ import com.obsinity.service.core.config.ConfigLookup;
 import com.obsinity.service.core.config.StateExtractorDefinition;
 import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.repo.StateCountRepository;
+import com.obsinity.service.core.repo.ObjectStateCountRepository;
 import com.obsinity.service.core.repo.StateSnapshotRepository;
 import java.time.Instant;
 import java.util.List;
@@ -53,7 +54,7 @@ class StateDetectionServiceTest {
     void processPersistsSnapshotsForMatches() {
         ConfigLookup lookup = mock(ConfigLookup.class);
         StateSnapshotRepository snapshotRepository = mock(StateSnapshotRepository.class);
-        StateCountRepository countRepository = mock(StateCountRepository.class);
+        ObjectStateCountRepository countRepository = mock(ObjectStateCountRepository.class);
         StateDetectionService service = new StateDetectionService(lookup, snapshotRepository, countRepository);
 
         StateExtractorDefinition extractor = new StateExtractorDefinition(
@@ -77,17 +78,17 @@ class StateDetectionServiceTest {
 
         service.process(serviceId, envelope);
 
-        verify(snapshotRepository)
-                .upsert(serviceId, "UserProfile", "profile-123", "user.status", "ACTIVE", now);
-        verify(countRepository).increment(serviceId, "UserProfile", "user.status", "ACTIVE");
-        verify(countRepository, never()).decrement(serviceId, "UserProfile", "user.status", "ACTIVE");
+        verify(snapshotRepository).upsert(serviceId, "UserProfile", "profile-123", "user.status", "ACTIVE", now);
+        verify(countRepository).increment(
+                serviceId, "UserProfile", "user.status", "ACTIVE", now);
+        verify(countRepository, never()).decrement(serviceId, "UserProfile", "user.status", "ACTIVE", now);
     }
 
     @Test
     void processSkipsWhenStateUnchanged() {
         ConfigLookup lookup = mock(ConfigLookup.class);
         StateSnapshotRepository snapshotRepository = mock(StateSnapshotRepository.class);
-        StateCountRepository countRepository = mock(StateCountRepository.class);
+        ObjectStateCountRepository countRepository = mock(ObjectStateCountRepository.class);
         StateDetectionService service = new StateDetectionService(lookup, snapshotRepository, countRepository);
 
         StateExtractorDefinition extractor = new StateExtractorDefinition(
@@ -113,7 +114,9 @@ class StateDetectionServiceTest {
 
         verify(snapshotRepository, never())
                 .upsert(serviceId, "UserProfile", "profile-123", "user.status", "ACTIVE", now);
-        verify(countRepository, never()).increment(serviceId, "UserProfile", "user.status", "ACTIVE");
-        verify(countRepository, never()).decrement(serviceId, "UserProfile", "user.status", "ACTIVE");
+        verify(countRepository, never())
+                .increment(serviceId, "UserProfile", "user.status", "ACTIVE", now);
+        verify(countRepository, never())
+                .decrement(serviceId, "UserProfile", "user.status", "ACTIVE", now);
     }
 }

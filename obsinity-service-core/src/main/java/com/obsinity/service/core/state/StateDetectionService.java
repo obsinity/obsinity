@@ -3,8 +3,7 @@ package com.obsinity.service.core.state;
 import com.obsinity.service.core.config.ConfigLookup;
 import com.obsinity.service.core.config.StateExtractorDefinition;
 import com.obsinity.service.core.model.EventEnvelope;
-import com.obsinity.service.core.repo.StateCountRepository;
-import com.obsinity.service.core.repo.StateCountRepository;
+import com.obsinity.service.core.repo.ObjectStateCountRepository;
 import com.obsinity.service.core.repo.StateSnapshotRepository;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -23,7 +22,7 @@ public class StateDetectionService {
 
     private final ConfigLookup configLookup;
     private final StateSnapshotRepository snapshotRepository;
-    private final StateCountRepository stateCountRepository;
+    private final ObjectStateCountRepository stateCountRepository;
 
     @org.springframework.beans.factory.annotation.Value("${obsinity.stateExtractors.loggingEnabled:true}")
     private boolean loggingEnabled;
@@ -67,9 +66,10 @@ public class StateDetectionService {
                         envelope.getTimestamp());
                 if (previous != null && !previous.isBlank()) {
                     stateCountRepository.decrement(
-                            serviceId, match.extractor().objectType(), attr, previous);
+                            serviceId, match.extractor().objectType(), attr, previous, envelope.getTimestamp());
                 }
-                stateCountRepository.increment(serviceId, match.extractor().objectType(), attr, value);
+                stateCountRepository.increment(
+                        serviceId, match.extractor().objectType(), attr, value, envelope.getTimestamp());
             });
         }
     }
