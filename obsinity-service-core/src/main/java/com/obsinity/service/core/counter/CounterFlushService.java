@@ -79,12 +79,14 @@ public class CounterFlushService {
             if (entry.counter() <= 0) {
                 continue;
             }
+            String keyDataJson = KeyDataCanonicalizer.toJson(entry.keyData());
             batch.add(new CounterPersistService.BatchItem(
                     ts,
                     entry.counterConfigId(),
                     entry.eventTypeId(),
                     entry.keyHash(),
                     entry.keyData(),
+                    keyDataJson,
                     entry.counter()));
         }
         if (batch.isEmpty()) {

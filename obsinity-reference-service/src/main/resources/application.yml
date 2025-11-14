@@ -30,11 +30,11 @@ obsinity:
   histograms:
     persist:
       workers: 10
-      queue-capacity: 20000
+      queue-capacity: 200000
   counters:
     persist:
       workers: 10
-      queue-capacity: 20000
+      queue-capacity: 200000
 
 logging:
   level:

@@ -69,11 +69,9 @@ public class CounterQueryService {
         CounterBucket bucket = resolveBucket(granularity, requestedInterval);
 
         Instant defaultEnd = Instant.now();
-        Instant defaultStart = bucket.align(defaultEnd.minus(Duration.ofDays(14)));
         Instant earliestData = repository.findEarliestTimestamp(counterConfig.id(), bucket);
-        if (earliestData != null && defaultStart.isBefore(earliestData)) {
-            defaultStart = bucket.align(earliestData);
-        }
+        Instant defaultStart =
+                earliestData != null ? bucket.align(earliestData) : bucket.align(defaultEnd.minus(Duration.ofDays(14)));
 
         Instant start = request.start() != null ? Instant.parse(request.start()) : defaultStart;
         if (earliestData != null && start.isBefore(earliestData)) {
@@ -126,7 +124,8 @@ public class CounterQueryService {
             intervalsAdded++;
         }
 
-        return new CounterQueryResult(windows, offset, limit, computeTotalIntervals(alignedStart, alignedEnd, step));
+        return new CounterQueryResult(
+                windows, offset, limit, computeTotalIntervals(alignedStart, alignedEnd, step), start, end);
     }
 
     private CounterBucket resolveBucket(CounterGranularity granularity, Duration requested) {

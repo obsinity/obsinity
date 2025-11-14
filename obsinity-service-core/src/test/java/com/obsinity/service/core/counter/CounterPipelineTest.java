@@ -176,7 +176,7 @@ class CounterPipelineTest {
                 new EnumMap<>(CounterBucket.class);
 
         InMemoryPersistService() {
-            super(Mockito.mock(JdbcTemplate.class), new ObjectMapper());
+            super(Mockito.mock(JdbcTemplate.class));
         }
 
         @Override
