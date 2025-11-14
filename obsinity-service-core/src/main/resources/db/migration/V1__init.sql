@@ -270,8 +270,8 @@ END $$;
 
 DO $$
 DECLARE
-    start_date DATE := DATE '2025-01-01';
-    end_date   DATE := DATE '2027-01-01';
+    start_date DATE := (CURRENT_DATE - INTERVAL '28 days')::DATE;
+    end_date   DATE := (CURRENT_DATE + INTERVAL '28 days')::DATE;
     week_start DATE;
     week_end   DATE;
     bucket_name TEXT;
