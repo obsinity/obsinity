@@ -9,7 +9,6 @@ import static org.mockito.Mockito.when;
 import com.obsinity.service.core.config.ConfigLookup;
 import com.obsinity.service.core.config.StateExtractorDefinition;
 import com.obsinity.service.core.model.EventEnvelope;
-import com.obsinity.service.core.repo.StateCountRepository;
 import com.obsinity.service.core.repo.ObjectStateCountRepository;
 import com.obsinity.service.core.repo.StateSnapshotRepository;
 import java.time.Instant;
@@ -79,8 +78,7 @@ class StateDetectionServiceTest {
         service.process(serviceId, envelope);
 
         verify(snapshotRepository).upsert(serviceId, "UserProfile", "profile-123", "user.status", "ACTIVE", now);
-        verify(countRepository).increment(
-                serviceId, "UserProfile", "user.status", "ACTIVE", now);
+        verify(countRepository).increment(serviceId, "UserProfile", "user.status", "ACTIVE", now);
         verify(countRepository, never()).decrement(serviceId, "UserProfile", "user.status", "ACTIVE", now);
     }
 
@@ -114,9 +112,7 @@ class StateDetectionServiceTest {
 
         verify(snapshotRepository, never())
                 .upsert(serviceId, "UserProfile", "profile-123", "user.status", "ACTIVE", now);
-        verify(countRepository, never())
-                .increment(serviceId, "UserProfile", "user.status", "ACTIVE", now);
-        verify(countRepository, never())
-                .decrement(serviceId, "UserProfile", "user.status", "ACTIVE", now);
+        verify(countRepository, never()).increment(serviceId, "UserProfile", "user.status", "ACTIVE", now);
+        verify(countRepository, never()).decrement(serviceId, "UserProfile", "user.status", "ACTIVE", now);
     }
 }

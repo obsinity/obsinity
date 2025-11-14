@@ -16,24 +16,19 @@ public class ObjectStateCountRepository {
         this.jdbc = jdbc;
     }
 
-    public void increment(UUID serviceId, String objectType, String attribute, String stateValue, Instant occurredAt) {
-        updateCount(serviceId, objectType, attribute, stateValue, 1, occurredAt);
+    public void increment(UUID serviceId, String objectType, String attribute, String stateValue) {
+        updateCount(serviceId, objectType, attribute, stateValue, 1);
     }
 
-    public void decrement(UUID serviceId, String objectType, String attribute, String stateValue, Instant occurredAt) {
-        updateCount(serviceId, objectType, attribute, stateValue, -1, occurredAt);
+    public void decrement(UUID serviceId, String objectType, String attribute, String stateValue) {
+        updateCount(serviceId, objectType, attribute, stateValue, -1);
     }
 
-    private void updateCount(
-            UUID serviceId, String objectType, String attribute, String stateValue, long delta, Instant occurredAt) {
+    private void updateCount(UUID serviceId, String objectType, String attribute, String stateValue, long delta) {
         if (serviceId == null || objectType == null || attribute == null || stateValue == null) {
             return;
         }
-        Instant timestamp = occurredAt != null ? occurredAt : Instant.now();
-        Instant aligned = CounterGranularity.S5.baseBucket().align(timestamp);
         MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("ts", java.sql.Timestamp.from(aligned))
-                .addValue("bucket", CounterGranularity.S5.name())
                 .addValue("service_id", serviceId)
                 .addValue("object_type", objectType)
                 .addValue("attribute", attribute)
@@ -42,9 +37,9 @@ public class ObjectStateCountRepository {
 
         jdbc.update(
                 """
-            insert into obsinity.object_state_counts(ts, bucket, service_id, object_type, attribute, state_value, count)
-            values (:ts, :bucket, :service_id, :object_type, :attribute, :state_value, greatest(:delta, 0))
-            on conflict (ts, bucket, service_id, object_type, attribute, state_value)
+            insert into obsinity.object_state_counts(service_id, object_type, attribute, state_value, count)
+            values (:service_id, :object_type, :attribute, :state_value, greatest(:delta, 0))
+            on conflict (service_id, object_type, attribute, state_value)
             do update set count = greatest(0, obsinity.object_state_counts.count + :delta)
             """,
                 params);

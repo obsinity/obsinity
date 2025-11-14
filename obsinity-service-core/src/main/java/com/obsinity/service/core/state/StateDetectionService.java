@@ -65,11 +65,9 @@ public class StateDetectionService {
                         value,
                         envelope.getTimestamp());
                 if (previous != null && !previous.isBlank()) {
-                    stateCountRepository.decrement(
-                            serviceId, match.extractor().objectType(), attr, previous, envelope.getTimestamp());
+                    stateCountRepository.decrement(serviceId, match.extractor().objectType(), attr, previous);
                 }
-                stateCountRepository.increment(
-                        serviceId, match.extractor().objectType(), attr, value, envelope.getTimestamp());
+                stateCountRepository.increment(serviceId, match.extractor().objectType(), attr, value);
             });
         }
     }
