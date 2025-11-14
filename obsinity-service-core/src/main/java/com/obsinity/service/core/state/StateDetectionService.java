@@ -1,0 +1,138 @@
+package com.obsinity.service.core.state;
+
+import com.obsinity.service.core.config.ConfigLookup;
+import com.obsinity.service.core.config.StateExtractorDefinition;
+import com.obsinity.service.core.model.EventEnvelope;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class StateDetectionService {
+
+    private final ConfigLookup configLookup;
+
+    @org.springframework.beans.factory.annotation.Value("${obsinity.stateExtractors.loggingEnabled:true}")
+    private boolean loggingEnabled;
+
+    public void process(UUID serviceId, EventEnvelope envelope) {
+        if (serviceId == null || envelope == null) {
+            return;
+        }
+        List<StateExtractorDefinition> extractors = configLookup.stateExtractors(serviceId, envelope.getName());
+        if (extractors.isEmpty()) {
+            return;
+        }
+        List<StateMatch> matches = detectMatches(extractors, envelope.getAttributes(), envelope.getEventId());
+        if (!matches.isEmpty() && loggingEnabled) {
+            for (StateMatch match : matches) {
+                log.info(
+                        "StateExtractor matched: event={} objectType={} objectId={} states={} extractor={}",
+                        envelope.getEventId(),
+                        match.extractor().objectType(),
+                        match.objectId(),
+                        match.stateValues(),
+                        match.extractor().rawType());
+            }
+        }
+    }
+
+    List<StateMatch> detectMatches(
+            List<StateExtractorDefinition> extractors, Map<String, Object> attributes, String eventId) {
+        if (extractors == null || extractors.isEmpty() || attributes == null || attributes.isEmpty()) {
+            return List.of();
+        }
+        List<StateMatch> matches = new ArrayList<>();
+        for (StateExtractorDefinition extractor : extractors) {
+            if (extractor == null) continue;
+            Object objectIdRaw = resolveAttribute(attributes, extractor.objectIdField());
+            if (objectIdRaw == null) {
+                continue;
+            }
+            String objectId = stringify(objectIdRaw);
+            if (objectId.isBlank()) continue;
+            List<String> attributesToCheck = extractor.stateAttributes();
+            if (attributesToCheck == null || attributesToCheck.isEmpty()) {
+                continue;
+            }
+            Map<String, String> stateValues = new LinkedHashMap<>();
+            for (String attrPath : attributesToCheck) {
+                String path = attrPath == null ? null : attrPath.trim();
+                if (path == null || path.isEmpty()) continue;
+                Object attrValue = resolveAttribute(attributes, path);
+                if (attrValue != null) {
+                    stateValues.put(path, stringify(attrValue));
+                }
+            }
+            if (stateValues.isEmpty()) {
+                continue;
+            }
+            matches.add(new StateMatch(extractor, objectId, Map.copyOf(stateValues)));
+        }
+        return matches.isEmpty() ? List.of() : List.copyOf(matches);
+    }
+
+    private Object resolveAttribute(Map<String, Object> attributes, String path) {
+        if (attributes == null || path == null || path.isBlank()) {
+            return null;
+        }
+        Object current = attributes;
+        String[] segments = path.split("\\.");
+        for (String segment : segments) {
+            if (!(current instanceof Map<?, ?> map)) {
+                return null;
+            }
+            Object next = map.get(segment);
+            if (next == null) {
+                return null;
+            }
+            current = next;
+        }
+        return current;
+    }
+
+    private String stringify(Object value) {
+        if (value == null) {
+            return "";
+        }
+        if (value instanceof String s) {
+            return s;
+        }
+        if (value instanceof Number || value instanceof Boolean) {
+            return value.toString();
+        }
+        return Objects.toString(value);
+    }
+
+    static final class StateMatch {
+        private final StateExtractorDefinition extractor;
+        private final String objectId;
+        private final Map<String, String> stateValues;
+
+        StateMatch(StateExtractorDefinition extractor, String objectId, Map<String, String> stateValues) {
+            this.extractor = extractor;
+            this.objectId = objectId;
+            this.stateValues = stateValues;
+        }
+
+        StateExtractorDefinition extractor() {
+            return extractor;
+        }
+
+        String objectId() {
+            return objectId;
+        }
+
+        Map<String, String> stateValues() {
+            return stateValues;
+        }
+    }
+}

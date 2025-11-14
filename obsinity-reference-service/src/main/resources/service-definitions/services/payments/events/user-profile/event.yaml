@@ -1,0 +1,23 @@
+apiVersion: obsinity/v1
+kind: Event
+metadata:
+  service: payments
+  name: user_profile.updated
+  displayName: User Profile Updated
+  labels:
+    category: user
+spec:
+  retention:
+    ttl: "30d"
+  schema:
+    type: object
+    properties:
+      user:
+        type: object
+        properties:
+          profile_id: { type: string, index: true }
+          email: { type: string }
+          status:
+            type: string
+            enum: [ACTIVE, INACTIVE, ARCHIVED, BLOCKED]
+            index: true
