@@ -40,18 +40,13 @@ public class StateTransitionQueryRepository {
     public Instant findEarliestTimestamp(UUID serviceId, CounterBucket bucket) {
         MapSqlParameterSource params =
                 new MapSqlParameterSource().addValue("service_id", serviceId).addValue("bucket", bucket.label());
-        return jdbc
-                .query(
-                        """
+        return jdbc.queryForObject(
+                """
                 SELECT MIN(ts) FROM obsinity.object_state_transitions
                 WHERE service_id = :service_id AND bucket = :bucket
                 """,
-                        params,
-                        (rs, rowNum) ->
-                                rs.getTimestamp(1) != null ? rs.getTimestamp(1).toInstant() : null)
-                .stream()
-                .findFirst()
-                .orElse(null);
+                params,
+                (rs, rowNum) -> rs.getTimestamp(1) != null ? rs.getTimestamp(1).toInstant() : null);
     }
 
     public record Row(String fromState, String toState, long total) {}
