@@ -18,7 +18,7 @@ for i in $(seq 1 $profiles); do
   },
   "event": {
     "name": "user_profile.updated",
-    "id": "$(uuidgen)"
+    "id": "$(uuid)"
   },
   "time": {
     "startedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
