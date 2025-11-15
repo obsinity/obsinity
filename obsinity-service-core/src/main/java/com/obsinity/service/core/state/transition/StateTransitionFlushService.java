@@ -28,7 +28,7 @@ public class StateTransitionFlushService {
 
     private final Object flushLock = new Object();
 
-    @Scheduled(fixedRateString = "${obsinity.stateTransitions.flush.rate.s5:5000}")
+    @Scheduled(fixedRateString = "${obsinity.stateTransitions.flush.rate:5000}")
     public void flushFiveSecond() {
         flushGranularity(CounterGranularity.S5);
     }

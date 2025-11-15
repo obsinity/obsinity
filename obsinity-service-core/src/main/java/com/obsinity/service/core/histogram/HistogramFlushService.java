@@ -19,19 +19,9 @@ public class HistogramFlushService {
     private final HistogramBuffer buffer;
     private final HistogramPersistExecutor persistExecutor;
 
-    @Scheduled(fixedRateString = "${obsinity.histograms.flush.rate.s5:5000}")
+    @Scheduled(fixedRateString = "${obsinity.histograms.flush.rate:5000}")
     public void flushFiveSecond() {
         flushGranularity(CounterGranularity.S5);
-    }
-
-    @Scheduled(fixedRateString = "${obsinity.histograms.flush.rate.m1:60000}")
-    public void flushOneMinute() {
-        flushGranularity(CounterGranularity.M1);
-    }
-
-    @Scheduled(fixedRateString = "${obsinity.histograms.flush.rate.m5:300000}")
-    public void flushFiveMinute() {
-        flushGranularity(CounterGranularity.M5);
     }
 
     private void flushGranularity(CounterGranularity granularity) {

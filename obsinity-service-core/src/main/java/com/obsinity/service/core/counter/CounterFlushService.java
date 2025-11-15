@@ -24,19 +24,9 @@ public class CounterFlushService {
 
     private final Object flushLock = new Object();
 
-    @Scheduled(fixedRateString = "${obsinity.counters.flush.rate.s5:5000}")
+    @Scheduled(fixedRateString = "${obsinity.counters.flush.rate:5000}")
     public void flushFiveSecond() {
         flushGranularity(CounterGranularity.S5);
-    }
-
-    @Scheduled(fixedRateString = "${obsinity.counters.flush.rate.m1:60000}")
-    public void flushOneMinute() {
-        flushGranularity(CounterGranularity.M1);
-    }
-
-    @Scheduled(fixedRateString = "${obsinity.counters.flush.rate.m5:300000}")
-    public void flushFiveMinute() {
-        flushGranularity(CounterGranularity.M5);
     }
 
     public void flushAndWait(CounterGranularity granularity) {
