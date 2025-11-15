@@ -11,6 +11,8 @@ import com.obsinity.service.core.config.StateExtractorDefinition;
 import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.repo.ObjectStateCountRepository;
 import com.obsinity.service.core.repo.StateSnapshotRepository;
+import com.obsinity.service.core.state.transition.StateTransitionBuffer;
+import com.obsinity.service.core.counter.CounterGranularity;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +23,7 @@ class StateDetectionServiceTest {
 
     @Test
     void detectMatchesResolvesNestedAttributes() {
-        StateDetectionService service = new StateDetectionService(null, null, null);
+        StateDetectionService service = new StateDetectionService(null, null, null, null);
         Map<String, Object> attributes = Map.of(
                 "api", Map.of("name", "checkout"),
                 "http", Map.of("status", "500", "phase", "retry"));
@@ -39,7 +41,7 @@ class StateDetectionServiceTest {
 
     @Test
     void detectMatchesSkipsWhenObjectIdMissing() {
-        StateDetectionService service = new StateDetectionService(null, null, null);
+        StateDetectionService service = new StateDetectionService(null, null, null, null);
         Map<String, Object> attributes = Map.of("http", Map.of("status", "200"));
 
         StateExtractorDefinition extractor =
@@ -54,7 +56,9 @@ class StateDetectionServiceTest {
         ConfigLookup lookup = mock(ConfigLookup.class);
         StateSnapshotRepository snapshotRepository = mock(StateSnapshotRepository.class);
         ObjectStateCountRepository countRepository = mock(ObjectStateCountRepository.class);
-        StateDetectionService service = new StateDetectionService(lookup, snapshotRepository, countRepository);
+        StateTransitionBuffer transitionBuffer = mock(StateTransitionBuffer.class);
+        StateDetectionService service =
+                new StateDetectionService(lookup, snapshotRepository, countRepository, transitionBuffer);
 
         StateExtractorDefinition extractor = new StateExtractorDefinition(
                 "user_profile.updated", "UserProfile", "user.profile_id", List.of("user.status"));
@@ -80,6 +84,14 @@ class StateDetectionServiceTest {
         verify(snapshotRepository).upsert(serviceId, "UserProfile", "profile-123", "user.status", "ACTIVE", now);
         verify(countRepository).increment(serviceId, "UserProfile", "user.status", "ACTIVE");
         verify(countRepository, never()).decrement(serviceId, "UserProfile", "user.status", "ACTIVE");
+        verify(transitionBuffer, never()).increment(
+                org.mockito.Mockito.any(),
+                org.mockito.Mockito.anyLong(),
+                org.mockito.Mockito.any(),
+                org.mockito.Mockito.any(),
+                org.mockito.Mockito.any(),
+                org.mockito.Mockito.any(),
+                org.mockito.Mockito.any());
     }
 
     @Test
@@ -87,7 +99,9 @@ class StateDetectionServiceTest {
         ConfigLookup lookup = mock(ConfigLookup.class);
         StateSnapshotRepository snapshotRepository = mock(StateSnapshotRepository.class);
         ObjectStateCountRepository countRepository = mock(ObjectStateCountRepository.class);
-        StateDetectionService service = new StateDetectionService(lookup, snapshotRepository, countRepository);
+        StateTransitionBuffer transitionBuffer = mock(StateTransitionBuffer.class);
+        StateDetectionService service =
+                new StateDetectionService(lookup, snapshotRepository, countRepository, transitionBuffer);
 
         StateExtractorDefinition extractor = new StateExtractorDefinition(
                 "user_profile.updated", "UserProfile", "user.profile_id", List.of("user.status"));
@@ -114,5 +128,56 @@ class StateDetectionServiceTest {
                 .upsert(serviceId, "UserProfile", "profile-123", "user.status", "ACTIVE", now);
         verify(countRepository, never()).increment(serviceId, "UserProfile", "user.status", "ACTIVE");
         verify(countRepository, never()).decrement(serviceId, "UserProfile", "user.status", "ACTIVE");
+        verify(transitionBuffer, never()).increment(
+                org.mockito.Mockito.any(),
+                org.mockito.Mockito.anyLong(),
+                org.mockito.Mockito.any(),
+                org.mockito.Mockito.any(),
+                org.mockito.Mockito.any(),
+                org.mockito.Mockito.any(),
+                org.mockito.Mockito.any());
+    }
+
+    @Test
+    void processRecordsTransitionWhenPriorStateExists() {
+        ConfigLookup lookup = mock(ConfigLookup.class);
+        StateSnapshotRepository snapshotRepository = mock(StateSnapshotRepository.class);
+        ObjectStateCountRepository countRepository = mock(ObjectStateCountRepository.class);
+        StateTransitionBuffer transitionBuffer = mock(StateTransitionBuffer.class);
+        StateDetectionService service =
+                new StateDetectionService(lookup, snapshotRepository, countRepository, transitionBuffer);
+
+        StateExtractorDefinition extractor = new StateExtractorDefinition(
+                "user_profile.updated", "UserProfile", "user.profile_id", List.of("user.status"));
+        UUID serviceId = UUID.randomUUID();
+        when(lookup.stateExtractors(serviceId, "user_profile.updated")).thenReturn(List.of(extractor));
+        when(snapshotRepository.findLatest(serviceId, "UserProfile", "profile-123", "user.status"))
+                .thenReturn("ACTIVE");
+
+        Instant now = Instant.parse("2025-01-01T00:00:02Z");
+        EventEnvelope envelope = EventEnvelope.builder()
+                .serviceId("payments")
+                .eventType("user_profile.updated")
+                .name("user_profile.updated")
+                .eventId(UUID.randomUUID().toString())
+                .timestamp(now)
+                .ingestedAt(now)
+                .attributes(Map.of("user", Map.of("profile_id", "profile-123", "status", "BLOCKED")))
+                .build();
+
+        service.process(serviceId, envelope);
+
+        long expectedEpoch = CounterGranularity.S5.baseBucket().align(now).getEpochSecond();
+        verify(transitionBuffer)
+                .increment(
+                        CounterGranularity.S5,
+                        expectedEpoch,
+                        serviceId,
+                        "UserProfile",
+                        "user.status",
+                        "ACTIVE",
+                        "BLOCKED");
+        verify(countRepository).decrement(serviceId, "UserProfile", "user.status", "ACTIVE");
+        verify(countRepository).increment(serviceId, "UserProfile", "user.status", "BLOCKED");
     }
 }

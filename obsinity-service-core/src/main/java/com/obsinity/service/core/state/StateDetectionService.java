@@ -5,6 +5,8 @@ import com.obsinity.service.core.config.StateExtractorDefinition;
 import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.repo.ObjectStateCountRepository;
 import com.obsinity.service.core.repo.StateSnapshotRepository;
+import com.obsinity.service.core.state.transition.StateTransitionBuffer;
+import com.obsinity.service.core.counter.CounterGranularity;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,6 +25,7 @@ public class StateDetectionService {
     private final ConfigLookup configLookup;
     private final StateSnapshotRepository snapshotRepository;
     private final ObjectStateCountRepository stateCountRepository;
+    private final StateTransitionBuffer transitionBuffer;
 
     @org.springframework.beans.factory.annotation.Value("${obsinity.stateExtractors.loggingEnabled:true}")
     private boolean loggingEnabled;
@@ -66,6 +69,14 @@ public class StateDetectionService {
                         envelope.getTimestamp());
                 if (previous != null && !previous.isBlank()) {
                     stateCountRepository.decrement(serviceId, match.extractor().objectType(), attr, previous);
+                    transitionBuffer.increment(
+                            CounterGranularity.S5,
+                            CounterGranularity.S5.baseBucket().align(envelope.getTimestamp()).getEpochSecond(),
+                            serviceId,
+                            match.extractor().objectType(),
+                            attr,
+                            previous,
+                            value);
                 }
                 stateCountRepository.increment(serviceId, match.extractor().objectType(), attr, value);
             });
