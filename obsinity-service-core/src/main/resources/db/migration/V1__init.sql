@@ -278,20 +278,7 @@ CREATE TABLE IF NOT EXISTS obsinity.object_state_counts (
   state_value TEXT NOT NULL,
   count BIGINT NOT NULL DEFAULT 0,
   PRIMARY KEY (service_id, object_type, attribute, state_value)
-)
-PARTITION BY HASH (service_id);
-
-DO $$
-BEGIN
-    FOR i IN 0..7 LOOP
-        EXECUTE format(
-            'CREATE TABLE IF NOT EXISTS obsinity.object_state_counts_p%s
-             PARTITION OF obsinity.object_state_counts
-             FOR VALUES WITH (MODULUS 8, REMAINDER %s);',
-            i,
-            i);
-    END LOOP;
-END $$;
+);
 
 CREATE INDEX IF NOT EXISTS ix_object_state_counts_type
   ON obsinity.object_state_counts(object_type, attribute);
