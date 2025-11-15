@@ -84,7 +84,7 @@ public class CounterQueryService {
         }
 
         Instant alignedStart = bucket.align(start);
-        Instant alignedEnd = bucket.alignToNext(end);
+        Instant alignedEnd = bucket.alignToNext(end.plusMillis(1));
 
         List<Map<String, String>> keyMatrix = expandKeys(counterConfig.keyedKeys(), request.key());
         List<String> hashes =
