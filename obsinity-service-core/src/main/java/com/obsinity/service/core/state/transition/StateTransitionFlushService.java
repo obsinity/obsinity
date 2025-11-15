@@ -45,8 +45,7 @@ public class StateTransitionFlushService {
     private void flushGranularity(CounterGranularity granularity) {
         synchronized (flushLock) {
             try {
-                ConcurrentMap<Long, ConcurrentMap<TransitionKey, BufferedEntry>> bucket =
-                        buffer.getBuffer(granularity);
+                ConcurrentMap<Long, ConcurrentMap<TransitionKey, BufferedEntry>> bucket = buffer.getBuffer(granularity);
                 long now = Instant.now().getEpochSecond();
                 long bucketSeconds = granularity.duration().toSeconds();
                 long cutoff = (now / bucketSeconds) * bucketSeconds - bucketSeconds;
@@ -66,10 +65,7 @@ public class StateTransitionFlushService {
         }
     }
 
-    private void flushEpoch(
-            CounterGranularity granularity,
-            long epoch,
-            Map<TransitionKey, BufferedEntry> transitions) {
+    private void flushEpoch(CounterGranularity granularity, long epoch, Map<TransitionKey, BufferedEntry> transitions) {
         if (transitions == null || transitions.isEmpty()) {
             return;
         }
@@ -80,7 +76,14 @@ public class StateTransitionFlushService {
                 continue;
             }
             TransitionKey key = entry.getKey();
-            batch.add(new BatchItem(ts, key.getServiceId(), key.getObjectType(), key.getAttribute(), key.getFromState(), key.getToState(), entry.getCount()));
+            batch.add(new BatchItem(
+                    ts,
+                    key.getServiceId(),
+                    key.getObjectType(),
+                    key.getAttribute(),
+                    key.getFromState(),
+                    key.getToState(),
+                    entry.getCount()));
         }
 
         if (batch.isEmpty()) {

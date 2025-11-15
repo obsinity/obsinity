@@ -2,7 +2,6 @@ package com.obsinity.service.core.state.transition;
 
 import com.obsinity.service.core.counter.CounterGranularity;
 import java.util.EnumMap;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -68,13 +67,14 @@ public class StateTransitionBuffer {
         AtomicInteger removedEpochs = new AtomicInteger();
 
         granularityBuffer.forEach((epoch, keyMap) -> {
-            keyMap.keySet().forEach(key -> keyMap.compute(key, (k, existing) -> {
-                if (existing == null || existing.count <= 0) {
-                    removedKeys.incrementAndGet();
-                    return null;
-                }
-                return existing;
-            }));
+            keyMap.keySet()
+                    .forEach(key -> keyMap.compute(key, (k, existing) -> {
+                        if (existing == null || existing.count <= 0) {
+                            removedKeys.incrementAndGet();
+                            return null;
+                        }
+                        return existing;
+                    }));
             if (keyMap.isEmpty()) {
                 granularityBuffer.remove(epoch);
                 removedEpochs.incrementAndGet();

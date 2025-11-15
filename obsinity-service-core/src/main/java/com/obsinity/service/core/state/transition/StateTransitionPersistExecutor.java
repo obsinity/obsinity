@@ -1,7 +1,6 @@
 package com.obsinity.service.core.state.transition;
 
 import com.obsinity.service.core.counter.CounterGranularity;
-import com.obsinity.service.core.state.transition.StateTransitionBuffer.BufferedEntry;
 import com.obsinity.service.core.state.transition.StateTransitionBuffer.TransitionKey;
 import com.obsinity.service.core.state.transition.StateTransitionPersistService.BatchItem;
 import jakarta.annotation.PostConstruct;

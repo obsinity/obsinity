@@ -14,10 +14,8 @@ class StateTransitionBufferTest {
         StateTransitionBuffer buffer = new StateTransitionBuffer();
         UUID serviceId = UUID.randomUUID();
 
-        buffer.increment(
-                CounterGranularity.S5, 100L, serviceId, "UserProfile", "status", "ACTIVE", "BLOCKED");
-        buffer.increment(
-                CounterGranularity.S5, 100L, serviceId, "UserProfile", "status", "ACTIVE", "BLOCKED");
+        buffer.increment(CounterGranularity.S5, 100L, serviceId, "UserProfile", "status", "ACTIVE", "BLOCKED");
+        buffer.increment(CounterGranularity.S5, 100L, serviceId, "UserProfile", "status", "ACTIVE", "BLOCKED");
 
         Map<StateTransitionBuffer.TransitionKey, StateTransitionBuffer.BufferedEntry> epoch =
                 buffer.getBuffer(CounterGranularity.S5).get(100L);

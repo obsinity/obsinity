@@ -42,7 +42,10 @@ public class StateDetectionService {
         if (matches.isEmpty()) {
             return;
         }
-        long alignedEpoch = CounterGranularity.S5.baseBucket().align(envelope.getTimestamp()).getEpochSecond();
+        long alignedEpoch = CounterGranularity.S5
+                .baseBucket()
+                .align(envelope.getTimestamp())
+                .getEpochSecond();
         for (StateMatch match : matches) {
             match.stateValues().forEach((attr, value) -> {
                 String previous = snapshotRepository.findLatest(
