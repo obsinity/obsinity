@@ -97,6 +97,6 @@ The payload returns a list of `intervals`, each with `from`, `to`, and `counts` 
 
 ## Operational Notes
 
-* Flush cadences can be tuned via configuration keys `obsinity.counters.flush.rate.s5`, `.m1`, `.m5`.
+* Flush cadence is controlled by `obsinity.counters.flush.rate.s5`; 1m/5m rollups are materialized automatically as part of the 5s flush.
 * Hash caches are controlled with `obsinity.counters.hash.cache-size` and `obsinity.counters.hash.ttl`.
 * Rollups rely on the hash cache; running the API in a separate process is fine because hashes are deterministic.

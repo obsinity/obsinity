@@ -1,9 +1,11 @@
 package com.obsinity.service.core.state.transition;
 
+import com.obsinity.service.core.config.PipelineProperties;
 import com.obsinity.service.core.counter.CounterGranularity;
 import com.obsinity.service.core.state.transition.StateTransitionBuffer.BufferedEntry;
 import com.obsinity.service.core.state.transition.StateTransitionBuffer.TransitionKey;
 import com.obsinity.service.core.state.transition.StateTransitionPersistService.BatchItem;
+import jakarta.annotation.PostConstruct;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -11,7 +13,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -22,13 +23,18 @@ public class StateTransitionFlushService {
 
     private final StateTransitionBuffer buffer;
     private final StateTransitionPersistExecutor persistExecutor;
+    private final PipelineProperties pipelineProperties;
 
-    @Value("${obsinity.stateTransitions.flush.max-batch-size:5000}")
     private int maxBatchSize;
 
     private final Object flushLock = new Object();
 
-    @Scheduled(fixedRateString = "${obsinity.stateTransitions.flush.rate:5000}")
+    @PostConstruct
+    void configureBatchSize() {
+        this.maxBatchSize = pipelineProperties.getStateTransitions().getFlush().getMaxBatchSize();
+    }
+
+    @Scheduled(fixedRateString = "${obsinity.stateTransitions.flush.rate.s5:5000}")
     public void flushFiveSecond() {
         flushGranularity(CounterGranularity.S5);
     }
@@ -36,10 +42,6 @@ public class StateTransitionFlushService {
     public void flushAndWait(CounterGranularity granularity) {
         flushGranularity(granularity);
         persistExecutor.waitForDrain();
-    }
-
-    void setMaxBatchSize(int maxBatchSize) {
-        this.maxBatchSize = maxBatchSize;
     }
 
     private void flushGranularity(CounterGranularity granularity) {

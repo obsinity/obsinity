@@ -1,6 +1,8 @@
 package com.obsinity.service.core.histogram;
 
+import com.obsinity.service.core.config.PipelineProperties;
 import com.obsinity.service.core.counter.CounterGranularity;
+import jakarta.annotation.PostConstruct;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,10 +20,22 @@ public class HistogramFlushService {
 
     private final HistogramBuffer buffer;
     private final HistogramPersistExecutor persistExecutor;
+    private final PipelineProperties pipelineProperties;
+    private int maxEpochsPerRun;
 
-    @Scheduled(fixedRateString = "${obsinity.histograms.flush.rate:5000}")
+    @PostConstruct
+    void configure() {
+        this.maxEpochsPerRun = pipelineProperties.getHistograms().getFlush().getMaxBatchSize();
+    }
+
+    @Scheduled(fixedRateString = "${obsinity.histograms.flush.rate.s5:5000}")
     public void flushFiveSecond() {
         flushGranularity(CounterGranularity.S5);
+    }
+
+    public void flushAndWait() {
+        flushGranularity(CounterGranularity.S5);
+        persistExecutor.waitForDrain();
     }
 
     private void flushGranularity(CounterGranularity granularity) {
@@ -42,7 +56,6 @@ public class HistogramFlushService {
             }
         });
 
-        int maxEpochsPerRun = 5000;
         int processed = 0;
         for (Long epoch : epochsToFlush) {
             if (processed >= maxEpochsPerRun) {

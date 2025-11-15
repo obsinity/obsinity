@@ -33,21 +33,24 @@ obsinity:
       queue-capacity: 20000
     flush:
       max-batch-size: 5000
-      rate: 5000
+      rate:
+        s5: 5000
   counters:
     persist:
       workers: 10
       queue-capacity: 20000
     flush:
       max-batch-size: 5000
-      rate: 5000
+      rate:
+        s5: 5000
   stateTransitions:
     persist:
       workers: 4
       queue-capacity: 5000
     flush:
       max-batch-size: 5000
-      rate: 5000
+      rate:
+        s5: 5000
 
 logging:
   level:

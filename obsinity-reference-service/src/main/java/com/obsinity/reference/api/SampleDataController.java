@@ -197,9 +197,7 @@ public class SampleDataController {
             for (CounterGranularity granularity : CounterGranularity.values()) {
                 counterFlushService.flushAndWait(granularity);
             }
-            histogramFlushService.flushFiveSecond();
-            histogramFlushService.flushOneMinute();
-            histogramFlushService.flushFiveMinute();
+            histogramFlushService.flushAndWait();
         } catch (Exception ex) {
             log.warn("Demo data flush failed", ex);
         }

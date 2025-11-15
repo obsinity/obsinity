@@ -1,5 +1,7 @@
 package com.obsinity.service.core.counter;
 
+import com.obsinity.service.core.config.PipelineProperties;
+import jakarta.annotation.PostConstruct;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -7,7 +9,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -18,13 +19,18 @@ public class CounterFlushService {
 
     private final CounterBuffer buffer;
     private final CounterPersistExecutor persistExecutor;
+    private final PipelineProperties pipelineProperties;
 
-    @Value("${obsinity.counters.flush.max-batch-size:5000}")
     private int maxBatchSize;
 
     private final Object flushLock = new Object();
 
-    @Scheduled(fixedRateString = "${obsinity.counters.flush.rate:5000}")
+    @PostConstruct
+    void configureBatchSize() {
+        this.maxBatchSize = pipelineProperties.getCounters().getFlush().getMaxBatchSize();
+    }
+
+    @Scheduled(fixedRateString = "${obsinity.counters.flush.rate.s5:5000}")
     public void flushFiveSecond() {
         flushGranularity(CounterGranularity.S5);
     }

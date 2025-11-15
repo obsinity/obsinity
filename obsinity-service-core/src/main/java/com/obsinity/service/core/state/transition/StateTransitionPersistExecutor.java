@@ -1,5 +1,6 @@
 package com.obsinity.service.core.state.transition;
 
+import com.obsinity.service.core.config.PipelineProperties;
 import com.obsinity.service.core.counter.CounterGranularity;
 import com.obsinity.service.core.state.transition.StateTransitionBuffer.TransitionKey;
 import com.obsinity.service.core.state.transition.StateTransitionPersistService.BatchItem;
@@ -11,9 +12,9 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -23,22 +24,23 @@ public class StateTransitionPersistExecutor {
 
     private final StateTransitionPersistService persistService;
     private final StateTransitionBuffer buffer;
+    private final PipelineProperties pipelineProperties;
 
-    @Value("${obsinity.stateTransitions.persist.queue-capacity:5000}")
     private int queueCapacity;
-
-    @Value("${obsinity.stateTransitions.persist.workers:4}")
-    private int workerCount;
 
     private BlockingQueue<Job> queue;
     private ExecutorService executor;
+    private final AtomicInteger activeJobs = new AtomicInteger();
 
     @PostConstruct
     void start() {
-        init(queueCapacity, workerCount);
+        PipelineProperties.Persist persist =
+                pipelineProperties.getStateTransitions().getPersist();
+        init(persist.getQueueCapacity(), persist.getWorkers());
     }
 
     void init(int capacity, int workers) {
+        this.queueCapacity = capacity;
         queue = new ArrayBlockingQueue<>(capacity);
         executor = Executors.newFixedThreadPool(workers);
         for (int i = 0; i < workers; i++) {
@@ -67,19 +69,29 @@ public class StateTransitionPersistExecutor {
         try {
             while (!Thread.currentThread().isInterrupted()) {
                 Job job = queue.take();
-                persistService.persistBatch(job.granularity(), job.batch());
-                for (BatchItem item : job.batch()) {
-                    TransitionKey key = new TransitionKey(
-                            item.serviceId(), item.objectType(), item.attribute(), item.fromState(), item.toState());
-                    buffer.decrement(job.granularity(), job.epoch(), key, item.count());
+                activeJobs.incrementAndGet();
+                try {
+                    persistService.persistBatch(job.granularity(), job.batch());
+                    for (BatchItem item : job.batch()) {
+                        TransitionKey key = new TransitionKey(
+                                item.serviceId(),
+                                item.objectType(),
+                                item.attribute(),
+                                item.fromState(),
+                                item.toState());
+                        buffer.decrement(job.granularity(), job.epoch(), key, item.count());
+                    }
+                    long total =
+                            job.batch().stream().mapToLong(BatchItem::count).sum();
+                    log.info(
+                            "State transition persist complete granularity={} epoch={} entries={} totalDelta={}",
+                            job.granularity(),
+                            Instant.ofEpochSecond(job.epoch()),
+                            job.batch().size(),
+                            total);
+                } finally {
+                    activeJobs.decrementAndGet();
                 }
-                long total = job.batch().stream().mapToLong(BatchItem::count).sum();
-                log.info(
-                        "State transition persist complete granularity={} epoch={} entries={} totalDelta={}",
-                        job.granularity(),
-                        Instant.ofEpochSecond(job.epoch()),
-                        job.batch().size(),
-                        total);
             }
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
@@ -89,7 +101,7 @@ public class StateTransitionPersistExecutor {
     }
 
     public void waitForDrain() {
-        while (!queue.isEmpty()) {
+        while (!queue.isEmpty() || activeJobs.get() > 0) {
             try {
                 Thread.sleep(10);
             } catch (InterruptedException ie) {

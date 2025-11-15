@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.obsinity.service.core.config.ConfigLookup;
 import com.obsinity.service.core.config.CounterConfig;
 import com.obsinity.service.core.config.EventTypeConfig;
+import com.obsinity.service.core.config.PipelineProperties;
 import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.repo.ServicesCatalogRepository;
 import java.lang.reflect.Field;
@@ -37,10 +38,15 @@ class CounterPipelineTest {
 
         CounterBuffer buffer = new CounterBuffer(hashService);
         InMemoryPersistService persistService = new InMemoryPersistService();
-        CounterPersistExecutor executor = new CounterPersistExecutor(persistService, buffer);
+        PipelineProperties pipelineProperties = new PipelineProperties();
+        pipelineProperties.getCounters().getPersist().setQueueCapacity(2000);
+        pipelineProperties.getCounters().getPersist().setWorkers(4);
+        pipelineProperties.getCounters().getFlush().setMaxBatchSize(1000);
+
+        CounterPersistExecutor executor = new CounterPersistExecutor(persistService, buffer, pipelineProperties);
         executor.init(2000, 4);
-        CounterFlushService flushService = new CounterFlushService(buffer, executor);
-        setField(flushService, "maxBatchSize", 1000);
+        CounterFlushService flushService = new CounterFlushService(buffer, executor, pipelineProperties);
+        flushService.configureBatchSize();
 
         CounterIngestService ingestService = new CounterIngestService(buffer, hashService);
 

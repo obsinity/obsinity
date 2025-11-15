@@ -2,6 +2,7 @@ package com.obsinity.service.core.state.transition;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.obsinity.service.core.config.PipelineProperties;
 import com.obsinity.service.core.counter.CounterGranularity;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -17,10 +18,17 @@ class StateTransitionPipelineTest {
     void bufferFlushAndPersist() throws Exception {
         StateTransitionBuffer buffer = new StateTransitionBuffer();
         RecordingPersistService persistService = new RecordingPersistService();
-        StateTransitionPersistExecutor executor = new StateTransitionPersistExecutor(persistService, buffer);
+        PipelineProperties pipelineProperties = new PipelineProperties();
+        pipelineProperties.getStateTransitions().getPersist().setQueueCapacity(100);
+        pipelineProperties.getStateTransitions().getPersist().setWorkers(1);
+        pipelineProperties.getStateTransitions().getFlush().setMaxBatchSize(10);
+
+        StateTransitionPersistExecutor executor =
+                new StateTransitionPersistExecutor(persistService, buffer, pipelineProperties);
         executor.init(100, 1);
-        StateTransitionFlushService flushService = new StateTransitionFlushService(buffer, executor);
-        flushService.setMaxBatchSize(10);
+        StateTransitionFlushService flushService =
+                new StateTransitionFlushService(buffer, executor, pipelineProperties);
+        flushService.configureBatchSize();
 
         UUID serviceId = UUID.randomUUID();
         Instant occurred = Instant.parse("2025-01-01T00:00:02Z");

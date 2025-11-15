@@ -85,10 +85,8 @@ Granularity-specific buffers let us avoid flushing minute and five-minute counte
 
 **Trigger**
 
-* A dedicated flush tick exists for each granularity:
-  * `5s` counters flush every 5 seconds (default `obsinity.counters.flush.rate.s5`).
-  * `1m` counters flush every 60 seconds (default `obsinity.counters.flush.rate.m1`).
-  * `5m` counters flush every 300 seconds (default `obsinity.counters.flush.rate.m5`).
+* A dedicated flush tick runs every 5 seconds (config `obsinity.counters.flush.rate.s5`) and handles all buckets.
+* Minute and five-minute windows are materialized during the same pass, so no extra schedulers are required.
 * Each tick fires shortly after the aligned boundary with jitter to avoid thundering herds.
 
 **Batching**
