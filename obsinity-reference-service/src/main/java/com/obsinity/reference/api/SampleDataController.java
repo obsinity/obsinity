@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -41,6 +42,7 @@ public class SampleDataController {
         t.setDaemon(true);
         return t;
     });
+    private final Random random = new Random();
 
     @PostMapping("/generate-latency")
     @ResponseStatus(HttpStatus.ACCEPTED)
@@ -130,15 +132,22 @@ public class SampleDataController {
     private void runStateCascade(StateCascadeRequest request) {
         List<String> states = request.states();
         if (states == null || states.isEmpty()) {
-            states = List.of("ACTIVE", "INACTIVE", "BLOCKED");
+            states = List.of("ACTIVE", "INACTIVE", "BLOCKED", "SUSPENDED", "ARCHIVED", "VERIFIED");
         }
         int profiles = Math.max(1, request.profiles());
-        long delayMillis = Math.max(1L, request.totalDurationMillis() / Math.max(1, profiles * states.size()));
+        int transitionsPerProfile = Math.max(1, request.transitionsPerProfile());
+        long eventsPerProfile = transitionsPerProfile + 1L;
+        long delayMillis =
+                Math.max(1L, request.totalDurationMillis() / Math.max(1L, profiles * eventsPerProfile));
+
         for (int i = 1; i <= profiles; i++) {
             String profileId = String.format("profile-%03d", i);
-            for (String state : states) {
-                EventEnvelope event = buildStateEvent(profileId, state);
-                ingestService.ingestOne(event);
+            String current = randomState(states, null);
+            emitStateEvent(profileId, current);
+            for (int t = 0; t < transitionsPerProfile; t++) {
+                String next = randomState(states, current);
+                emitStateEvent(profileId, next);
+                current = next;
                 try {
                     Thread.sleep(delayMillis);
                 } catch (InterruptedException ie) {
@@ -147,6 +156,21 @@ public class SampleDataController {
                 }
             }
         }
+    }
+
+    private String randomState(List<String> states, String exclude) {
+        if (states.size() == 1) {
+            return states.get(0);
+        }
+        String choice;
+        do {
+            choice = states.get(random.nextInt(states.size()));
+        } while (exclude != null && choice.equals(exclude));
+        return choice;
+    }
+
+    private void emitStateEvent(String profileId, String state) {
+        ingestService.ingestOne(buildStateEvent(profileId, state));
     }
 
     private EventEnvelope buildStateEvent(String profileId, String state) {
@@ -258,19 +282,22 @@ public class SampleDataController {
         }
     }
 
-    public record StateCascadeRequest(Integer profiles, List<String> states, Long totalDurationMillis) {
+    public record StateCascadeRequest(Integer profiles, List<String> states, Long totalDurationMillis, Integer transitionsPerProfile) {
         static StateCascadeRequest defaults(StateCascadeRequest maybe) {
             if (maybe == null) {
-                return new StateCascadeRequest(250, List.of("ACTIVE", "INACTIVE", "BLOCKED"), 15000L);
+                return new StateCascadeRequest(250, List.of("ACTIVE", "INACTIVE", "BLOCKED", "SUSPENDED"), 15000L, 3);
             }
             int prof = maybe.profiles == null || maybe.profiles <= 0 ? 250 : maybe.profiles;
             List<String> st = (maybe.states == null || maybe.states.isEmpty())
-                    ? List.of("ACTIVE", "INACTIVE", "BLOCKED")
+                    ? List.of("ACTIVE", "INACTIVE", "BLOCKED", "SUSPENDED")
                     : maybe.states;
             long duration = maybe.totalDurationMillis == null || maybe.totalDurationMillis <= 0
                     ? 15000L
                     : maybe.totalDurationMillis;
-            return new StateCascadeRequest(prof, st, duration);
+            int transitions = maybe.transitionsPerProfile == null || maybe.transitionsPerProfile <= 0
+                    ? st.size()
+                    : maybe.transitionsPerProfile;
+            return new StateCascadeRequest(prof, st, duration, transitions);
         }
     }
 }

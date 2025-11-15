@@ -265,8 +265,9 @@ resources:
       text: |
         {
           "profiles": 100,
-          "states": ["ACTIVE", "INACTIVE", "BLOCKED"],
-          "totalDurationMillis": 10000
+          "states": ["ACTIVE", "INACTIVE", "BLOCKED", "SUSPENDED", "ARCHIVED"],
+          "totalDurationMillis": 10000,
+          "transitionsPerProfile": 5
         }
     headers:
       - name: Content-Type
