@@ -8,10 +8,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.Value;
+import org.springframework.stereotype.Component;
 
 /**
  * In-memory buffer for state transition counts, modeled after counter buffers.
  */
+@Component
 public class StateTransitionBuffer {
 
     private final EnumMap<CounterGranularity, ConcurrentMap<Long, ConcurrentMap<TransitionKey, BufferedEntry>>>
