@@ -251,6 +251,28 @@ resources:
         value: application/json
     _type: request
 
+  # ===================== Demo Data =====================
+  - _id: req_demo_state_cascade
+    parentId: fld_demo
+    created: 1758900600000
+    modified: 1758900600000
+    name: demo → enqueue state cascade
+    description: Trigger the internal state cascade generator (defaults to 250 profiles).
+    method: POST
+    url: "{{ base_url }}/internal/demo/state-cascade"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "profiles": 100,
+          "states": ["ACTIVE", "INACTIVE", "BLOCKED"],
+          "totalDurationMillis": 10000
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
   - _id: req_state_user_profile_blocked
     parentId: fld_state
     created: 1758900500001
