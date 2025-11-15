@@ -274,7 +274,7 @@ resources:
         {
           "profiles": 100,
           "states": ["ACTIVE", "INACTIVE", "BLOCKED", "SUSPENDED", "ARCHIVED"],
-          "totalDurationMillis": 10000,
+          "totalDurationMillis": 600000,
           "transitionsPerProfile": 5
         }
     headers:
