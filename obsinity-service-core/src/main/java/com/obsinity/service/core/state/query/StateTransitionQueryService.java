@@ -2,7 +2,6 @@ package com.obsinity.service.core.state.query;
 
 import com.obsinity.service.core.counter.CounterBucket;
 import com.obsinity.service.core.counter.CounterGranularity;
-import com.obsinity.service.core.counter.CounterQueryService;
 import com.obsinity.service.core.counter.DurationParser;
 import com.obsinity.service.core.repo.ServicesCatalogRepository;
 import java.time.Duration;
@@ -11,7 +10,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -41,9 +39,8 @@ public class StateTransitionQueryService {
 
         Instant defaultEnd = Instant.now();
         Instant earliestData = repository.findEarliestTimestamp(serviceId, bucket);
-        Instant defaultStart = earliestData != null
-                ? bucket.align(earliestData)
-                : bucket.align(defaultEnd.minus(Duration.ofDays(14)));
+        Instant defaultStart =
+                earliestData != null ? bucket.align(earliestData) : bucket.align(defaultEnd.minus(Duration.ofDays(14)));
 
         Instant start = request.start() != null ? Instant.parse(request.start()) : defaultStart;
         if (earliestData != null && start.isBefore(earliestData)) {
@@ -75,8 +72,7 @@ public class StateTransitionQueryService {
 
         while (cursor.isBefore(alignedEnd) && added < limit) {
             Instant next = cursor.plus(step);
-            List<StateTransitionQueryRepository.Row> rows =
-                    repository.fetchRange(serviceId, bucket, cursor, next);
+            List<StateTransitionQueryRepository.Row> rows = repository.fetchRange(serviceId, bucket, cursor, next);
 
             List<StateTransitionQueryWindow.Entry> entries = rows.stream()
                     .filter(row -> matches(row.fromState(), fromFilter) && matches(row.toState(), toFilter))
@@ -107,7 +103,13 @@ public class StateTransitionQueryService {
 
     private CounterBucket resolveBucket(Duration requested) {
         for (CounterBucket candidate : CounterBucket.valuesSortedByAscendingDuration()) {
-            if (!EnumSet.of(CounterBucket.S5, CounterBucket.M1, CounterBucket.M5, CounterBucket.H1, CounterBucket.D1, CounterBucket.D7)
+            if (!EnumSet.of(
+                            CounterBucket.S5,
+                            CounterBucket.M1,
+                            CounterBucket.M5,
+                            CounterBucket.H1,
+                            CounterBucket.D1,
+                            CounterBucket.D7)
                     .contains(candidate)) {
                 continue;
             }

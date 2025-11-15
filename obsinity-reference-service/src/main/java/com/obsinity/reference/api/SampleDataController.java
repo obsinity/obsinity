@@ -137,8 +137,7 @@ public class SampleDataController {
         int profiles = Math.max(1, request.profiles());
         int transitionsPerProfile = Math.max(1, request.transitionsPerProfile());
         long eventsPerProfile = transitionsPerProfile + 1L;
-        long delayMillis =
-                Math.max(1L, request.totalDurationMillis() / Math.max(1L, profiles * eventsPerProfile));
+        long delayMillis = Math.max(1L, request.totalDurationMillis() / Math.max(1L, profiles * eventsPerProfile));
 
         for (int i = 1; i <= profiles; i++) {
             String profileId = String.format("profile-%03d", i);
@@ -282,7 +281,8 @@ public class SampleDataController {
         }
     }
 
-    public record StateCascadeRequest(Integer profiles, List<String> states, Long totalDurationMillis, Integer transitionsPerProfile) {
+    public record StateCascadeRequest(
+            Integer profiles, List<String> states, Long totalDurationMillis, Integer transitionsPerProfile) {
         static StateCascadeRequest defaults(StateCascadeRequest maybe) {
             if (maybe == null) {
                 return new StateCascadeRequest(250, List.of("ACTIVE", "INACTIVE", "BLOCKED", "SUSPENDED"), 15000L, 3);

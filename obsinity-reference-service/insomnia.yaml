@@ -127,6 +127,14 @@ resources:
     description: Requests that exercise state extractor configs (api.name + http.* attributes).
     _type: request_group
 
+  - _id: fld_state_query
+    parentId: wrk_68f2907246df440f96e2f024b4a89fee
+    created: 1758900700000
+    modified: 1758900700000
+    name: State Queries
+    description: Query interfaces for object_state counts/transitions.
+    _type: request_group
+
   - _id: fld_admin
     parentId: wrk_68f2907246df440f96e2f024b4a89fee
     created: 1754511488005
@@ -268,6 +276,34 @@ resources:
           "states": ["ACTIVE", "INACTIVE", "BLOCKED", "SUSPENDED", "ARCHIVED"],
           "totalDurationMillis": 10000,
           "transitionsPerProfile": 5
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  # ===================== State Queries =====================
+  - _id: req_state_transition_query
+    parentId: fld_state_query
+    created: 1758900700100
+    modified: 1758900700100
+    name: query → state transitions
+    description: Query state transition counts over time (requires controller REST module).
+    method: POST
+    url: "{{ base_url }}/api/query/state-transitions"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "serviceKey": "{{ service_id }}",
+          "objectType": "UserProfile",
+          "attribute": "user.status",
+          "fromStates": ["ACTIVE"],
+          "toStates": ["BLOCKED"],
+          "interval": "5s",
+          "start": "{% now 'iso-8601', 'utc', -60 %}",
+          "end": "{% now 'iso-8601', 'utc' %}",
+          "limits": { "offset": 0, "limit": 20 }
         }
     headers:
       - name: Content-Type
