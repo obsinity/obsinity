@@ -283,6 +283,83 @@ CREATE TABLE IF NOT EXISTS obsinity.object_state_counts (
 CREATE INDEX IF NOT EXISTS ix_object_state_counts_type
   ON obsinity.object_state_counts(object_type, attribute);
 
+-- ================================================
+-- Object state transition counts (time series)
+-- ================================================
+CREATE TABLE IF NOT EXISTS obsinity.object_state_transitions (
+  ts TIMESTAMPTZ NOT NULL,
+  bucket VARCHAR(10) NOT NULL,
+  service_id UUID NOT NULL,
+  object_type TEXT NOT NULL,
+  attribute TEXT NOT NULL,
+  from_state TEXT NOT NULL,
+  to_state TEXT NOT NULL,
+  transition_count BIGINT NOT NULL,
+  PRIMARY KEY (ts, bucket, service_id, object_type, attribute, from_state, to_state)
+)
+PARTITION BY LIST (bucket);
+
+DO $$
+DECLARE
+    bucket_name TEXT;
+    parent_table TEXT;
+BEGIN
+    FOR bucket_name IN SELECT unnested FROM unnest(ARRAY['S5','M1','M5','H1','D1','D7']) AS unnested LOOP
+        parent_table := format('object_state_transitions_%s', lower(bucket_name));
+        EXECUTE format(
+            'CREATE TABLE IF NOT EXISTS obsinity.%I
+             PARTITION OF obsinity.object_state_transitions
+             FOR VALUES IN (''%s'')
+             PARTITION BY RANGE (ts);',
+            parent_table,
+            bucket_name
+        );
+    END LOOP;
+END $$;
+
+DO $$
+DECLARE
+    start_date DATE := (CURRENT_DATE - INTERVAL '28 days')::DATE;
+    end_date   DATE := (CURRENT_DATE + INTERVAL '28 days')::DATE;
+    week_start DATE;
+    week_end   DATE;
+    bucket_name TEXT;
+    parent_table TEXT;
+    partition_name TEXT;
+BEGIN
+    week_start := start_date;
+    WHILE week_start < end_date LOOP
+        week_end := week_start + INTERVAL '7 days';
+
+        FOR bucket_name IN SELECT unnested FROM unnest(ARRAY['S5','M1','M5','H1','D1','D7']) AS unnested LOOP
+            parent_table := format('object_state_transitions_%s', lower(bucket_name));
+            partition_name := format(
+                'object_state_transitions_%s_%s',
+                to_char(week_start, 'IYYY_IW'),
+                lower(bucket_name)
+            );
+
+            EXECUTE format(
+                'CREATE UNLOGGED TABLE IF NOT EXISTS obsinity.%I
+                 PARTITION OF obsinity.%I
+                 FOR VALUES FROM (TIMESTAMPTZ %L) TO (TIMESTAMPTZ %L);',
+                partition_name,
+                parent_table,
+                week_start,
+                week_end
+            );
+
+            EXECUTE format(
+                'CREATE INDEX IF NOT EXISTS %I ON obsinity.%I(object_type, attribute);',
+                partition_name || '_object_idx',
+                partition_name
+            );
+        END LOOP;
+
+        week_start := week_end;
+    END LOOP;
+END $$;
+
 DO $$
 DECLARE
     start_date DATE := (CURRENT_DATE - INTERVAL '28 days')::DATE;

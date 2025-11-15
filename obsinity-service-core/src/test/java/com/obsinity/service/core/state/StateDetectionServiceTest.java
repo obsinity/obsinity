@@ -8,11 +8,11 @@ import static org.mockito.Mockito.when;
 
 import com.obsinity.service.core.config.ConfigLookup;
 import com.obsinity.service.core.config.StateExtractorDefinition;
+import com.obsinity.service.core.counter.CounterGranularity;
 import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.repo.ObjectStateCountRepository;
 import com.obsinity.service.core.repo.StateSnapshotRepository;
 import com.obsinity.service.core.state.transition.StateTransitionBuffer;
-import com.obsinity.service.core.counter.CounterGranularity;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -84,14 +84,15 @@ class StateDetectionServiceTest {
         verify(snapshotRepository).upsert(serviceId, "UserProfile", "profile-123", "user.status", "ACTIVE", now);
         verify(countRepository).increment(serviceId, "UserProfile", "user.status", "ACTIVE");
         verify(countRepository, never()).decrement(serviceId, "UserProfile", "user.status", "ACTIVE");
-        verify(transitionBuffer, never()).increment(
-                org.mockito.Mockito.any(),
-                org.mockito.Mockito.anyLong(),
-                org.mockito.Mockito.any(),
-                org.mockito.Mockito.any(),
-                org.mockito.Mockito.any(),
-                org.mockito.Mockito.any(),
-                org.mockito.Mockito.any());
+        verify(transitionBuffer, never())
+                .increment(
+                        org.mockito.Mockito.any(),
+                        org.mockito.Mockito.anyLong(),
+                        org.mockito.Mockito.any(),
+                        org.mockito.Mockito.any(),
+                        org.mockito.Mockito.any(),
+                        org.mockito.Mockito.any(),
+                        org.mockito.Mockito.any());
     }
 
     @Test
@@ -128,14 +129,15 @@ class StateDetectionServiceTest {
                 .upsert(serviceId, "UserProfile", "profile-123", "user.status", "ACTIVE", now);
         verify(countRepository, never()).increment(serviceId, "UserProfile", "user.status", "ACTIVE");
         verify(countRepository, never()).decrement(serviceId, "UserProfile", "user.status", "ACTIVE");
-        verify(transitionBuffer, never()).increment(
-                org.mockito.Mockito.any(),
-                org.mockito.Mockito.anyLong(),
-                org.mockito.Mockito.any(),
-                org.mockito.Mockito.any(),
-                org.mockito.Mockito.any(),
-                org.mockito.Mockito.any(),
-                org.mockito.Mockito.any());
+        verify(transitionBuffer, never())
+                .increment(
+                        org.mockito.Mockito.any(),
+                        org.mockito.Mockito.anyLong(),
+                        org.mockito.Mockito.any(),
+                        org.mockito.Mockito.any(),
+                        org.mockito.Mockito.any(),
+                        org.mockito.Mockito.any(),
+                        org.mockito.Mockito.any());
     }
 
     @Test

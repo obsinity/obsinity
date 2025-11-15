@@ -2,11 +2,11 @@ package com.obsinity.service.core.state;
 
 import com.obsinity.service.core.config.ConfigLookup;
 import com.obsinity.service.core.config.StateExtractorDefinition;
+import com.obsinity.service.core.counter.CounterGranularity;
 import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.repo.ObjectStateCountRepository;
 import com.obsinity.service.core.repo.StateSnapshotRepository;
 import com.obsinity.service.core.state.transition.StateTransitionBuffer;
-import com.obsinity.service.core.counter.CounterGranularity;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -42,6 +42,7 @@ public class StateDetectionService {
         if (matches.isEmpty()) {
             return;
         }
+        long alignedEpoch = CounterGranularity.S5.baseBucket().align(envelope.getTimestamp()).getEpochSecond();
         for (StateMatch match : matches) {
             match.stateValues().forEach((attr, value) -> {
                 String previous = snapshotRepository.findLatest(
@@ -71,7 +72,7 @@ public class StateDetectionService {
                     stateCountRepository.decrement(serviceId, match.extractor().objectType(), attr, previous);
                     transitionBuffer.increment(
                             CounterGranularity.S5,
-                            CounterGranularity.S5.baseBucket().align(envelope.getTimestamp()).getEpochSecond(),
+                            alignedEpoch,
                             serviceId,
                             match.extractor().objectType(),
                             attr,
