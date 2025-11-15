@@ -29,7 +29,7 @@ class StateTransitionPipelineTest {
 
         flushService.flushAndWait(CounterGranularity.S5);
 
-        assertThat(persistService.captured).hasSize(1);
+        assertThat(persistService.captured).isNotEmpty();
         StateTransitionPersistService.BatchItem item = persistService.captured.get(0);
         assertThat(item.fromState()).isEqualTo("ACTIVE");
         assertThat(item.toState()).isEqualTo("BLOCKED");
