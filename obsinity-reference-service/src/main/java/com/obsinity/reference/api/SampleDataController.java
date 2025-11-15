@@ -13,6 +13,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -33,6 +36,11 @@ public class SampleDataController {
     private final EventIngestService ingestService;
     private final CounterFlushService counterFlushService;
     private final HistogramFlushService histogramFlushService;
+    private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "demo-state-generator");
+        t.setDaemon(true);
+        return t;
+    });
 
     @PostMapping("/generate-latency")
     @ResponseStatus(HttpStatus.ACCEPTED)
@@ -91,6 +99,14 @@ public class SampleDataController {
                 "eventType", req.eventType());
     }
 
+    @PostMapping("/state-cascade")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public Map<String, Object> enqueueStateCascade(@RequestBody(required = false) StateCascadeRequest maybe) {
+        StateCascadeRequest req = StateCascadeRequest.defaults(maybe);
+        CompletableFuture.runAsync(() -> runStateCascade(req), executor);
+        return Map.of("queued", true, "profiles", req.profiles(), "states", req.states());
+    }
+
     private String selectStatus(List<String> statusCodes, int eventIndex) {
         if (statusCodes == null || statusCodes.isEmpty()) {
             return "200";
@@ -109,6 +125,47 @@ public class SampleDataController {
             return errors.get(errorIndex);
         }
         return success;
+    }
+
+    private void runStateCascade(StateCascadeRequest request) {
+        List<String> states = request.states();
+        if (states == null || states.isEmpty()) {
+            states = List.of("ACTIVE", "INACTIVE", "BLOCKED");
+        }
+        int profiles = Math.max(1, request.profiles());
+        long delayMillis = Math.max(1L, request.totalDurationMillis() / Math.max(1, profiles * states.size()));
+        for (int i = 1; i <= profiles; i++) {
+            String profileId = String.format("profile-%03d", i);
+            for (String state : states) {
+                EventEnvelope event = buildStateEvent(profileId, state);
+                ingestService.ingestOne(event);
+                try {
+                    Thread.sleep(delayMillis);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
+    }
+
+    private EventEnvelope buildStateEvent(String profileId, String state) {
+        Instant now = Instant.now();
+        return EventEnvelope.builder()
+                .serviceId("payments")
+                .eventType("user_profile.updated")
+                .eventId(UUID.randomUUID().toString())
+                .timestamp(now)
+                .ingestedAt(now)
+                .name("user_profile.updated")
+                .attributes(Map.of(
+                        "user",
+                        Map.of(
+                                "profile_id", profileId,
+                                "email", profileId + "@example.com",
+                                "status", state)))
+                .resourceAttributes(Map.of())
+                .build();
     }
 
     private void triggerFlushes() {
@@ -198,6 +255,22 @@ public class SampleDataController {
 
         private static String emptyToDefault(String value, String fallback) {
             return (value == null || value.isBlank()) ? fallback : value;
+        }
+    }
+
+    public record StateCascadeRequest(Integer profiles, List<String> states, Long totalDurationMillis) {
+        static StateCascadeRequest defaults(StateCascadeRequest maybe) {
+            if (maybe == null) {
+                return new StateCascadeRequest(250, List.of("ACTIVE", "INACTIVE", "BLOCKED"), 15000L);
+            }
+            int prof = maybe.profiles == null || maybe.profiles <= 0 ? 250 : maybe.profiles;
+            List<String> st = (maybe.states == null || maybe.states.isEmpty())
+                    ? List.of("ACTIVE", "INACTIVE", "BLOCKED")
+                    : maybe.states;
+            long duration = maybe.totalDurationMillis == null || maybe.totalDurationMillis <= 0
+                    ? 15000L
+                    : maybe.totalDurationMillis;
+            return new StateCascadeRequest(prof, st, duration);
         }
     }
 }
