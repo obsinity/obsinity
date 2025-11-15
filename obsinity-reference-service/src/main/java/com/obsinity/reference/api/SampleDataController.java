@@ -137,7 +137,8 @@ public class SampleDataController {
         int profiles = Math.max(1, request.profiles());
         int transitionsPerProfile = Math.max(1, request.transitionsPerProfile());
         long eventsPerProfile = transitionsPerProfile + 1L;
-        long delayMillis = Math.max(1L, request.totalDurationMillis() / Math.max(1L, profiles * eventsPerProfile));
+        long totalMillis = request.totalDurationMinutes() * 60_000L;
+        long delayMillis = Math.max(1L, totalMillis / Math.max(1L, profiles * eventsPerProfile));
 
         for (int i = 1; i <= profiles; i++) {
             String profileId = String.format("profile-%03d", i);
@@ -282,18 +283,18 @@ public class SampleDataController {
     }
 
     public record StateCascadeRequest(
-            Integer profiles, List<String> states, Long totalDurationMillis, Integer transitionsPerProfile) {
+            Integer profiles, List<String> states, Long totalDurationMinutes, Integer transitionsPerProfile) {
         static StateCascadeRequest defaults(StateCascadeRequest maybe) {
             if (maybe == null) {
-                return new StateCascadeRequest(250, List.of("ACTIVE", "INACTIVE", "BLOCKED", "SUSPENDED"), 15000L, 3);
+                return new StateCascadeRequest(250, List.of("ACTIVE", "INACTIVE", "BLOCKED", "SUSPENDED"), 10L, 3);
             }
             int prof = maybe.profiles == null || maybe.profiles <= 0 ? 250 : maybe.profiles;
             List<String> st = (maybe.states == null || maybe.states.isEmpty())
                     ? List.of("ACTIVE", "INACTIVE", "BLOCKED", "SUSPENDED")
                     : maybe.states;
-            long duration = maybe.totalDurationMillis == null || maybe.totalDurationMillis <= 0
-                    ? 15000L
-                    : maybe.totalDurationMillis;
+            long duration = maybe.totalDurationMinutes == null || maybe.totalDurationMinutes <= 0
+                    ? 10L
+                    : maybe.totalDurationMinutes;
             int transitions = maybe.transitionsPerProfile == null || maybe.transitionsPerProfile <= 0
                     ? st.size()
                     : maybe.transitionsPerProfile;
