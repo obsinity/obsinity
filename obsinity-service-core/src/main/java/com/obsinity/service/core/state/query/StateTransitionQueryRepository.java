@@ -21,8 +21,8 @@ public class StateTransitionQueryRepository {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("service_id", serviceId)
                 .addValue("bucket", bucket.label())
-                .addValue("start", from)
-                .addValue("end", to);
+                .addValue("start", java.sql.Timestamp.from(from))
+                .addValue("end", java.sql.Timestamp.from(to));
 
         return jdbc.query(
                 """
