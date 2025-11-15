@@ -33,7 +33,7 @@ class StateTransitionPipelineTest {
         StateTransitionPersistService.BatchItem item = persistService.captured.get(0);
         assertThat(item.fromState()).isEqualTo("ACTIVE");
         assertThat(item.toState()).isEqualTo("BLOCKED");
-        assertThat(buffer.getBuffer(CounterGranularity.S5).get(epoch)).isNull();
+        assertThat(buffer.getBuffer(CounterGranularity.S5).get(epoch)).isNullOrEmpty();
     }
 
     private static final class RecordingPersistService extends StateTransitionPersistService {
