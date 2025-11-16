@@ -36,7 +36,8 @@ public class StateCountQueryController {
 
         record HalLink(String href, String method, Object body) {}
 
-        static StateCountQueryHalResponse from(String href, StateCountQueryRequest request, StateCountQueryResult result) {
+        static StateCountQueryHalResponse from(
+                String href, StateCountQueryRequest request, StateCountQueryResult result) {
             int count = result.states().size();
             long total = result.total();
             int offset = result.offset();
@@ -62,7 +63,8 @@ public class StateCountQueryController {
 
         private static StateCountQueryRequest withLimits(StateCountQueryRequest base, int offset, int limit) {
             StateCountQueryRequest.Limits limits = new StateCountQueryRequest.Limits(offset, limit);
-            return new StateCountQueryRequest(base.serviceKey(), base.objectType(), base.attribute(), base.states(), limits);
+            return new StateCountQueryRequest(
+                    base.serviceKey(), base.objectType(), base.attribute(), base.states(), limits);
         }
     }
 }

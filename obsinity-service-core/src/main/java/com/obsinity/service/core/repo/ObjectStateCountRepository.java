@@ -23,12 +23,7 @@ public class ObjectStateCountRepository {
     }
 
     public java.util.List<StateCountRow> list(
-            UUID serviceId,
-            String objectType,
-            String attribute,
-            java.util.List<String> states,
-            int offset,
-            int limit) {
+            UUID serviceId, String objectType, String attribute, java.util.List<String> states, int offset, int limit) {
         if (serviceId == null || objectType == null || attribute == null) {
             return java.util.List.of();
         }
@@ -38,7 +33,8 @@ public class ObjectStateCountRepository {
                 .addValue("attribute", attribute)
                 .addValue("offset", Math.max(0, offset))
                 .addValue("limit", Math.max(1, limit));
-        StringBuilder sql = new StringBuilder("""
+        StringBuilder sql = new StringBuilder(
+                """
                 select state_value, count
                   from obsinity.object_state_counts
                  where service_id = :service_id
@@ -51,7 +47,9 @@ public class ObjectStateCountRepository {
         }
         sql.append(" order by state_value asc limit :limit offset :offset");
         return jdbc.query(
-                sql.toString(), params, (rs, rowNum) -> new StateCountRow(rs.getString("state_value"), rs.getLong("count")));
+                sql.toString(),
+                params,
+                (rs, rowNum) -> new StateCountRow(rs.getString("state_value"), rs.getLong("count")));
     }
 
     public long countStates(UUID serviceId, String objectType, String attribute, java.util.List<String> states) {
@@ -62,7 +60,8 @@ public class ObjectStateCountRepository {
                 .addValue("service_id", serviceId)
                 .addValue("object_type", objectType)
                 .addValue("attribute", attribute);
-        StringBuilder sql = new StringBuilder("""
+        StringBuilder sql = new StringBuilder(
+                """
                 select count(1)
                   from obsinity.object_state_counts
                  where service_id = :service_id

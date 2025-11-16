@@ -26,13 +26,16 @@ public class StateCountQueryService {
         if (serviceId == null) {
             throw new IllegalArgumentException("Unknown service key: " + request.serviceKey());
         }
-        int offset = request.limits() != null && request.limits().offset() != null ? Math.max(0, request.limits().offset()) : 0;
+        int offset = request.limits() != null && request.limits().offset() != null
+                ? Math.max(0, request.limits().offset())
+                : 0;
         int limit = request.limits() != null && request.limits().limit() != null
                 ? Math.max(1, request.limits().limit())
                 : DEFAULT_LIMIT;
-        List<ObjectStateCountRepository.StateCountRow> rows =
-                countRepository.list(serviceId, request.objectType(), request.attribute(), request.states(), offset, limit);
-        long total = countRepository.countStates(serviceId, request.objectType(), request.attribute(), request.states());
+        List<ObjectStateCountRepository.StateCountRow> rows = countRepository.list(
+                serviceId, request.objectType(), request.attribute(), request.states(), offset, limit);
+        long total =
+                countRepository.countStates(serviceId, request.objectType(), request.attribute(), request.states());
         List<StateCountQueryResult.StateCountEntry> entries = rows.stream()
                 .map(r -> new StateCountQueryResult.StateCountEntry(r.state(), r.count()))
                 .toList();

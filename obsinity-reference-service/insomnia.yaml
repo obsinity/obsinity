@@ -287,7 +287,7 @@ resources:
           "serviceKey": "{{ service_id }}",
           "objectType": "UserProfile",
           "attribute": "user.status",
-          "states": ["ACTIVE", "BLOCKED", "ARCHIVED"],
+          "states": ["NEW", "ACTIVE", "SUSPENDED", "ACTIVE", "BLOCKED", "UPGRADED", "ARCHIVED"],
           "limits": { "offset": 0, "limit": 20 }
         }
     headers:
