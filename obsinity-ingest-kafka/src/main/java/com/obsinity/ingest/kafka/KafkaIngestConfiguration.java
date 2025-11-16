@@ -39,8 +39,8 @@ public class KafkaIngestConfiguration {
         ConcurrentKafkaListenerContainerFactory<String, byte[]> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(obsinityKafkaConsumerFactory);
-        factory.getContainerProperties().setAckOnError(false);
-        factory.getContainerProperties().setAckMode(org.springframework.kafka.listener.ContainerProperties.AckMode.MANUAL);
+        factory.getContainerProperties()
+                .setAckMode(org.springframework.kafka.listener.ContainerProperties.AckMode.MANUAL);
         return factory;
     }
 }

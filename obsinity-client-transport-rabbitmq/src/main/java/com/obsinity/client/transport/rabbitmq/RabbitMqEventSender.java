@@ -26,9 +26,11 @@ public class RabbitMqEventSender implements EventSender, Closeable {
     private volatile Channel channel;
 
     public RabbitMqEventSender() {
-        this(buildFactoryFromEnv(), resolve("obsinity.rmq.exchange", "OBSINITY_RMQ_EXCHANGE", "obsinity.events"), resolve(
-                "obsinity.rmq.routing-key", "OBSINITY_RMQ_ROUTING_KEY", "flows"), Boolean.parseBoolean(resolve(
-                "obsinity.rmq.mandatory", "OBSINITY_RMQ_MANDATORY", "false")));
+        this(
+                buildFactoryFromEnv(),
+                resolve("obsinity.rmq.exchange", "OBSINITY_RMQ_EXCHANGE", "obsinity.events"),
+                resolve("obsinity.rmq.routing-key", "OBSINITY_RMQ_ROUTING_KEY", "flows"),
+                Boolean.parseBoolean(resolve("obsinity.rmq.mandatory", "OBSINITY_RMQ_MANDATORY", "false")));
     }
 
     RabbitMqEventSender(ConnectionFactory factory, String exchange, String routingKey, boolean mandatoryPublish) {
@@ -46,15 +48,11 @@ public class RabbitMqEventSender implements EventSender, Closeable {
 
         try {
             Channel ch = obtainChannel();
-            ch.basicPublish(
-                    exchange,
-                    routingKey,
-                    mandatoryPublish,
-                    AMQP.BasicProperties.Builder.newInstance()
-                            .contentType("application/json")
-                            .deliveryMode(2)
-                            .build(),
-                    body);
+            AMQP.BasicProperties props = new AMQP.BasicProperties.Builder()
+                    .contentType("application/json")
+                    .deliveryMode(2)
+                    .build();
+            ch.basicPublish(exchange, routingKey, mandatoryPublish, props, body);
         } catch (TimeoutException e) {
             throw new IOException("Failed to publish to RabbitMQ", e);
         }
@@ -122,11 +120,6 @@ public class RabbitMqEventSender implements EventSender, Closeable {
 
     @Override
     public String toString() {
-        return String.format(
-                Locale.ROOT,
-                "RabbitMqEventSender[%s -> %s/%s]",
-                factory.getHost(),
-                exchange,
-                routingKey);
+        return String.format(Locale.ROOT, "RabbitMqEventSender[%s -> %s/%s]", factory.getHost(), exchange, routingKey);
     }
 }

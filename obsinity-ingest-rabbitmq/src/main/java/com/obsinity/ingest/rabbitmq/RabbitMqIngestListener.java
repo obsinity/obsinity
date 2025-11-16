@@ -13,9 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.stereotype.Component;
-
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Component;
 
 @Component
 @ConditionalOnProperty(prefix = "obsinity.ingest.rmq", name = "enabled", havingValue = "true")
@@ -59,7 +58,9 @@ public class RabbitMqIngestListener {
     private void recordDeadLetter(byte[] payload, Exception ex) {
         try {
             String raw = new String(payload, StandardCharsets.UTF_8);
-            String detail = (ex.getMessage() == null || ex.getMessage().isBlank()) ? ex.getClass().getSimpleName() : ex.getMessage();
+            String detail = (ex.getMessage() == null || ex.getMessage().isBlank())
+                    ? ex.getClass().getSimpleName()
+                    : ex.getMessage();
             deadLetterTable.record(raw, "RMQ_INGEST_ERROR", detail, SOURCE);
         } catch (Exception loggingError) {
             log.error("Failed to write dead letter entry for RMQ payload", loggingError);

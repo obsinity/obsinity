@@ -112,6 +112,11 @@
         <artifactId>obsinity-collection-sink-obsinity</artifactId>
         <version>${project.version}</version>
       </dependency>
+      <dependency>
+        <groupId>com.obsinity</groupId>
+        <artifactId>obsinity-client-transport-rabbitmq</artifactId>
+        <version>${project.version}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
