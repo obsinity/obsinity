@@ -53,49 +53,7 @@ public class SampleDataController {
     }
 
     private Map<String, Object> generateLatencyBatch(SampleRequest req) {
-        Instant requestTime = Instant.now();
-        Instant startOfCurrentDay = requestTime
-                .atZone(ZoneOffset.UTC)
-                .toLocalDate()
-                .atStartOfDay(ZoneOffset.UTC)
-                .toInstant();
-        List<EventEnvelope> events = new ArrayList<>();
-        double[] latencyProfile = {50, 65, 90, 120, 160, 210, 280, 360, 450, 560, 700, 900, 1150, 1400};
-        int eventsPerDay = Math.max(1, req.eventsPerDay());
-        long millisPerSlot = Duration.ofDays(1).toMillis() / eventsPerDay;
-
-        for (int day = 0; day < req.days(); day++) {
-            long dayOffset = req.days() - 1L - day;
-            Instant dayStart = startOfCurrentDay.minus(Duration.ofDays(dayOffset));
-            Instant dayEndExclusive = dayStart.plus(Duration.ofDays(1));
-            Instant upperBound = dayOffset == 0 ? requestTime : dayEndExclusive;
-            if (!dayStart.isBefore(upperBound)) {
-                continue;
-            }
-            for (int slot = 0; slot < eventsPerDay; slot++) {
-                Instant start = dayStart.plusMillis(slot * millisPerSlot);
-                if (!start.isBefore(upperBound)) {
-                    break;
-                }
-                double baseLatency = latencyProfile[slot % latencyProfile.length];
-                boolean spike = ((day * eventsPerDay) + slot) % 50 == 0;
-                if (spike) {
-                    baseLatency = 1600 + (slot % 10) * 100;
-                }
-                double jitterFactor = 0.9 + ((day % 4) * 0.05);
-                long latencyMillis = Math.max(25, Math.round(baseLatency * jitterFactor));
-                Instant end = start.plusMillis(latencyMillis);
-                if (end.isAfter(upperBound)) {
-                    end = upperBound;
-                }
-                if (!end.isAfter(start)) {
-                    continue;
-                }
-                int eventIndex = (day * eventsPerDay) + slot;
-                String status = selectStatus(req.statusCodes(), eventIndex);
-                events.add(buildEvent(req, start, end, status));
-            }
-        }
+        List<EventEnvelope> events = buildHistogramEvents(req);
 
         int stored = ingestService.ingestBatch(events);
         triggerFlushes();
@@ -118,14 +76,31 @@ public class SampleDataController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public Map<String, Object> generateUnifiedEvents(@RequestBody(required = false) UnifiedEventRequest maybe) {
         UnifiedEventRequest req = UnifiedEventRequest.defaults(maybe);
-        List<EventEnvelope> events = new ArrayList<>();
+        List<EventEnvelope> combined = new ArrayList<>();
         Instant now = Instant.now();
         List<String> statuses = req.statuses();
         List<String> channels = req.channels();
         List<String> regions = req.regions();
         List<String> tiers = req.tiers();
         Map<String, String> lastStatusByProfile = new HashMap<>();
-        for (int i = 0; i < req.events(); i++) {
+
+        SampleRequest histogramRequest = new SampleRequest(
+                req.serviceKey(),
+                "http_request",
+                "GET",
+                "/api/checkout",
+                List.of("200", "500"),
+                "checkout",
+                "v1",
+                "demo",
+                14,
+                2000);
+        List<EventEnvelope> histogramEvents = buildHistogramEvents(histogramRequest);
+
+        int unifiedEventCount = req.events();
+        int histogramIdx = 0;
+
+        for (int i = 0; i < unifiedEventCount; i++) {
             String profileId = String.format("profile-%04d", (i % req.profilePool()) + 1);
             String previous = lastStatusByProfile.get(profileId);
             String status = pickNextStatus(statuses, previous, i);
@@ -136,7 +111,7 @@ public class SampleDataController {
             long durationMs = Math.max(25L, random.nextInt(req.maxDurationMillis()));
             Instant start = now.minusSeconds(random.nextInt(req.recentWindowSeconds()));
             Instant end = start.plusMillis(durationMs);
-            events.add(buildUnifiedEvent(
+            combined.add(buildUnifiedEvent(
                     req.serviceKey(),
                     req.eventType(),
                     profileId,
@@ -147,14 +122,30 @@ public class SampleDataController {
                     start,
                     end,
                     durationMs));
+
+            if (!histogramEvents.isEmpty()) {
+                combined.add(histogramEvents.get(histogramIdx));
+                histogramIdx = (histogramIdx + 1) % histogramEvents.size();
+            }
         }
-        int stored = ingestService.ingestBatch(events);
+
+        if (histogramIdx != 0 && histogramIdx < histogramEvents.size()) {
+            combined.addAll(histogramEvents.subList(histogramIdx, histogramEvents.size()));
+        }
+
+        int stored = ingestService.ingestBatch(combined);
         triggerFlushes();
-        return Map.of(
-                "generated", events.size(),
-                "stored", stored,
-                "service", req.serviceKey(),
-                "eventType", req.eventType());
+        Map<String, Object> histogramSeed = Map.of(
+                "generated", histogramEvents.size(),
+                "service", histogramRequest.serviceKey(),
+                "eventType", histogramRequest.eventType());
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("generated", combined.size());
+        response.put("stored", stored);
+        response.put("service", req.serviceKey());
+        response.put("eventType", req.eventType());
+        response.put("histogramSeed", histogramSeed);
+        return response;
     }
 
     private String selectStatus(List<String> statusCodes, int eventIndex) {
@@ -301,6 +292,53 @@ public class SampleDataController {
         } catch (Exception ex) {
             log.warn("Demo data flush failed", ex);
         }
+    }
+
+    private List<EventEnvelope> buildHistogramEvents(SampleRequest req) {
+        Instant requestTime = Instant.now();
+        Instant startOfCurrentDay = requestTime
+                .atZone(ZoneOffset.UTC)
+                .toLocalDate()
+                .atStartOfDay(ZoneOffset.UTC)
+                .toInstant();
+        List<EventEnvelope> events = new ArrayList<>();
+        double[] latencyProfile = {50, 65, 90, 120, 160, 210, 280, 360, 450, 560, 700, 900, 1150, 1400};
+        int eventsPerDay = Math.max(1, req.eventsPerDay());
+        long millisPerSlot = Duration.ofDays(1).toMillis() / eventsPerDay;
+
+        for (int day = 0; day < req.days(); day++) {
+            long dayOffset = req.days() - 1L - day;
+            Instant dayStart = startOfCurrentDay.minus(Duration.ofDays(dayOffset));
+            Instant dayEndExclusive = dayStart.plus(Duration.ofDays(1));
+            Instant upperBound = dayOffset == 0 ? requestTime : dayEndExclusive;
+            if (!dayStart.isBefore(upperBound)) {
+                continue;
+            }
+            for (int slot = 0; slot < eventsPerDay; slot++) {
+                Instant start = dayStart.plusMillis(slot * millisPerSlot);
+                if (!start.isBefore(upperBound)) {
+                    break;
+                }
+                double baseLatency = latencyProfile[slot % latencyProfile.length];
+                boolean spike = ((day * eventsPerDay) + slot) % 50 == 0;
+                if (spike) {
+                    baseLatency = 1600 + (slot % 10) * 100;
+                }
+                double jitterFactor = 0.9 + ((day % 4) * 0.05);
+                long latencyMillis = Math.max(25, Math.round(baseLatency * jitterFactor));
+                Instant end = start.plusMillis(latencyMillis);
+                if (end.isAfter(upperBound)) {
+                    end = upperBound;
+                }
+                if (!end.isAfter(start)) {
+                    continue;
+                }
+                int eventIndex = (day * eventsPerDay) + slot;
+                String status = selectStatus(req.statusCodes(), eventIndex);
+                events.add(buildEvent(req, start, end, status));
+            }
+        }
+        return events;
     }
 
     private EventEnvelope buildEvent(SampleRequest req, Instant start, Instant end, String status) {
