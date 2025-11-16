@@ -295,6 +295,29 @@ resources:
         value: application/json
     _type: request
 
+  - _id: req_state_counts_query
+    parentId: fld_state_query
+    created: 1758900700200
+    modified: 1758900700200
+    name: query → state counts
+    description: Query current object_state counts by attribute/value.
+    method: POST
+    url: "{{ base_url }}/api/query/state-counts"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "serviceKey": "{{ service_id }}",
+          "objectType": "UserProfile",
+          "attribute": "user.status",
+          "states": ["ACTIVE", "BLOCKED", "ARCHIVED"],
+          "limits": { "offset": 0, "limit": 20 }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
   - _id: req_publish_payments_http
     parentId: fld_publish
     created: 1754639740000
