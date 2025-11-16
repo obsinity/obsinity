@@ -106,14 +106,8 @@ public class SampleDataController {
         }
 
         for (int i = 0; i < unifiedEventCount; i++) {
-            String profileId = String.format("profile-%04d", (i % req.profilePool()) + 1);
-            String previous = lastStatusByProfile.get(profileId);
-            String status = pickNextStatus(statuses, previous, i);
-            if (status.equals(previous) && statuses.size() > 1) {
-                int nextIndex = (statuses.indexOf(status) + 1) % statuses.size();
-                status = statuses.get(nextIndex);
-            }
-            lastStatusByProfile.put(profileId, status);
+            String profileId = String.format("profile-%04d", (i % profiles) + 1);
+            String status = pickRandomStatus(statuses);
             String channel = channels.get(i % channels.size());
             String region = regions.get(i % regions.size());
             String tier = tiers.get(i % tiers.size());
@@ -136,10 +130,8 @@ public class SampleDataController {
 
         stored += ingestHistogramEvents(req, windowStart, now, unifiedEventCount);
 
-        Map<String, Object> histogramSeed = Map.of(
-                "generated", unifiedEventCount,
-                "service", req.serviceKey(),
-                "eventType", "http_request");
+        Map<String, Object> histogramSeed =
+                Map.of("generated", unifiedEventCount, "service", req.serviceKey(), "eventType", "http_request");
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("generated", stored);
         response.put("stored", stored);
@@ -168,6 +160,7 @@ public class SampleDataController {
         }
         return success;
     }
+*** End Patch
 
     private void runStateCascade(StateCascadeRequest request) {
         List<String> states = request.states();
@@ -362,8 +355,7 @@ public class SampleDataController {
                 .build();
     }
 
-    private int ingestHistogramEvents(
-            UnifiedEventRequest req, Instant windowStart, Instant now, int sampleCount) {
+    private int ingestHistogramEvents(UnifiedEventRequest req, Instant windowStart, Instant now, int sampleCount) {
         double[] latencyProfile = {50, 65, 90, 120, 160, 210, 280, 360, 450, 560, 700, 900, 1150, 1400};
         long windowSeconds = Math.max(1, DEMO_WINDOW_SECONDS);
         double spacingSeconds = (double) windowSeconds / Math.max(1, sampleCount);
