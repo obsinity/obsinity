@@ -1,11 +1,7 @@
 package com.obsinity.reference.api;
 
-import com.obsinity.service.core.counter.CounterFlushService;
-import com.obsinity.service.core.counter.CounterGranularity;
-import com.obsinity.service.core.histogram.HistogramFlushService;
 import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.spi.EventIngestService;
-import com.obsinity.service.core.state.transition.StateTransitionFlushService;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -38,9 +34,6 @@ public class SampleDataController {
     private static final int ERROR_FREQUENCY = 20;
 
     private final EventIngestService ingestService;
-    private final CounterFlushService counterFlushService;
-    private final HistogramFlushService histogramFlushService;
-    private final StateTransitionFlushService stateTransitionFlushService;
     private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "demo-state-generator");
         t.setDaemon(true);
@@ -59,7 +52,6 @@ public class SampleDataController {
         List<EventEnvelope> events = buildHistogramEvents(req);
 
         int stored = ingestService.ingestBatch(events);
-        triggerFlushes();
         return Map.of(
                 "generated", events.size(),
                 "stored", stored,
@@ -123,7 +115,6 @@ public class SampleDataController {
         profileEvents.sort(Comparator.comparing(EventEnvelope::getTimestamp));
 
         int stored = ingestChronologically(profileEvents, histogramEvents);
-        triggerFlushes();
         Map<String, Object> histogramSeed = Map.of(
                 "generated", histogramEvents.size(),
                 "service", req.serviceKey(),
@@ -270,20 +261,6 @@ public class SampleDataController {
             return candidate;
         }
         return statuses.get((index + 1) % statuses.size());
-    }
-
-    private void triggerFlushes() {
-        try {
-            for (CounterGranularity granularity : CounterGranularity.values()) {
-                counterFlushService.flushAllPending(granularity);
-            }
-            histogramFlushService.flushAndWait();
-            for (CounterGranularity granularity : CounterGranularity.values()) {
-                stateTransitionFlushService.flushAllPending(granularity);
-            }
-        } catch (Exception ex) {
-            log.warn("Demo data flush failed", ex);
-        }
     }
 
     private List<EventEnvelope> buildHistogramEvents(SampleRequest req) {
