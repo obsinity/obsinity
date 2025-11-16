@@ -39,6 +39,18 @@ public class CounterFlushService {
         flushGranularity(granularity);
     }
 
+    /** Force flushing all pending epochs regardless of cutoff. */
+    public void flushAllPending(CounterGranularity granularity) {
+        synchronized (flushLock) {
+            ConcurrentMap<Long, ConcurrentMap<String, CounterBuffer.BufferedCounterEntry>> bucket =
+                    buffer.getBuffer(granularity);
+            for (Map.Entry<Long, ConcurrentMap<String, CounterBuffer.BufferedCounterEntry>> entry : bucket.entrySet()) {
+                flushEpoch(granularity, entry.getKey(), entry.getValue());
+            }
+        }
+        persistExecutor.waitForDrain();
+    }
+
     private void flushGranularity(CounterGranularity granularity) {
         synchronized (flushLock) {
             try {

@@ -5,10 +5,12 @@ import com.obsinity.service.core.counter.CounterGranularity;
 import com.obsinity.service.core.histogram.HistogramFlushService;
 import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.spi.EventIngestService;
+import com.obsinity.service.core.state.transition.StateTransitionFlushService;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -38,6 +40,7 @@ public class SampleDataController {
     private final EventIngestService ingestService;
     private final CounterFlushService counterFlushService;
     private final HistogramFlushService histogramFlushService;
+    private final StateTransitionFlushService stateTransitionFlushService;
     private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "demo-state-generator");
         t.setDaemon(true);
@@ -76,7 +79,7 @@ public class SampleDataController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public Map<String, Object> generateUnifiedEvents(@RequestBody(required = false) UnifiedEventRequest maybe) {
         UnifiedEventRequest req = UnifiedEventRequest.defaults(maybe);
-        List<EventEnvelope> combined = new ArrayList<>();
+        List<EventEnvelope> profileEvents = new ArrayList<>();
         Instant now = Instant.now();
         List<String> statuses = req.statuses();
         List<String> channels = req.channels();
@@ -84,21 +87,11 @@ public class SampleDataController {
         List<String> tiers = req.tiers();
         Map<String, String> lastStatusByProfile = new HashMap<>();
 
-        SampleRequest histogramRequest = new SampleRequest(
-                req.serviceKey(),
-                "http_request",
-                "GET",
-                "/api/checkout",
-                List.of("200", "500"),
-                "checkout",
-                "v1",
-                "demo",
-                14,
-                2000);
-        List<EventEnvelope> histogramEvents = buildHistogramEvents(histogramRequest);
-
         int unifiedEventCount = req.events();
-        int histogramIdx = 0;
+        long windowSeconds = Math.max(1, req.recentWindowSeconds());
+        long spacingSeconds = Math.max(1, windowSeconds / Math.max(1, unifiedEventCount));
+        Instant windowStart = now.minusSeconds(windowSeconds);
+        List<EventEnvelope> histogramEvents = buildHistogramEventsForWindow(req, windowStart, now);
 
         for (int i = 0; i < unifiedEventCount; i++) {
             String profileId = String.format("profile-%04d", (i % req.profilePool()) + 1);
@@ -109,9 +102,12 @@ public class SampleDataController {
             String region = regions.get(i % regions.size());
             String tier = tiers.get(i % tiers.size());
             long durationMs = Math.max(25L, random.nextInt(req.maxDurationMillis()));
-            Instant start = now.minusSeconds(random.nextInt(req.recentWindowSeconds()));
+            Instant start = windowStart.plusSeconds((long) i * spacingSeconds);
+            if (start.isAfter(now)) {
+                start = now.minusSeconds(Math.max(1, windowSeconds / 10));
+            }
             Instant end = start.plusMillis(durationMs);
-            combined.add(buildUnifiedEvent(
+            profileEvents.add(buildUnifiedEvent(
                     req.serviceKey(),
                     req.eventType(),
                     profileId,
@@ -122,25 +118,18 @@ public class SampleDataController {
                     start,
                     end,
                     durationMs));
-
-            if (!histogramEvents.isEmpty()) {
-                combined.add(histogramEvents.get(histogramIdx));
-                histogramIdx = (histogramIdx + 1) % histogramEvents.size();
-            }
         }
+        profileEvents.addAll(buildStateTransitionEvents(req, windowStart, now));
+        profileEvents.sort(Comparator.comparing(EventEnvelope::getTimestamp));
 
-        if (histogramIdx != 0 && histogramIdx < histogramEvents.size()) {
-            combined.addAll(histogramEvents.subList(histogramIdx, histogramEvents.size()));
-        }
-
-        int stored = ingestService.ingestBatch(combined);
+        int stored = ingestChronologically(profileEvents, histogramEvents);
         triggerFlushes();
         Map<String, Object> histogramSeed = Map.of(
                 "generated", histogramEvents.size(),
-                "service", histogramRequest.serviceKey(),
-                "eventType", histogramRequest.eventType());
+                "service", req.serviceKey(),
+                "eventType", "http_request");
         Map<String, Object> response = new LinkedHashMap<>();
-        response.put("generated", combined.size());
+        response.put("generated", profileEvents.size() + histogramEvents.size());
         response.put("stored", stored);
         response.put("service", req.serviceKey());
         response.put("eventType", req.eventType());
@@ -286,9 +275,12 @@ public class SampleDataController {
     private void triggerFlushes() {
         try {
             for (CounterGranularity granularity : CounterGranularity.values()) {
-                counterFlushService.flushAndWait(granularity);
+                counterFlushService.flushAllPending(granularity);
             }
             histogramFlushService.flushAndWait();
+            for (CounterGranularity granularity : CounterGranularity.values()) {
+                stateTransitionFlushService.flushAllPending(granularity);
+            }
         } catch (Exception ex) {
             log.warn("Demo data flush failed", ex);
         }
@@ -341,6 +333,113 @@ public class SampleDataController {
         return events;
     }
 
+    private List<EventEnvelope> buildHistogramEventsForWindow(
+            UnifiedEventRequest req, Instant windowStart, Instant now) {
+        List<EventEnvelope> events = new ArrayList<>();
+        double[] latencyProfile = {50, 65, 90, 120, 160, 210, 280, 360, 450, 560, 700, 900, 1150, 1400};
+        int samples = Math.max(1, req.events());
+        long windowSeconds = Math.max(1, req.recentWindowSeconds());
+        long spacingSeconds = Math.max(1, windowSeconds / samples);
+        List<String> statusCodes = List.of("200", "500");
+
+        for (int i = 0; i < samples; i++) {
+            Instant start = windowStart.plusSeconds(i * spacingSeconds);
+            if (start.isAfter(now)) {
+                start = now.minusSeconds(Math.max(1, windowSeconds / 10));
+            }
+            double baseLatency = latencyProfile[i % latencyProfile.length];
+            boolean spike = i % 50 == 0;
+            if (spike) {
+                baseLatency = 1600 + (i % 10) * 100;
+            }
+            double jitterFactor = 0.9 + ((i % 4) * 0.05);
+            long latencyMillis = Math.max(25, Math.round(baseLatency * jitterFactor));
+            Instant end = start.plusMillis(latencyMillis);
+            if (end.isAfter(now)) {
+                end = now;
+            }
+            if (!end.isAfter(start)) {
+                continue;
+            }
+            String status = selectStatus(statusCodes, i);
+            events.add(buildHistogramEvent(req.serviceKey(), start, end, status));
+        }
+        return events;
+    }
+
+    private List<EventEnvelope> buildStateTransitionEvents(UnifiedEventRequest req, Instant windowStart, Instant now) {
+        List<EventEnvelope> events = new ArrayList<>();
+        List<String> statuses = req.statuses();
+        if (statuses == null || statuses.size() < 2) {
+            return events;
+        }
+        int profiles = Math.max(1, req.profilePool());
+        long windowSeconds = Math.max(1, req.recentWindowSeconds());
+        long steps = (long) statuses.size() * profiles;
+        long spacingSeconds = Math.max(1, windowSeconds / steps);
+        for (int profileIndex = 0; profileIndex < profiles; profileIndex++) {
+            String profileId = String.format("profile-%04d", profileIndex + 1);
+            String previous = null;
+            for (int statusIndex = 0; statusIndex < statuses.size(); statusIndex++) {
+                String status = statuses.get(statusIndex);
+                if (previous != null && previous.equals(status)) {
+                    status = statuses.get((statusIndex + 1) % statuses.size());
+                    if (status.equals(previous)) {
+                        continue;
+                    }
+                }
+                long offset = ((long) profileIndex * statuses.size() + statusIndex) * spacingSeconds;
+                Instant start = windowStart.plusSeconds(offset);
+                if (start.isAfter(now)) {
+                    start = now.minusSeconds(Math.max(1, windowSeconds / 10));
+                }
+                long durationMs = 50L + (statusIndex * 25L);
+                Instant end = start.plusMillis(durationMs);
+                events.add(buildUnifiedEvent(
+                        req.serviceKey(),
+                        req.eventType(),
+                        profileId,
+                        status,
+                        req.tiers().get(profileIndex % req.tiers().size()),
+                        req.channels().get(statusIndex % req.channels().size()),
+                        req.regions().get(profileIndex % req.regions().size()),
+                        start,
+                        end,
+                        durationMs));
+                previous = status;
+            }
+        }
+        return events;
+    }
+
+    private int ingestChronologically(List<EventEnvelope> profileEvents, List<EventEnvelope> histogramEvents) {
+        int stored = 0;
+        int pIndex = 0;
+        int hIndex = 0;
+        while (pIndex < profileEvents.size() || hIndex < histogramEvents.size()) {
+            EventEnvelope nextProfile = pIndex < profileEvents.size() ? profileEvents.get(pIndex) : null;
+            EventEnvelope nextHistogram = hIndex < histogramEvents.size() ? histogramEvents.get(hIndex) : null;
+            EventEnvelope next;
+            if (nextProfile == null) {
+                next = nextHistogram;
+                hIndex++;
+            } else if (nextHistogram == null) {
+                next = nextProfile;
+                pIndex++;
+            } else if (nextProfile.getTimestamp().isBefore(nextHistogram.getTimestamp())) {
+                next = nextProfile;
+                pIndex++;
+            } else {
+                next = nextHistogram;
+                hIndex++;
+            }
+            if (next != null) {
+                stored += ingestService.ingestOne(next);
+            }
+        }
+        return stored;
+    }
+
     private EventEnvelope buildEvent(SampleRequest req, Instant start, Instant end, String status) {
         Map<String, Object> resource = new LinkedHashMap<>();
         resource.put("environment", req.environment());
@@ -366,6 +465,28 @@ public class SampleDataController {
                 .endTimestamp(end)
                 .ingestedAt(Instant.now())
                 .name(req.eventType())
+                .kind("SERVER")
+                .resourceAttributes(resource)
+                .attributes(attributes)
+                .build();
+    }
+
+    private EventEnvelope buildHistogramEvent(String serviceKey, Instant start, Instant end, String status) {
+        Map<String, Object> resource = Map.of("environment", "demo");
+        Map<String, Object> http = Map.of("method", "GET", "route", "/api/checkout", "status", status);
+        Map<String, Object> api = Map.of("name", "checkout", "version", "v1");
+        Map<String, Object> attributes = new LinkedHashMap<>();
+        attributes.put("http", http);
+        attributes.put("api", api);
+
+        return EventEnvelope.builder()
+                .serviceId(serviceKey)
+                .eventType("http_request")
+                .eventId(UUID.randomUUID().toString())
+                .timestamp(start)
+                .endTimestamp(end)
+                .ingestedAt(Instant.now())
+                .name("http_request")
                 .kind("SERVER")
                 .resourceAttributes(resource)
                 .attributes(attributes)

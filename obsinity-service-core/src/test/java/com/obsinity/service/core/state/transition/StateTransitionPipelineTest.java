@@ -35,13 +35,43 @@ class StateTransitionPipelineTest {
         long epoch = CounterGranularity.S5.baseBucket().align(occurred).getEpochSecond();
         buffer.increment(CounterGranularity.S5, epoch, serviceId, "UserProfile", "user.status", "ACTIVE", "BLOCKED");
 
-        flushService.flushAndWait(CounterGranularity.S5);
+        flushService.flushAllPending(CounterGranularity.S5);
 
         assertThat(persistService.captured).isNotEmpty();
         StateTransitionPersistService.BatchItem item = persistService.captured.get(0);
         assertThat(item.fromState()).isEqualTo("ACTIVE");
         assertThat(item.toState()).isEqualTo("BLOCKED");
         assertThat(buffer.getBuffer(CounterGranularity.S5).get(epoch)).isNullOrEmpty();
+    }
+
+    @Test
+    void bufferFlushPersistsNoStateAsLabel() throws Exception {
+        StateTransitionBuffer buffer = new StateTransitionBuffer();
+        RecordingPersistService persistService = new RecordingPersistService();
+        PipelineProperties pipelineProperties = new PipelineProperties();
+        pipelineProperties.getStateTransitions().getPersist().setQueueCapacity(100);
+        pipelineProperties.getStateTransitions().getPersist().setWorkers(1);
+        pipelineProperties.getStateTransitions().getFlush().setMaxBatchSize(10);
+
+        StateTransitionPersistExecutor executor =
+                new StateTransitionPersistExecutor(persistService, buffer, pipelineProperties);
+        executor.init(100, 1);
+        StateTransitionFlushService flushService =
+                new StateTransitionFlushService(buffer, executor, pipelineProperties);
+        flushService.configureBatchSize();
+
+        UUID serviceId = UUID.randomUUID();
+        Instant occurred = Instant.parse("2025-01-01T00:00:02Z");
+        long epoch = CounterGranularity.S5.baseBucket().align(occurred).getEpochSecond();
+        buffer.increment(
+                CounterGranularity.S5, epoch, serviceId, "UserProfile", "user.status", "__NO_STATE__", "ACTIVE");
+
+        flushService.flushAllPending(CounterGranularity.S5);
+
+        assertThat(persistService.captured).isNotEmpty();
+        StateTransitionPersistService.BatchItem item = persistService.captured.get(0);
+        assertThat(item.fromState()).isEqualTo("(none)");
+        assertThat(item.toState()).isEqualTo("ACTIVE");
     }
 
     private static final class RecordingPersistService extends StateTransitionPersistService {
