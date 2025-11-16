@@ -84,19 +84,19 @@ public class SampleDataController {
         Instant windowStart = now.minusSeconds(windowSeconds);
         int profiles = Math.max(1, req.profilePool());
 
-        // Seed initial state per profile so first transitions aren't from (none)
-        String initialStatus = statuses.isEmpty() ? "ACTIVE" : statuses.get(0);
+        // Seed initial random state per profile so first transitions aren't from (none)
         int stored = 0;
         for (int profileIndex = 0; profileIndex < profiles; profileIndex++) {
             String profileId = String.format("profile-%04d", profileIndex + 1);
-            lastStatusByProfile.put(profileId, initialStatus);
+            String seedStatus = pickRandomStatus(statuses);
+            lastStatusByProfile.put(profileId, seedStatus);
             Instant seedStart = windowStart;
             long durationMs = 50L;
             stored += ingestService.ingestOne(buildUnifiedEvent(
                     req.serviceKey(),
                     req.eventType(),
                     profileId,
-                    initialStatus,
+                    seedStatus,
                     tiers.get(profileIndex % tiers.size()),
                     channels.get(profileIndex % channels.size()),
                     regions.get(profileIndex % regions.size()),
@@ -107,7 +107,8 @@ public class SampleDataController {
 
         for (int i = 0; i < unifiedEventCount; i++) {
             String profileId = String.format("profile-%04d", (i % profiles) + 1);
-            String status = pickRandomStatus(statuses);
+            String status = pickRandomStateDifferent(lastStatusByProfile.get(profileId), statuses);
+            lastStatusByProfile.put(profileId, status);
             String channel = channels.get(i % channels.size());
             String region = regions.get(i % regions.size());
             String tier = tiers.get(i % tiers.size());
@@ -159,6 +160,27 @@ public class SampleDataController {
             return errors.get(errorIndex);
         }
         return success;
+    }
+
+    private String pickRandomStateDifferent(String previous, List<String> statuses) {
+        if (statuses == null || statuses.isEmpty()) {
+            return "ACTIVE";
+        }
+        if (statuses.size() == 1) {
+            return statuses.get(0);
+        }
+        String next;
+        do {
+            next = statuses.get(random.nextInt(statuses.size()));
+        } while (next.equals(previous));
+        return next;
+    }
+
+    private String pickRandomStatus(List<String> statuses) {
+        if (statuses == null || statuses.isEmpty()) {
+            return "ACTIVE";
+        }
+        return statuses.get(random.nextInt(statuses.size()));
     }
 *** End Patch
 
