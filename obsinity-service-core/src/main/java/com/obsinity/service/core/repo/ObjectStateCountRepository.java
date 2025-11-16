@@ -22,6 +22,61 @@ public class ObjectStateCountRepository {
         updateCount(serviceId, objectType, attribute, stateValue, -1);
     }
 
+    public java.util.List<StateCountRow> list(
+            UUID serviceId,
+            String objectType,
+            String attribute,
+            java.util.List<String> states,
+            int offset,
+            int limit) {
+        if (serviceId == null || objectType == null || attribute == null) {
+            return java.util.List.of();
+        }
+        var params = new MapSqlParameterSource()
+                .addValue("service_id", serviceId)
+                .addValue("object_type", objectType)
+                .addValue("attribute", attribute)
+                .addValue("offset", Math.max(0, offset))
+                .addValue("limit", Math.max(1, limit));
+        StringBuilder sql = new StringBuilder("""
+                select state_value, count
+                  from obsinity.object_state_counts
+                 where service_id = :service_id
+                   and object_type = :object_type
+                   and attribute = :attribute
+                """);
+        if (states != null && !states.isEmpty()) {
+            sql.append(" and state_value in (:states)");
+            params.addValue("states", states);
+        }
+        sql.append(" order by state_value asc limit :limit offset :offset");
+        return jdbc.query(
+                sql.toString(), params, (rs, rowNum) -> new StateCountRow(rs.getString("state_value"), rs.getLong("count")));
+    }
+
+    public long countStates(UUID serviceId, String objectType, String attribute, java.util.List<String> states) {
+        if (serviceId == null || objectType == null || attribute == null) {
+            return 0;
+        }
+        var params = new MapSqlParameterSource()
+                .addValue("service_id", serviceId)
+                .addValue("object_type", objectType)
+                .addValue("attribute", attribute);
+        StringBuilder sql = new StringBuilder("""
+                select count(1)
+                  from obsinity.object_state_counts
+                 where service_id = :service_id
+                   and object_type = :object_type
+                   and attribute = :attribute
+                """);
+        if (states != null && !states.isEmpty()) {
+            sql.append(" and state_value in (:states)");
+            params.addValue("states", states);
+        }
+        Long total = jdbc.queryForObject(sql.toString(), params, Long.class);
+        return total == null ? 0 : total;
+    }
+
     private void updateCount(UUID serviceId, String objectType, String attribute, String stateValue, long delta) {
         if (serviceId == null || objectType == null || attribute == null || stateValue == null) {
             return;
@@ -42,4 +97,6 @@ public class ObjectStateCountRepository {
             """,
                 params);
     }
+
+    public record StateCountRow(String state, long count) {}
 }

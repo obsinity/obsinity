@@ -41,6 +41,8 @@ tags:
     description: 'Query histogram rollups.'
   - name: 'StateTransitions'
     description: 'Query state transition counts.'
+  - name: 'StateCounts'
+    description: 'Query current state distributions.'
 
 paths:
 
@@ -371,15 +373,60 @@ paths:
                   self:
                     href: '/api/query/state-transitions'
                     method: 'POST'
-                    body:
-                      serviceKey: 'payments'
-                      objectType: 'UserProfile'
-                      attribute: 'user.status'
-                      fromStates: ['pending', 'review']
-                      toStates: ['approved', 'rejected']
-                      interval: '5m'
-                      start: '2025-01-01T00:00:00Z'
-                      end: '2025-01-01T01:00:00Z'
+                  body:
+                    serviceKey: 'payments'
+                    objectType: 'UserProfile'
+                    attribute: 'user.status'
+                    fromStates: ['pending', 'review']
+                    toStates: ['approved', 'rejected']
+                    interval: '5m'
+                    start: '2025-01-01T00:00:00Z'
+                    end: '2025-01-01T01:00:00Z'
+  /api/query/state-counts:
+    post:
+      tags: ['StateCounts']
+      summary: 'Query current state counts'
+      description: 'Return the current number of objects in each state for a given extractor.'
+      operationId: 'queryStateCounts'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StateCountQueryRequestPayload'
+            example:
+              serviceKey: 'payments'
+              objectType: 'UserProfile'
+              attribute: 'user.status'
+              states: ['ACTIVE', 'BLOCKED', 'ARCHIVED']
+              limits: { offset: 0, limit: 20 }
+      responses:
+        '200':
+          description: 'HAL-style response with state counts.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateCountQueryHalResponse'
+              example:
+                count: 3
+                total: 6
+                limit: 20
+                offset: 0
+                data:
+                  states:
+                    - { state: 'ACTIVE', count: 420 }
+                    - { state: 'BLOCKED', count: 15 }
+                    - { state: 'ARCHIVED', count: 83 }
+                links:
+                  self:
+                    href: '/api/query/state-counts'
+                    method: 'POST'
+                  body:
+                    serviceKey: 'payments'
+                    objectType: 'UserProfile'
+                    attribute: 'user.status'
+                    states: ['ACTIVE', 'BLOCKED', 'ARCHIVED']
+                    limits: { offset: 0, limit: 20 }
 
 components:
   schemas:
@@ -1107,3 +1154,45 @@ components:
           type: object
           description: 'Optional structured context for the error.'
           example: { field: 'event.name' }
+    StateCountQueryRequestPayload:
+      type: object
+      properties:
+        serviceKey:
+          type: string
+        objectType:
+          type: string
+        attribute:
+          type: string
+        states:
+          type: array
+          items:
+            type: string
+        limits:
+          $ref: '#/components/schemas/CounterPageLimits'
+      required: [serviceKey, objectType, attribute]
+
+    StateCountQueryHalResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        data:
+          type: object
+          properties:
+            states:
+              type: array
+              items:
+                type: object
+                properties:
+                  state:
+                    type: string
+                  count:
+                    type: integer
+        links:
+          type: object

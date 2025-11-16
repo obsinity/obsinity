@@ -206,11 +206,52 @@ Response:
 
 The service key must match the logical service configured in `service_registry`. `objectType` and `attribute` correspond to the entries in `stateExtractors`. The server automatically aligns the requested interval to an available bucket (`5s`, `1m`, `5m`, `1h`, `1d`, `7d`).
 
+## REST State Count Query
+
+To inspect the current distribution of objects per state, use `/api/query/state-counts`:
+
+```http
+POST /api/query/state-counts
+Content-Type: application/json
+
+{
+  "serviceKey": "payments",
+  "objectType": "UserProfile",
+  "attribute": "user.status",
+  "states": ["ACTIVE", "BLOCKED", "ARCHIVED"],
+  "limits": { "offset": 0, "limit": 20 }
+}
+```
+
+Response:
+
+```json
+{
+  "count": 3,
+  "total": 6,
+  "limit": 20,
+  "offset": 0,
+  "data": {
+    "states": [
+      { "state": "ACTIVE", "count": 420 },
+      { "state": "BLOCKED", "count": 15 },
+      { "state": "ARCHIVED", "count": 83 }
+    ]
+  },
+  "_links": {
+    "self": { "href": "/api/query/state-counts", "method": "POST", "body": { "serviceKey": "payments", "objectType": "UserProfile", "attribute": "user.status", "states": ["ACTIVE", "BLOCKED", "ARCHIVED"], "limits": { "offset": 0, "limit": 20 } } },
+    "next": { "href": "/api/query/state-counts", "method": "POST", "body": { "serviceKey": "payments", "objectType": "UserProfile", "attribute": "user.status", "limits": { "offset": 20, "limit": 20 } } }
+  }
+}
+```
+
+If `states` is omitted, all states are returned (subject to `limit`). Counts are maintained live by the state extractor pipeline, so this endpoint reflects the latest snapshot at query time.
+
 ## Default Controllers & Service Configs
 
 | Module | Default port | Purpose / Endpoints |
 | ------ | ------------ | ------------------- |
-| `obsinity-controller-rest` | 8080 (see `application.yml`) | `/events/publish`(single), `/events/publish/batch`, `/api/search/events`, `/api/catalog/*`, `/api/objql/query`, `/api/query/counters`, `/api/histograms/query`, `/api/query/state-transitions`. |
+| `obsinity-controller-rest` | 8080 (see `application.yml`) | `/events/publish`(single), `/events/publish/batch`, `/api/search/events`, `/api/catalog/*`, `/api/objql/query`, `/api/query/counters`, `/api/histograms/query`, `/api/query/state-transitions`, `/api/query/state-counts`. |
 | `obsinity-controller-admin` | 8080 (inherits Spring Boot default when run standalone) | `/api/admin/config/ready`, `/api/admin/config/service` (JSON `ServiceConfig` ingest), `/api/admin/configs/import` (tar/tgz CRD archives). |
 | `obsinity-ingest-rabbitmq` | n/a (worker) | Spring Boot worker that consumes canonical Obsinity payloads from `obsinity.ingest.rmq.queue` (default `obsinity.events`) and pushes them through `EventIngestService`. Enable with `obsinity.ingest.rmq.enabled=true`. |
 | `obsinity-ingest-kafka` | n/a (worker) | Spring Boot worker built on Spring Kafka. Reads from `obsinity.ingest.kafka.topic` using the configured bootstrap servers/group/client IDs and hands each payload to the same ingest pipeline. Enable with `obsinity.ingest.kafka.enabled=true`. |

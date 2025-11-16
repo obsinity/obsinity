@@ -224,6 +224,7 @@ Response mirrors the events search structure but emits `intervals` instead of ro
 * `count`, `total`, `limit`, and `offset` measure intervals, not rows.
 * Each interval block contains every key combination requested with an aggregated `count`.
 * HAL links make pagination and replay trivial—copy `links.next.body` back into the request to fetch the next slice.
+* Related endpoints: `/api/query/state-transitions` (per-interval transitions) and `/api/query/state-counts` (current snapshot by state value) reuse the same structure.
 
 ---
 

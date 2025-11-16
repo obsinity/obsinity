@@ -527,3 +527,62 @@ components:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/HalLink'
+  /api/query/state-counts:
+    post:
+      tags: [State]
+      summary: Query current state counts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StateCountQueryRequest'
+      responses:
+        "200":
+          description: State counts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateCountQueryResponse'
+    StateCountQueryRequest:
+      type: object
+      properties:
+        serviceKey:
+          type: string
+        objectType:
+          type: string
+        attribute:
+          type: string
+        states:
+          type: array
+          items:
+            type: string
+        limits:
+          $ref: '#/components/schemas/PageLimits'
+      required: [serviceKey, objectType, attribute]
+
+    StateCountQueryResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        data:
+          type: object
+          properties:
+            states:
+              type: array
+              items:
+                type: object
+                properties:
+                  state:
+                    type: string
+                  count:
+                    type: integer
+        links:
+          type: object
