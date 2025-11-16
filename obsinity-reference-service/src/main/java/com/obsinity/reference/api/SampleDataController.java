@@ -82,7 +82,7 @@ public class SampleDataController {
 
         int unifiedEventCount = req.events();
         long windowSeconds = Math.max(1, DEMO_WINDOW_SECONDS);
-        long spacingSeconds = Math.max(1, windowSeconds / Math.max(1, unifiedEventCount));
+        double spacingSeconds = (double) windowSeconds / Math.max(1, unifiedEventCount);
         Instant windowStart = now.minusSeconds(windowSeconds);
         int profiles = Math.max(1, req.profilePool());
 
@@ -115,11 +115,9 @@ public class SampleDataController {
             String channel = channels.get(i % channels.size());
             String region = regions.get(i % regions.size());
             String tier = tiers.get(i % tiers.size());
-            long durationMs = Math.max(25L, random.nextInt(req.maxDurationMillis()));
-            Instant start = windowStart.plusSeconds((long) i * spacingSeconds);
-            if (start.isAfter(now)) {
-                start = now.minusSeconds(Math.max(1, windowSeconds / 10));
-            }
+            long durationMs = Math.max(25L, req.maxDurationMillis());
+            long offsetSeconds = Math.min(windowSeconds - 1, Math.round(i * spacingSeconds));
+            Instant start = windowStart.plusSeconds(offsetSeconds);
             Instant end = start.plusMillis(durationMs);
             profileEvents.add(buildUnifiedEvent(
                     req.serviceKey(),
@@ -337,14 +335,12 @@ public class SampleDataController {
         double[] latencyProfile = {50, 65, 90, 120, 160, 210, 280, 360, 450, 560, 700, 900, 1150, 1400};
         int samples = Math.max(1, req.events());
         long windowSeconds = Math.max(1, DEMO_WINDOW_SECONDS);
-        long spacingSeconds = Math.max(1, windowSeconds / samples);
+        double spacingSeconds = (double) windowSeconds / samples;
         List<String> statusCodes = List.of("200", "500");
 
         for (int i = 0; i < samples; i++) {
-            Instant start = windowStart.plusSeconds(i * spacingSeconds);
-            if (start.isAfter(now)) {
-                start = now.minusSeconds(Math.max(1, windowSeconds / 10));
-            }
+            long offsetSeconds = Math.min(windowSeconds - 1, Math.round(i * spacingSeconds));
+            Instant start = windowStart.plusSeconds(offsetSeconds);
             double baseLatency = latencyProfile[i % latencyProfile.length];
             boolean spike = i % 50 == 0;
             if (spike) {
