@@ -119,6 +119,36 @@ resources:
     name: Demo Data
     _type: request_group
 
+  # ===================== Demo Requests =====================
+  - _id: req_demo_unified_events
+    parentId: fld_demo
+    created: 1757433600000
+    modified: 1757433600000
+    name: Generate Unified Demo Events
+    method: POST
+    url: "{{ base_url }}/internal/demo/generate-unified-events"
+    headers:
+      - name: Content-Type
+        value: application/json
+      - name: Accept
+        value: application/json
+    body:
+      mimeType: application/json
+      text: |-
+        {
+          "serviceKey": "payments",
+          "eventType": "user_profile.updated",
+          "events": 200,
+          "profilePool": 40,
+          "statuses": ["NEW", "ACTIVE", "SUSPENDED", "ACTIVE", "UPGRADED", "ARCHIVED"],
+          "channels": ["web", "mobile", "partner"],
+          "regions": ["us-east", "us-west", "eu-central"],
+          "tiers": ["FREE", "PLUS", "PRO"],
+          "maxDurationMillis": 1500,
+          "recentWindowSeconds": 3600
+        }
+    _type: request
+
   - _id: fld_state
     parentId: wrk_68f2907246df440f96e2f024b4a89fee
     created: 1758900000000

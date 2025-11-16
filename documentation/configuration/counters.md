@@ -41,14 +41,14 @@ Content-Type: application/json
 
 {
   "serviceKey": "payments",
-  "eventType": "transaction.completed",
-  "counterName": "http_requests_total",
+  "eventType": "user_profile.updated",
+  "counterName": "user_profile_updates_by_status",
   "interval": "5m",
   "start": "2025-01-01T00:00:00Z",
   "end": "2025-01-01T02:00:00Z",
   "key": {
-    "region": ["us-east"],
-    "http.status_code_group": ["2xx", "5xx"]
+    "user.status": ["NEW", "ACTIVE", "SUSPENDED", "ARCHIVED"],
+    "dimensions.channel": ["web", "mobile", "partner"]
   },
   "limits": {
     "offset": 0,
@@ -70,7 +70,7 @@ Response shape:
         "from": "2025-01-01T00:00:00Z",
         "to": "2025-01-01T00:05:00Z",
         "counts": [
-          { "key": { "region": "us-east", "http.status_code_group": "2xx" }, "count": 128 }
+          { "key": { "user.status": "ACTIVE", "dimensions.channel": "web" }, "count": 128 }
         ]
       }
     ]
@@ -97,6 +97,8 @@ Response shape:
 
 The payload returns a list of `intervals`, each with `from`, `to`, and `counts` for every key combination. Requests finer than the configured granularity (for example `"5s"` against a `5m` counter) still lead to `400 Bad Request`.
 
+> Demo data tip: `/internal/demo/generate-unified-events` (reference service) emits `user_profile.updated` events cycling through statuses `NEW → ACTIVE → SUSPENDED → ACTIVE → UPGRADED → ARCHIVED`, channels `web|mobile|partner`, and regions `us-east|us-west|eu-central`. The counter and histogram examples above target those exact values so you can exercise the APIs with real data immediately.
+
 ## REST Histogram Query
 
 Histograms reuse the same controller namespace:
@@ -107,11 +109,11 @@ Content-Type: application/json
 
 {
   "serviceKey": "payments",
-  "eventType": "http_request",
-  "histogramName": "http_request_latency_ms",
+  "eventType": "user_profile.updated",
+  "histogramName": "user_profile_update_duration_ms",
   "key": {
-    "http.method": ["GET"],
-    "http.route": ["/checkout"]
+    "dimensions.channel": ["web", "mobile"],
+    "dimensions.region": ["us-east", "eu-central"]
   },
   "interval": "1m",
   "start": "2025-01-01T00:00:00Z",
@@ -137,7 +139,7 @@ Response (trimmed):
         "to": "2025-01-01T00:01:00Z",
         "series": [
           {
-            "key": { "http.method": "GET", "http.route": "/checkout" },
+            "key": { "dimensions.channel": "web", "dimensions.region": "us-east" },
             "samples": 420,
             "sum": 165000.0,
             "mean": 392.0,
@@ -167,8 +169,8 @@ Content-Type: application/json
   "serviceKey": "payments",
   "objectType": "UserProfile",
   "attribute": "user.status",
-  "fromStates": ["pending", "review"],
-  "toStates": ["approved", "rejected"],
+  "fromStates": ["NEW", "ACTIVE", "SUSPENDED"],
+  "toStates": ["ACTIVE", "ARCHIVED"],
   "interval": "5m",
   "start": "2025-01-01T00:00:00Z",
   "end": "2025-01-01T01:00:00Z",
@@ -190,8 +192,8 @@ Response:
         "start": "2025-01-01T00:00:00Z",
         "end": "2025-01-01T00:05:00Z",
         "transitions": [
-          { "fromState": "pending", "toState": "approved", "count": 42 },
-          { "fromState": "review", "toState": "rejected", "count": 3 }
+          { "fromState": "NEW", "toState": "ACTIVE", "count": 42 },
+          { "fromState": "SUSPENDED", "toState": "ARCHIVED", "count": 3 }
         ]
       }
     ]

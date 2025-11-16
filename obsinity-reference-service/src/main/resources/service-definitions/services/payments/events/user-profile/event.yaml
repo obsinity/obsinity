@@ -19,5 +19,5 @@ spec:
           email: { type: string }
           status:
             type: string
-            enum: [ACTIVE, INACTIVE, ARCHIVED, BLOCKED]
+            enum: [NEW, ACTIVE, SUSPENDED, BLOCKED, ARCHIVED, UPGRADED]
             index: true

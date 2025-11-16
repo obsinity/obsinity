@@ -136,7 +136,17 @@ public class SampleDataController {
             long durationMs = Math.max(25L, random.nextInt(req.maxDurationMillis()));
             Instant start = now.minusSeconds(random.nextInt(req.recentWindowSeconds()));
             Instant end = start.plusMillis(durationMs);
-            events.add(buildUnifiedEvent(req.serviceKey(), req.eventType(), profileId, status, tier, channel, region, start, end, durationMs));
+            events.add(buildUnifiedEvent(
+                    req.serviceKey(),
+                    req.eventType(),
+                    profileId,
+                    status,
+                    tier,
+                    channel,
+                    region,
+                    start,
+                    end,
+                    durationMs));
         }
         int stored = ingestService.ingestBatch(events);
         triggerFlushes();
@@ -408,7 +418,7 @@ public class SampleDataController {
                         "user_profile.updated",
                         500,
                         50,
-                        List.of("NEW", "ACTIVE", "SUSPENDED", "ACTIVE", "ARCHIVED"),
+                        List.of("NEW", "ACTIVE", "SUSPENDED", "ACTIVE", "UPGRADED", "ARCHIVED"),
                         List.of("web", "mobile", "partner"),
                         List.of("us-east", "us-west", "eu-central"),
                         List.of("FREE", "PLUS", "PRO"),
@@ -421,7 +431,7 @@ public class SampleDataController {
                     maybe.events == null || maybe.events <= 0 ? 500 : maybe.events,
                     maybe.profilePool == null || maybe.profilePool <= 0 ? 50 : maybe.profilePool,
                     (maybe.statuses == null || maybe.statuses.isEmpty())
-                            ? List.of("NEW", "ACTIVE", "SUSPENDED", "ACTIVE", "ARCHIVED")
+                            ? List.of("NEW", "ACTIVE", "SUSPENDED", "ACTIVE", "UPGRADED", "ARCHIVED")
                             : maybe.statuses,
                     (maybe.channels == null || maybe.channels.isEmpty())
                             ? List.of("web", "mobile", "partner")
@@ -429,12 +439,8 @@ public class SampleDataController {
                     (maybe.regions == null || maybe.regions.isEmpty())
                             ? List.of("us-east", "us-west", "eu-central")
                             : maybe.regions,
-                    (maybe.tiers == null || maybe.tiers.isEmpty())
-                            ? List.of("FREE", "PLUS", "PRO")
-                            : maybe.tiers,
-                    maybe.maxDurationMillis == null || maybe.maxDurationMillis <= 0
-                            ? 1500
-                            : maybe.maxDurationMillis,
+                    (maybe.tiers == null || maybe.tiers.isEmpty()) ? List.of("FREE", "PLUS", "PRO") : maybe.tiers,
+                    maybe.maxDurationMillis == null || maybe.maxDurationMillis <= 0 ? 1500 : maybe.maxDurationMillis,
                     maybe.recentWindowSeconds == null || maybe.recentWindowSeconds <= 0
                             ? 3600
                             : maybe.recentWindowSeconds);

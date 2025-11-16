@@ -141,3 +141,32 @@ resources:
       - name: Accept
         value: application/json
     _type: request
+
+  - _id: req_generate_unified_events
+    parentId: fld_demo_endpoints
+    created: 1705612800000
+    modified: 1705612800000
+    name: Generate Unified Demo Events
+    method: POST
+    url: "{{ base_url }}/internal/demo/generate-unified-events"
+    headers:
+      - name: Content-Type
+        value: application/json
+      - name: Accept
+        value: application/json
+    body:
+      mimeType: application/json
+      text: |-
+        {
+          "serviceKey": "payments",
+          "eventType": "user_profile.updated",
+          "events": 250,
+          "profilePool": 40,
+          "statuses": ["NEW", "ACTIVE", "SUSPENDED", "ACTIVE", "UPGRADED", "ARCHIVED"],
+          "channels": ["web", "mobile", "partner"],
+          "regions": ["us-east", "us-west", "eu-central"],
+          "tiers": ["FREE", "PLUS", "PRO"],
+          "maxDurationMillis": 2000,
+          "recentWindowSeconds": 7200
+        }
+    _type: request
