@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class SampleDataController {
 
     private static final int ERROR_FREQUENCY = 20;
+    private static final long DEMO_WINDOW_SECONDS = Duration.ofDays(14).getSeconds();
 
     private final EventIngestService ingestService;
     private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
@@ -80,9 +81,30 @@ public class SampleDataController {
         Map<String, String> lastStatusByProfile = new HashMap<>();
 
         int unifiedEventCount = req.events();
-        long windowSeconds = Math.max(1, req.recentWindowSeconds());
+        long windowSeconds = Math.max(1, DEMO_WINDOW_SECONDS);
         long spacingSeconds = Math.max(1, windowSeconds / Math.max(1, unifiedEventCount));
         Instant windowStart = now.minusSeconds(windowSeconds);
+        int profiles = Math.max(1, req.profilePool());
+
+        // Seed initial state per profile before the main window so the first visible transitions aren't from (none).
+        String initialStatus = statuses.isEmpty() ? "ACTIVE" : statuses.get(0);
+        for (int profileIndex = 0; profileIndex < profiles; profileIndex++) {
+            String profileId = String.format("profile-%04d", profileIndex + 1);
+            lastStatusByProfile.put(profileId, initialStatus);
+            Instant seedStart = windowStart.minusSeconds(profiles - profileIndex);
+            long durationMs = 50L;
+            profileEvents.add(buildUnifiedEvent(
+                    req.serviceKey(),
+                    req.eventType(),
+                    profileId,
+                    initialStatus,
+                    tiers.get(profileIndex % tiers.size()),
+                    channels.get(profileIndex % channels.size()),
+                    regions.get(profileIndex % regions.size()),
+                    seedStart,
+                    seedStart.plusMillis(durationMs),
+                    durationMs));
+        }
         List<EventEnvelope> histogramEvents = buildHistogramEventsForWindow(req, windowStart, now);
 
         for (int i = 0; i < unifiedEventCount; i++) {
@@ -111,7 +133,6 @@ public class SampleDataController {
                     end,
                     durationMs));
         }
-        profileEvents.addAll(buildStateTransitionEvents(req, windowStart, now));
         profileEvents.sort(Comparator.comparing(EventEnvelope::getTimestamp));
 
         int stored = ingestChronologically(profileEvents, histogramEvents);
@@ -315,7 +336,7 @@ public class SampleDataController {
         List<EventEnvelope> events = new ArrayList<>();
         double[] latencyProfile = {50, 65, 90, 120, 160, 210, 280, 360, 450, 560, 700, 900, 1150, 1400};
         int samples = Math.max(1, req.events());
-        long windowSeconds = Math.max(1, req.recentWindowSeconds());
+        long windowSeconds = Math.max(1, DEMO_WINDOW_SECONDS);
         long spacingSeconds = Math.max(1, windowSeconds / samples);
         List<String> statusCodes = List.of("200", "500");
 
@@ -340,51 +361,6 @@ public class SampleDataController {
             }
             String status = selectStatus(statusCodes, i);
             events.add(buildHistogramEvent(req.serviceKey(), start, end, status));
-        }
-        return events;
-    }
-
-    private List<EventEnvelope> buildStateTransitionEvents(UnifiedEventRequest req, Instant windowStart, Instant now) {
-        List<EventEnvelope> events = new ArrayList<>();
-        List<String> statuses = req.statuses();
-        if (statuses == null || statuses.size() < 2) {
-            return events;
-        }
-        int profiles = Math.max(1, req.profilePool());
-        long windowSeconds = Math.max(1, req.recentWindowSeconds());
-        long steps = (long) statuses.size() * profiles;
-        long spacingSeconds = Math.max(1, windowSeconds / steps);
-        for (int profileIndex = 0; profileIndex < profiles; profileIndex++) {
-            String profileId = String.format("profile-%04d", profileIndex + 1);
-            String previous = null;
-            for (int statusIndex = 0; statusIndex < statuses.size(); statusIndex++) {
-                String status = statuses.get(statusIndex);
-                if (previous != null && previous.equals(status)) {
-                    status = statuses.get((statusIndex + 1) % statuses.size());
-                    if (status.equals(previous)) {
-                        continue;
-                    }
-                }
-                long offset = ((long) profileIndex * statuses.size() + statusIndex) * spacingSeconds;
-                Instant start = windowStart.plusSeconds(offset);
-                if (start.isAfter(now)) {
-                    start = now.minusSeconds(Math.max(1, windowSeconds / 10));
-                }
-                long durationMs = 50L + (statusIndex * 25L);
-                Instant end = start.plusMillis(durationMs);
-                events.add(buildUnifiedEvent(
-                        req.serviceKey(),
-                        req.eventType(),
-                        profileId,
-                        status,
-                        req.tiers().get(profileIndex % req.tiers().size()),
-                        req.channels().get(statusIndex % req.channels().size()),
-                        req.regions().get(profileIndex % req.regions().size()),
-                        start,
-                        end,
-                        durationMs));
-                previous = status;
-            }
         }
         return events;
     }
