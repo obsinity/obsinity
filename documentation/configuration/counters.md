@@ -97,7 +97,7 @@ Response shape:
 
 The payload returns a list of `intervals`, each with `from`, `to`, and `counts` for every key combination. Requests finer than the configured granularity (for example `"5s"` against a `5m` counter) still lead to `400 Bad Request`.
 
-> Demo data tip: `/internal/demo/generate-unified-events` (reference service) emits `user_profile.updated` events cycling through statuses `NEW → ACTIVE → SUSPENDED → ACTIVE → UPGRADED → ARCHIVED`, channels `web|mobile|partner`, and regions `us-east|us-west|eu-central`. The counter and histogram examples above target those exact values so you can exercise the APIs with real data immediately.
+> Demo data tip: `/internal/demo/generate-unified-events` (reference service) emits `user_profile.updated` events cycling through statuses `NEW → ACTIVE → SUSPENDED → ACTIVE → BLOCKED → UPGRADED → ARCHIVED`, channels `web|mobile|partner`, and regions `us-east|us-west|eu-central`. The counter and histogram examples above target those exact values so you can exercise the APIs with real data immediately.
 
 ## REST Histogram Query
 

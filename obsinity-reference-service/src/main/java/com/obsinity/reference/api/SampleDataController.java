@@ -418,7 +418,7 @@ public class SampleDataController {
                         "user_profile.updated",
                         500,
                         50,
-                        List.of("NEW", "ACTIVE", "SUSPENDED", "ACTIVE", "UPGRADED", "ARCHIVED"),
+                        List.of("NEW", "ACTIVE", "SUSPENDED", "ACTIVE", "BLOCKED", "UPGRADED", "ARCHIVED"),
                         List.of("web", "mobile", "partner"),
                         List.of("us-east", "us-west", "eu-central"),
                         List.of("FREE", "PLUS", "PRO"),
@@ -431,7 +431,7 @@ public class SampleDataController {
                     maybe.events == null || maybe.events <= 0 ? 500 : maybe.events,
                     maybe.profilePool == null || maybe.profilePool <= 0 ? 50 : maybe.profilePool,
                     (maybe.statuses == null || maybe.statuses.isEmpty())
-                            ? List.of("NEW", "ACTIVE", "SUSPENDED", "ACTIVE", "UPGRADED", "ARCHIVED")
+                            ? List.of("NEW", "ACTIVE", "SUSPENDED", "ACTIVE", "BLOCKED", "UPGRADED", "ARCHIVED")
                             : maybe.statuses,
                     (maybe.channels == null || maybe.channels.isEmpty())
                             ? List.of("web", "mobile", "partner")
