@@ -1,6 +1,8 @@
-# Counter Configuration Cheatsheet
+# Counter, Histogram, and State Metric Cheatsheet
 
-Obsinity counters now support per-metric ingest granularity. The base bucket controls how often we buffer/flush counts and which rollups get materialised automatically.
+Obsinity’s metric pipeline materialises counters, histograms, and state transition counts at ingest time. This page documents the runtime configuration knobs, the REST controllers that query the data, and how service configuration is loaded on the server.
+
+Counters now support per-metric ingest granularity. The base bucket controls how often we buffer/flush counts and which rollups get materialised automatically.
 
 ## Granularity Options
 
@@ -95,8 +97,181 @@ Response shape:
 
 The payload returns a list of `intervals`, each with `from`, `to`, and `counts` for every key combination. Requests finer than the configured granularity (for example `"5s"` against a `5m` counter) still lead to `400 Bad Request`.
 
+## REST Histogram Query
+
+Histograms reuse the same controller namespace:
+
+```http
+POST /api/histograms/query
+Content-Type: application/json
+
+{
+  "serviceKey": "payments",
+  "eventType": "http_request",
+  "histogramName": "http_request_latency_ms",
+  "key": {
+    "http.method": ["GET"],
+    "http.route": ["/checkout"]
+  },
+  "interval": "1m",
+  "start": "2025-01-01T00:00:00Z",
+  "end": "2025-01-01T00:30:00Z",
+  "percentiles": [0.5, 0.9, 0.99],
+  "limits": { "offset": 0, "limit": 10 }
+}
+```
+
+Response (trimmed):
+
+```json
+{
+  "count": 10,
+  "total": 10,
+  "limit": 10,
+  "offset": 0,
+  "defaultPercentiles": [0.5, 0.9, 0.95, 0.99],
+  "data": {
+    "intervals": [
+      {
+        "from": "2025-01-01T00:00:00Z",
+        "to": "2025-01-01T00:01:00Z",
+        "series": [
+          {
+            "key": { "http.method": "GET", "http.route": "/checkout" },
+            "samples": 420,
+            "sum": 165000.0,
+            "mean": 392.0,
+            "percentiles": { "0.5": 320.0, "0.9": 650.0, "0.99": 1200.0 }
+          }
+        ]
+      }
+    ]
+  },
+  "_links": {
+    "self": { "href": "/api/histograms/query", "method": "POST", "body": { "..." : "..." } }
+  }
+}
+```
+
+The controller returns the configured default percentiles even if the request overrides them. `series[].sum` stores the running total of the measurement (e.g., total milliseconds), `samples` is the count, and `mean` is precomputed if the sketch can expose it cheaply.
+
+## REST State Transition Query
+
+State detection emits transition counters (A→B) and snapshots automatically. Query them via `/api/query/state-transitions`:
+
+```http
+POST /api/query/state-transitions
+Content-Type: application/json
+
+{
+  "serviceKey": "payments",
+  "objectType": "UserProfile",
+  "attribute": "user.status",
+  "fromStates": ["pending", "review"],
+  "toStates": ["approved", "rejected"],
+  "interval": "5m",
+  "start": "2025-01-01T00:00:00Z",
+  "end": "2025-01-01T01:00:00Z",
+  "limits": { "offset": 0, "limit": 6 }
+}
+```
+
+Response:
+
+```json
+{
+  "count": 6,
+  "total": 12,
+  "limit": 6,
+  "offset": 0,
+  "data": {
+    "intervals": [
+      {
+        "start": "2025-01-01T00:00:00Z",
+        "end": "2025-01-01T00:05:00Z",
+        "transitions": [
+          { "fromState": "pending", "toState": "approved", "count": 42 },
+          { "fromState": "review", "toState": "rejected", "count": 3 }
+        ]
+      }
+    ]
+  },
+  "_links": {
+    "next": { "href": "/api/query/state-transitions", "method": "POST", "body": { "offset": 6, "limit": 6, "...":"..." } }
+  }
+}
+```
+
+The service key must match the logical service configured in `service_registry`. `objectType` and `attribute` correspond to the entries in `stateExtractors`. The server automatically aligns the requested interval to an available bucket (`5s`, `1m`, `5m`, `1h`, `1d`, `7d`).
+
+## Default Controllers & Service Configs
+
+| Module | Default port | Purpose / Endpoints |
+| ------ | ------------ | ------------------- |
+| `obsinity-controller-rest` | 8080 (see `application.yml`) | `/events/publish`(single), `/events/publish/batch`, `/api/search/events`, `/api/catalog/*`, `/api/objql/query`, `/api/counters/query`, `/api/histograms/query`, `/api/query/state-transitions`. |
+| `obsinity-controller-admin` | 8080 (inherits Spring Boot default when run standalone) | `/api/admin/config/ready`, `/api/admin/config/service` (JSON `ServiceConfig` ingest), `/api/admin/configs/import` (tar/tgz CRD archives). |
+| `obsinity-reference-service` | 8086 (`src/main/resources/application.yml`) | Bundles the REST + Admin controllers with the storage layer, Flyway migrations, and config loader. Ships as the default server for local development and is the target for the JVM Collection SDK (`EventSender` defaults to `http://localhost:8086/events/publish`). |
+
+When you run `obsinity-controller-rest` directly it uses `server.port=8080` and connects to `jdbc:postgresql://localhost:5432/obsinity` (see its `application.yml`). The reference service overrides those values to line up with `docker-compose`.
+
+Key server config snippets (reference service):
+
+```yaml
+server:
+  port: 8086
+spring:
+  datasource:
+    url: jdbc:postgresql://obsinity-db:5432/obsinity
+    username: obsinity
+    password: obsinity
+obsinity:
+  api.hal:
+    embedded: data
+    links: links
+  counters.persist.workers: 10
+  counters.flush.max-batch-size: 5000
+  counters.flush.rate.s5: 5000
+  histograms.persist.workers: 10
+  stateTransitions.persist.workers: 4
+```
+
+Enable automatic CRD ingestion by setting (see `application-local.yml`):
+
+```yaml
+obsinity:
+  config:
+    init:
+      enabled: true
+      location: "classpath:/service-definitions/"
+      cron: "0 * * * * *"
+```
+
+## Pipeline Configuration Properties
+
+The ingest workers share a common schema via `obsinity.service.core.config.PipelineProperties`. Every pipeline exposes the same knobs:
+
+| Property | Default | Description |
+| -------- | ------- | ----------- |
+| `obsinity.counters.persist.workers` | `10` | Number of async writers draining the counter buffer into Postgres. |
+| `obsinity.counters.persist.queue-capacity` | `20000` | Max queued flush jobs; backpressure kicks in when saturated. |
+| `obsinity.counters.flush.max-batch-size` | `5000` | Slice each bucket flush into chunks of this size before handing to the executor. |
+| `obsinity.counters.flush.rate.s5` | `5000` (ms) | Fixed-rate schedule for draining the 5-second bucket. Higher buckets roll up automatically. |
+| `obsinity.histograms.persist.workers` | `10` | Same contract as counters but for histogram sketches. |
+| `obsinity.histograms.persist.queue-capacity` | `20000` | Queue size for histogram flush jobs. |
+| `obsinity.histograms.flush.max-batch-size` | `5000` | Max histogram batch size per flush. |
+| `obsinity.histograms.flush.rate.s5` | `5000` (ms) | Flush cadence for histogram buffers. |
+| `obsinity.stateTransitions.persist.workers` | `4` | Workers persisting state transition counts. |
+| `obsinity.stateTransitions.persist.queue-capacity` | `5000` | Queue capacity for transition batches (defaults smaller because cardinality is lower). |
+| `obsinity.stateTransitions.flush.max-batch-size` | `5000` | Flush batch size for transition rows. |
+| `obsinity.stateTransitions.flush.rate.s5` | `5000` (ms) | Flush cadence for transition counters. |
+| `obsinity.stateExtractors.enabled` | `true` | Toggle for running `StateDetectionService` inside `JdbcEventIngestService`. |
+| `obsinity.stateExtractors.loggingEnabled` | `true` | Log every detected transition (useful for debugging). |
+
+All properties can be set via `application.yml`, environment variables, or system properties when running the controllers.
+
 ## Operational Notes
 
-* Flush cadence is controlled by `obsinity.counters.flush.rate.s5`; 1m/5m rollups are materialized automatically as part of the 5s flush.
-* Hash caches are controlled with `obsinity.counters.hash.cache-size` and `obsinity.counters.hash.ttl`.
-* Rollups rely on the hash cache; running the API in a separate process is fine because hashes are deterministic.
+* Each pipeline (counters, histograms, state transitions) flushes the 5-second bucket on `obsinity.*.flush.rate.s5` and cascades rollups to `1m`, `5m`, `1h`, `1d`, and `7d`.
+* Hash caches for counter key materialisation are controlled with `obsinity.counters.hash.cache-size` and `obsinity.counters.hash.ttl`.
+* `StateDetectionService` compares incoming attribute values against the snapshot repository. `stateExtractors` must be configured per service (`state-extractors.yaml`) otherwise transitions are ignored.
+* Rollups rely on deterministic hashes, so you can scale query APIs separately from ingest; no sticky-session requirement.

@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: obsinity-ingest-kafka
+  main:
+    web-application-type: none
+
+obsinity:
+  ingest:
+    kafka:
+      enabled: true
+      bootstrap-servers: localhost:9092
+      topic: obsinity.events
+      group-id: obsinity-ingest
+      client-id: obsinity-ingest-client

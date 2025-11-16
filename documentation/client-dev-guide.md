@@ -80,6 +80,11 @@ Minimal Spring Boot setup (choose one transport):
   <!-- or -->
   <dependency>
     <groupId>com.obsinity</groupId>
+    <artifactId>obsinity-client-transport-rabbitmq</artifactId>
+  </dependency>
+  <!-- or -->
+  <dependency>
+    <groupId>com.obsinity</groupId>
     <artifactId>obsinity-client-transport-resttemplate</artifactId>
   </dependency>
 </dependencies>
@@ -103,6 +108,7 @@ Essential properties (Spring Boot `application.properties` or env/system props):
 - `obsinity.collection.logging.enabled=true|false` — enable SLF4J logging sink (default true).
 - `obsinity.collection.obsinity.enabled=true|false` — enable Obsinity REST sink (default true when an `EventSender` bean exists).
 - `obsinity.collection.trace.enabled=true|false` — register inbound trace propagation filters (default true).
+- `obsinity.collection.service=<name>` (or `OBSINITY_SERVICE`) — fallback service identifier when the flow event itself does not provide `resource.service.name`. Required if you do not push `service.id` attributes.
 - `obsinity.ingest.url` or `OBSINITY_INGEST_URL` — HTTP endpoint for Obsinity ingest; defaults to `http://localhost:8086/events/publish` (auto-resolves Docker host IP when running in a container).
 
 Example:
@@ -113,9 +119,30 @@ obsinity.collection.logging.enabled=true
 obsinity.collection.obsinity.enabled=true
 # Point to your ingest endpoint (local controller example)
 obsinity.ingest.url=http://localhost:8086/events/publish
+# Provide a service identifier for FlowObsinitySink if your flows do not set resource.service.name
+obsinity.collection.service=payments
 ```
 
+`FlowObsinitySink` resolves the service identifier in this order: `FlowEvent.serviceId()` → `resource.service.name` in the flow attributes → `obsinity.collection.service` / `OBSINITY_SERVICE`. If none are provided the sink refuses to publish the payload so you avoid unlabeled events in storage.
+
 Transports are discovered via classpath. If both WebClient and OkHttp are present, WebClient wins (see `obsinity-reference-client-spring`). If none are present, the JDK HttpClient transport is used. Flow sinks (`@FlowSink`-annotated beans) are auto-detected by `FlowSinkScanner` when you include `obsinity-collection-spring`.
+
+### RabbitMQ transport properties
+
+Add `obsinity-client-transport-rabbitmq` if you want to publish flow events to an AMQP exchange instead of the REST controller. Configuration is handled via JVM properties or environment variables:
+
+| System property | Environment variable | Default |
+| --------------- | -------------------- | ------- |
+| `obsinity.rmq.host` | `OBSINITY_RMQ_HOST` | `localhost` |
+| `obsinity.rmq.port` | `OBSINITY_RMQ_PORT` | `5672` |
+| `obsinity.rmq.username` | `OBSINITY_RMQ_USERNAME` | `guest` |
+| `obsinity.rmq.password` | `OBSINITY_RMQ_PASSWORD` | `guest` |
+| `obsinity.rmq.vhost` | `OBSINITY_RMQ_VHOST` | `/` |
+| `obsinity.rmq.exchange` | `OBSINITY_RMQ_EXCHANGE` | `obsinity.events` |
+| `obsinity.rmq.routing-key` | `OBSINITY_RMQ_ROUTING_KEY` | `flows` |
+| `obsinity.rmq.mandatory` | `OBSINITY_RMQ_MANDATORY` | `false` |
+
+Deploy the `obsinity-ingest-rabbitmq` worker (or your own consumer) to read from the queue/exchange and invoke the regular ingest pipeline.
 
 ---
 

@@ -5,10 +5,23 @@ This document presents an end‑to‑end view of Obsinity: client collection, ev
 ## 0) Executive Summary
 - Obsinity collects, stores, and queries telemetry events using PostgreSQL as the system of record with clear, partitioned schema.
 - A lightweight Collection SDK (annotations + aspect) captures events and emits to pluggable sinks.
-- Ingestion accepts a canonical JSON payload (with an OTEL‑aligned `time` block) via REST and stream consumers (Kafka/RabbitMQ).
+- REST ingestion accepts the canonical JSON payload (OTEL‑aligned `time` block). Kafka/RabbitMQ stream consumers are designed but not yet implemented.
 - Idempotency is enforced using a required event ID and SHA‑256 body hash; mismatches route to the Unconfigured Event Queue (UEQ).
-- Metrics are defined alongside events and can be materialized as derived rollups under retention controls.
-- An outbound forwarding gateway publishes ingested events to external systems (Kafka, RabbitMQ, S3, remote Postgres) using an outbox pattern.
+- Metrics are defined alongside events and materialised as counters, histograms, and state transition counters; gauges/advanced histogram schemes remain on the roadmap.
+- An outbound forwarding gateway (planned) will publish ingested events to external systems (Kafka, RabbitMQ, S3, remote Postgres) using an outbox pattern.
+
+### Feature Status Snapshot
+
+| Area | Status | Notes |
+| ---- | ------ | ----- |
+| REST ingest, search, catalog, counter/histogram/state queries | ✅ | Shipping today via `obsinity-controller-rest`. |
+| Service configuration ingest (JSON & archive) | ✅ | `obsinity-controller-admin`. |
+| State detection & transition counters | ✅ | Driven by `stateExtractors` + `StateDetectionService`. |
+| OTLP ingest controller | ⚠️ Stub | `/otlp/v1/traces` endpoint exists but no translation logic yet. |
+| Stream ingestion (Kafka/RabbitMQ) | ⚠️ Partial | RabbitMQ (`obsinity-ingest-rabbitmq`) and Kafka (`obsinity-ingest-kafka`) consumers ship today; UEQ/backoff hardening remains planned. |
+| Outbound forwarding connectors & outbox dispatcher | 🚧 Planned | Tables/design captured, but dispatcher/connectors not built. |
+| Gauges & advanced histogram schemes | 🚧 Planned | Metric registry handles metadata; server only persists counters + histograms + state transitions for now. |
+| Additional query surfaces (GraphQL/SQL) | 🚧 Planned | Current APIs are HAL/REST. |
 
 ## 1) Client Collection & Sinks
 - Collection SDK (client‑side only)
@@ -37,6 +50,8 @@ Design Rationale
 - Compute stable spec hashes (e.g., histogram bucket layout) to detect changes.
 
 ## 3) Ingestion
+> **Status:** REST endpoints are implemented. `obsinity-ingest-rabbitmq` and `obsinity-ingest-kafka` ship production consumers that read canonical payloads from brokers and invoke the same `EventIngestService`. The OTLP controller (`/otlp/v1/traces`) is present as a stub and currently discards payloads.
+
 - REST Unified Publish (default) — `POST /events/publish`
   - Canonical JSON body includes:
     - `resource.service.name` (service key)
@@ -50,6 +65,9 @@ Design Rationale
 - Stream Ingestion (Kafka/RabbitMQ)
   - Stateless consumers parse messages into the same JSON shape and reuse the same mapping.
   - Consumer offsets/acks are managed after successful DB write.
+  - `obsinity-ingest-rabbitmq` and `obsinity-ingest-kafka` are the reference implementations for AMQP queues and Kafka topics respectively.
+
+> **Implementation note:** Stream consumers and UEQ routing for broker inputs are planned; no worker binaries are produced in this repository today.
 
 Parse Failures
 - Payloads that cannot be parsed into JSON are captured in an ingest dead-letter table for later inspection.
@@ -82,6 +100,8 @@ Reliability & Performance
 - LIST→RANGE scheme isolates services and enables per‑service scale out if desired.
 
 ## 5) Metrics
+> **Status:** Counters, histograms (DDSketch), and state transition counters are fully wired. Gauge ingestion + rollups, and advanced histogram schemes (log/exp buckets) remain on the roadmap even though the CRD schema anticipates them.
+
 - Definition
   - Per event: metric type, dimensions, windowing/rollups, optional histogram bucket layout.
 - Persistence
@@ -91,6 +111,8 @@ Reliability & Performance
   - Per‑metric TTLs align storage costs with business value.
 
 ## 6) Outbound Forwarding (Connectors)
+> **Status:** Outbox tables and dispatcher/connector APIs are described here and in `documentation/architecture/forwarding-and-stream-ingest.md`, but no connector code or scheduler exists yet. Everything in this section is roadmap-level.
+
 - Purpose
   - Publish ingested events to external systems (Kafka, RabbitMQ, S3, remote Postgres) to serve downstream analytics/ops.
 - Pattern

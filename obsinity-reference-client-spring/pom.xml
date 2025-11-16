@@ -36,6 +36,7 @@
     <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-transport-webclient</artifactId></dependency>
     <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-transport-okhttp</artifactId></dependency>
     <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-transport-jdkhttp</artifactId></dependency>
+    <dependency><groupId>com.obsinity</groupId><artifactId>obsinity-client-transport-rabbitmq</artifactId></dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-autoconfigure</artifactId>

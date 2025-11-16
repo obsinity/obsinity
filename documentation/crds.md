@@ -10,6 +10,36 @@ No metric contains scripts. No runtime WHERE. A series is identified solely by i
 
 ---
 
+## 🧱 Service Config Snapshot (Server View)
+
+Controllers ingest CRDs (event + metric YAML) and materialise them into a `ServiceConfig` record:
+
+```json
+{
+  "service": "payments",
+  "snapshotId": "config-2025-11-14T15:30:00Z",
+  "createdAt": "2025-11-14T15:30:00Z",
+  "defaults": { "rollups": ["5s","1m","1h","1d"], "backfillWindow": null },
+  "events": [
+    {
+      "eventName": "http_request",
+      "eventNorm": "http_request",
+      "category": "http",
+      "metrics": [ { "name": "http_requests_by_status", ... } ],
+      "attributeIndex": { "indexed": ["http.status","http.route"] },
+      "retentionTtl": "7d"
+    }
+  ],
+  "stateExtractors": [
+    { "rawType": "user_profile.updated", "objectType": "UserProfile", "objectIdField": "user.profile_id", "stateAttributes": ["user.status"] }
+  ]
+}
+```
+
+`obsinity-controller-admin` accepts either JSON `ServiceConfig` payloads (`POST /api/admin/config/service`) or `.tar/.tar.gz` archives shaped like `services/<service>/events/<event>/…` and produces the same server-side structure. `obsinity.config.init.*` properties (see `obsinity-reference-service`) point to a directory of CRDs to auto-load.
+
+---
+
 ## 📨 1) Event CRD (with embedded `derived`)
 
 ### Structure
@@ -120,7 +150,16 @@ spec:
   sourceEvent: { service: <string>, name: <event> }
 
   key:
-    dynamic: [ <path>, ... ]   # exact-match identity (e.g., [http.method, http.route, http.status_code_group])
+    dimensions: [ <path>, ... ]   # exact-match identity (e.g., [http.method, http.route, http.status_code_group])
+  fold:                          # optional, rename/bundle source attributes before counting
+    sourceAttribute: http.status
+    foldedAttribute: http.status_group
+    rules:
+      - name: "5xx"
+        when: { gte: 500, lt: 600 }
+        output: "5xx"
+  filters:                       # optional map or array of filter definitions, carried verbatim into the spec
+    includeStatus: ["2xx", "5xx"]
 
   rollup:
     windowing: { granularities: [5s, 1m, 1h, 1d, 7d] }
@@ -228,7 +267,31 @@ spec:
 
 ---
 
-## 🧮 4) Embedded Scriptlets — Runtime Contract
+## 🔁 4) State Extractor Config
+
+State trackers tell the ingest pipeline which raw events contain stateful attributes. They live alongside events as `state-extractors.yaml`:
+
+```yaml
+service: payments
+stateExtractors:
+  - rawType: user_profile.updated
+    objectType: UserProfile
+    objectIdField: user.profile_id
+    stateAttributes:
+      - user.status
+      - billing.tier
+```
+
+- `rawType` matches the event name emitted by producers.
+- `objectType` is a logical name used for reporting/querying transitions.
+- `objectIdField` is a dotted attribute path pointing to the identity of the object being tracked.
+- `stateAttributes` is a list of dotted attribute paths. When the value changes, Obsinity updates the snapshot table, emits state-count deltas, and increments the `state.transition.count` buffer for that attribute.
+
+The ingest pipeline can be toggled with `obsinity.stateExtractors.enabled=true|false` and `obsinity.stateExtractors.loggingEnabled=true|false`. Transition counts flush through the same counter infrastructure (5s → 7d rollups) and are queried via `/api/query/state-transitions`.
+
+---
+
+## 🧮 5) Embedded Scriptlets — Runtime Contract
 
 * **Single input only**: engine resolves `source` path → passes that **value**.
 * **Entry point**: `derive(value)` (JS function or Groovy closure).
@@ -262,7 +325,7 @@ def derive = { value ->
 
 ---
 
-## 🧪 5) Local Testing (Java Driver)
+## 🧪 6) Local Testing (Java Driver)
 
 Use the existing **Java JSR-223 driver** to execute the **embedded** scripts locally before publishing CRDs.
 
@@ -296,7 +359,7 @@ assertEquals("4xx", out);
 
 ---
 
-## 🛡️ 6) Security, Performance & Ops
+## 🛡️ 7) Security, Performance & Ops
 
 * **Deterministic**: one input → one output; no side effects.
 * **Precompile & cache**: keyed by `(service, event, target, lang, script_sha256)`.
@@ -310,7 +373,7 @@ assertEquals("4xx", out);
 
 ---
 
-## ♻️ 6.1) Schema Evolution & Compatibility (Attributes)
+## ♻️ 7.1) Schema Evolution & Compatibility (Attributes)
 
 - No explicit version field is required on the attribute schema; however, all schema changes MUST be backward compatible.
 - New fields MUST be optional by default. If a new field is intended to be indexed (`index: true`), roll out in two phases:
@@ -348,7 +411,7 @@ assertEquals("4xx", out);
 
 ---
 
-## 📋 7) Cheat-Sheet (Field Reference)
+## 📋 8) Cheat-Sheet (Field Reference)
 
 **Event**
 
@@ -392,7 +455,7 @@ assertEquals("4xx", out);
 
 ---
 
-## 🔁 8) Migration Notes
+## 🔁 9) Migration Notes
 
 * Replace legacy **`fold`** with **`derived`**.
 * Remove **filters** and **fixed constants** — keys are **exact match**.
@@ -402,7 +465,7 @@ assertEquals("4xx", out);
 
 ---
 
-## 🏆 Best Practices (TL;DR)
+## 🏆 10) Best Practices (TL;DR)
 
 * Keep scriptlets **small, pure, and fast** (≤ 20 lines; ≤ 2 ms).
 * **Index sparingly**; dimensions explode cardinality.

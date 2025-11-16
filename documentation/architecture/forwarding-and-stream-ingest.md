@@ -2,6 +2,8 @@
 
 This document details how Obsinity forwards events to additional targets (connectors) and ingests events from Kafka/RabbitMQ streams into the same pipeline used by REST ingest.
 
+> **Status:** RabbitMQ and Kafka consumers ship as `obsinity-ingest-rabbitmq` and `obsinity-ingest-kafka`. The outbox dispatcher and forwarding connectors remain on the roadmap, so treat those sections as forward-looking.
+
 ## Goals
 - Reuse the canonical `EventEnvelope` and REST body shape everywhere.
 - Keep delivery semantics explicit and configurable (at‑least‑once vs exactly‑once with outbox/de‑dupe).

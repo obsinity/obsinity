@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: obsinity-ingest-rabbitmq
+  main:
+    web-application-type: none
+
+# Queue name can be overridden with OBSINITY_INGEST_RMQ_QUEUE or Spring's property overrides.
+obsinity:
+  ingest:
+    rmq:
+      enabled: true
+      queue: obsinity.events

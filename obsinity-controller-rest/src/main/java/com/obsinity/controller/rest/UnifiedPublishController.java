@@ -1,16 +1,15 @@
 package com.obsinity.controller.rest;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.obsinity.service.core.deadletter.IngestDeadLetterTable;
+import com.obsinity.service.core.ingest.EventEnvelopeMapper;
 import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.spi.EventIngestService;
-import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.format.DateTimeParseException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -26,19 +25,23 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/events")
 public class UnifiedPublishController {
 
-    private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
     private static final Logger log = LoggerFactory.getLogger(UnifiedPublishController.class);
     private static final String SOURCE_PUBLISH_ONE = "REST_PUBLISH_ONE";
     private static final String SOURCE_PUBLISH_BATCH = "REST_PUBLISH_BATCH";
     private final EventIngestService ingest;
     private final ObjectMapper mapper;
     private final IngestDeadLetterTable ingestDeadLetters;
+    private final EventEnvelopeMapper envelopeMapper;
 
     public UnifiedPublishController(
-            EventIngestService ingest, ObjectMapper mapper, IngestDeadLetterTable ingestDeadLetters) {
+            EventIngestService ingest,
+            ObjectMapper mapper,
+            IngestDeadLetterTable ingestDeadLetters,
+            EventEnvelopeMapper envelopeMapper) {
         this.ingest = ingest;
         this.mapper = mapper;
         this.ingestDeadLetters = ingestDeadLetters;
+        this.envelopeMapper = envelopeMapper;
     }
 
     @PostMapping("/publish")
@@ -46,7 +49,7 @@ public class UnifiedPublishController {
     public Map<String, Object> publishOne(@RequestBody String body) {
         JsonNode payload = parseBody(body, SOURCE_PUBLISH_ONE);
         try {
-            EventEnvelope env = toEnvelopeFromRaw(payload);
+            EventEnvelope env = envelopeMapper.fromJson(payload);
             int stored = ingest.ingestOne(env);
             return Map.of("status", stored == 1 ? "stored" : "duplicate", "eventId", env.getEventId());
         } catch (RuntimeException ex) {
@@ -70,7 +73,7 @@ public class UnifiedPublishController {
         try {
             List<EventEnvelope> envs = new ArrayList<>(payload.size());
             for (JsonNode node : payload) {
-                envs.add(toEnvelopeFromRaw(node));
+                envs.add(envelopeMapper.fromJson(node));
             }
             int stored = ingest.ingestBatch(envs);
             int duplicates = Math.max(0, envs.size() - stored);
@@ -79,192 +82,6 @@ public class UnifiedPublishController {
             logRejectedPayload(payload, ex);
             throw ex;
         }
-    }
-
-    // ---- Mapping helpers ----------------------------------------------------
-
-    private EventEnvelope toEnvelopeFromRaw(JsonNode root) {
-        Objects.requireNonNull(root, "event body is required");
-
-        String serviceId = stringAt(root, "resource", "service", "name");
-        String eventType = stringAt(root, "event", "name");
-        if (serviceId == null || eventType == null) {
-            throw new IllegalArgumentException("resource.service.name and event.name are required");
-        }
-
-        String eventId = coalesce(stringAt(root, "eventId"), UUID.randomUUID().toString());
-
-        // Require camelCase inputs (allow legacy 'occurredAt' or 'timestamp' as fallback)
-        Instant startedAt = parseInstantOrNanos(root, "time", "startedAt", "startUnixNano");
-        if (startedAt == null) {
-            String legacyStart = coalesce(stringAt(root, "occurredAt"), stringAt(root, "timestamp"));
-            startedAt = parseInstant(coalesce(stringAt(root, "startedAt"), legacyStart));
-        }
-        Instant endAt = parseInstantOrNanos(root, "time", "endedAt", "endUnixNano");
-        Instant receivedAt = parseInstant(orNull(stringAt(root, "receivedAt")));
-        if (receivedAt == null) receivedAt = Instant.now();
-
-        String name = stringAt(root, "event", "name");
-        String kind = stringAt(root, "event", "kind");
-
-        String corr = stringAt(root, "trace", "correlationId");
-        String traceId = stringAt(root, "trace", "traceId");
-        String spanId = stringAt(root, "trace", "spanId");
-
-        Map<String, Object> resource = expandDottedKeys(toMap(root.path("resource")));
-        Map<String, Object> attributes = expandDottedKeys(toMap(root.path("attributes")));
-
-        EventEnvelope.Builder b = EventEnvelope.builder()
-                .serviceId(serviceId)
-                .eventType(eventType)
-                .eventId(eventId)
-                .timestamp(startedAt)
-                .endTimestamp(endAt)
-                .ingestedAt(receivedAt)
-                .name(name)
-                .kind(kind)
-                .traceId(traceId)
-                .spanId(spanId)
-                .parentSpanId(null)
-                .resourceAttributes(resource)
-                .attributes(attributes)
-                .events(null)
-                .links(null)
-                .correlationId(corr)
-                .synthetic(null);
-
-        // Optional status mapping { code, message }
-        Map<String, Object> status = toMap(root.path("status"));
-        if (!status.isEmpty()) {
-            String sc = String.valueOf(status.getOrDefault("code", "")).trim();
-            String sm = String.valueOf(status.getOrDefault("message", "")).trim();
-            if (!sc.isEmpty() || !sm.isEmpty())
-                b.status(new EventEnvelope.Status(sc.isEmpty() ? null : sc, sm.isEmpty() ? null : sm));
-        }
-
-        // Optional events[] mapping
-        var eventsNode = root.path("events");
-        if (eventsNode.isArray() && eventsNode.size() > 0) {
-            b.events(parseOtelEvents(eventsNode));
-        }
-
-        // Optional links[] mapping
-        var linksNode = root.path("links");
-        if (linksNode.isArray() && linksNode.size() > 0) {
-            java.util.List<EventEnvelope.OtelLink> lnks = new java.util.ArrayList<>(linksNode.size());
-            for (var n : linksNode) {
-                String ltr = stringAt(n, "traceId");
-                String lsp = stringAt(n, "spanId");
-                Map<String, Object> lattrs = expandDottedKeys(toMap(n.path("attributes")));
-                lnks.add(new EventEnvelope.OtelLink(ltr, lsp, lattrs));
-            }
-            b.links(lnks);
-        }
-
-        return b.build();
-    }
-
-    private String stringAt(JsonNode n, String... path) {
-        JsonNode cur = n;
-        for (String p : path) {
-            if (cur == null) return null;
-            cur = cur.path(p);
-        }
-        if (cur == null || cur.isMissingNode() || cur.isNull()) return null;
-        String s = cur.asText(null);
-        return (s == null || s.isBlank()) ? null : s;
-    }
-
-    private String coalesce(String a, String b) {
-        return (a != null && !a.isBlank()) ? a : b;
-    }
-
-    private String orNull(String a) {
-        return (a == null || a.isBlank()) ? null : a;
-    }
-
-    private Instant parseInstant(String iso) {
-        if (iso == null) return null;
-        try {
-            return OffsetDateTime.parse(iso).toInstant();
-        } catch (DateTimeParseException e) {
-            return Instant.parse(iso); // try plain instant
-        }
-    }
-
-    private Instant parseInstantOrNanos(JsonNode root, String timeKey, String isoField, String nanosField) {
-        try {
-            JsonNode node = (timeKey == null) ? root : root.path(timeKey);
-            // Prefer ISO field if present
-            String iso = stringAt(node, isoField);
-            if (iso == null && timeKey != null) {
-                iso = stringAt(root, isoField); // legacy payloads without time{}
-            }
-            if (iso != null) return parseInstant(iso);
-            // Fall back to Unix nanos
-            JsonNode nanos = node.path(nanosField);
-            if ((nanos == null || !nanos.isNumber()) && timeKey != null) {
-                nanos = root.path(nanosField);
-            }
-            if (nanos != null && nanos.isNumber()) {
-                long ns = nanos.asLong();
-                long secs = ns / 1_000_000_000L;
-                long rem = ns % 1_000_000_000L;
-                return Instant.ofEpochSecond(secs, rem);
-            }
-        } catch (Exception ignore) {
-            // ignore and return null
-        }
-        return null;
-    }
-
-    private Map<String, Object> toMap(JsonNode node) {
-        if (node == null || node.isNull() || node.isMissingNode()) return Map.of();
-        return mapper.convertValue(node, MAP_TYPE);
-    }
-
-    private Map<String, Object> expandDottedKeys(Map<String, Object> source) {
-        if (source == null || source.isEmpty()) {
-            return Map.of();
-        }
-        Map<String, Object> target = new LinkedHashMap<>();
-        source.forEach((k, v) -> mergeAttribute(target, k, v));
-        return target;
-    }
-
-    @SuppressWarnings("unchecked")
-    private void mergeAttribute(Map<String, Object> target, String rawKey, Object value) {
-        if (rawKey == null || rawKey.isBlank()) return;
-        String key = rawKey.trim();
-
-        if (value instanceof Map<?, ?> mapValue) {
-            Map<String, Object> expanded = new LinkedHashMap<>();
-            mapValue.forEach((k, v) -> mergeAttribute(expanded, k != null ? k.toString() : null, v));
-            value = expanded;
-        }
-
-        if (!key.contains(".")) {
-            target.put(key, value);
-            return;
-        }
-
-        String[] segments = key.split("\\.");
-        Map<String, Object> current = target;
-        for (int i = 0; i < segments.length - 1; i++) {
-            String segment = segments[i];
-            Object next = current.get(segment);
-            if (!(next instanceof Map<?, ?> nextMap)) {
-                Map<String, Object> fresh = new LinkedHashMap<>();
-                current.put(segment, fresh);
-                current = fresh;
-            } else {
-                Map<String, Object> mutable = new LinkedHashMap<>();
-                nextMap.forEach((k, v) -> mutable.put(k != null ? k.toString() : null, v));
-                current.put(segment, mutable);
-                current = mutable;
-            }
-        }
-        current.put(segments[segments.length - 1], value);
     }
 
     private JsonNode parseBody(String raw, String source) {
@@ -307,44 +124,5 @@ public class UnifiedPublishController {
                     e.getClass().getSimpleName(),
                     e.getOriginalMessage());
         }
-    }
-
-    private java.util.List<EventEnvelope.OtelEvent> parseOtelEvents(JsonNode arrayNode) {
-        java.util.List<EventEnvelope.OtelEvent> evts = new java.util.ArrayList<>(arrayNode.size());
-        for (JsonNode n : arrayNode) {
-            String ename = stringAt(n, "name");
-            Instant started = parseInstantOrNanos(n, "time", "startedAt", "startUnixNano");
-            Instant ended = parseInstantOrNanos(n, "time", "endedAt", "endUnixNano");
-            Long startNanos = numberValue(n, "time", "startUnixNano");
-            Long endNanos = numberValue(n, "time", "endUnixNano");
-            String kind = stringAt(n, "kind");
-            Map<String, Object> attrs = expandDottedKeys(toMap(n.path("attributes")));
-            java.util.List<EventEnvelope.OtelEvent> children = java.util.List.of();
-            JsonNode childrenNode = n.path("events");
-            if (childrenNode.isArray() && childrenNode.size() > 0) {
-                children = parseOtelEvents(childrenNode);
-            }
-            EventEnvelope.Status status = parseStatus(n.path("status"));
-            evts.add(new EventEnvelope.OtelEvent(
-                    ename, started, ended, startNanos, endNanos, kind, attrs, children, status));
-        }
-        return evts;
-    }
-
-    private Long numberValue(JsonNode node, String timeKey, String field) {
-        JsonNode context = (timeKey == null) ? node : node.path(timeKey);
-        JsonNode candidate = context.path(field);
-        if ((candidate == null || !candidate.isNumber()) && timeKey != null) {
-            candidate = node.path(field);
-        }
-        return (candidate != null && candidate.isNumber()) ? candidate.longValue() : null;
-    }
-
-    private EventEnvelope.Status parseStatus(JsonNode node) {
-        if (node == null || node.isMissingNode() || node.isNull()) return null;
-        String code = stringAt(node, "code");
-        String message = stringAt(node, "message");
-        if (code == null && message == null) return null;
-        return new EventEnvelope.Status(code, message);
     }
 }

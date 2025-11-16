@@ -3,6 +3,7 @@ package com.obsinity.reference.client.spring.autoconfigure;
 import com.obsinity.client.transport.EventSender;
 import com.obsinity.client.transport.jdkhttp.JdkHttpEventSender;
 import com.obsinity.client.transport.okhttp.OkHttpEventSender;
+import com.obsinity.client.transport.rabbitmq.RabbitMqEventSender;
 import com.obsinity.client.transport.webclient.WebClientEventSender;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -29,6 +30,16 @@ public class EventSenderAutoConfiguration {
         @ConditionalOnMissingBean(EventSender.class)
         public EventSender okHttpEventSender() {
             return new OkHttpEventSender();
+        }
+    }
+
+    @AutoConfiguration
+    @ConditionalOnClass(RabbitMqEventSender.class)
+    static class RabbitSenderConfig {
+        @Bean
+        @ConditionalOnMissingBean(EventSender.class)
+        public EventSender rabbitMqEventSender() {
+            return new RabbitMqEventSender();
         }
     }
 

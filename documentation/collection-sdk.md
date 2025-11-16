@@ -10,6 +10,16 @@ Modules
 - obsinity-collection-spring: Spring Boot autoconfig + AOP aspect (@Flow) that emits lifecycle events.
 - obsinity-collection-sink-logging: Logs OEvent via SLF4J; enabled by default (toggle property).
 - obsinity-collection-sink-obsinity: Adapts OEvent to Obsinity REST ingest JSON and posts via EventSender.
+- obsinity-client-transport-* modules: HTTP transport SPI implementations (`EventSender`) for WebClient, OkHttp, RestTemplate, and the JDK HttpClient, plus `obsinity-client-transport-rabbitmq` for AMQP delivery.
+- obsinity-client-testkit: `InMemoryEventSender` for tests and smoke harnesses.
+
+## Instrumentation Building Blocks
+
+- `@Flow` wraps a method in the `FlowAspect`, producing a `FlowEvent` that carries attributes, context, trace metadata, and runtime status. Nested `@Flow` methods form parent/child flows. Each root flow also records a batch so sinks can emit correlated events.
+- `@Step` emits nested step events inside the active flow and records them under `events[]`. If a `@Step` executes without an active flow it is auto-promoted to a flow; use `@OrphanAlert` to set the log level for that promotion.
+- Attribute + context pushers: `@PushAttribute`, `@PushContextValue`, and their `@Pull*` counterparts enrich or consume the flow payload. `@PullAttribute`, `@PullAllAttributes`, `@PullContextValue`, and `@PullAllContextValues` bind values back into sink handlers.
+- Flow sinks (`@FlowSink` beans) subscribe to lifecycle callbacks using `@OnFlowStarted`, `@OnFlowCompleted`, `@OnFlowFailure`, `@OnOutcome`, `@OnFlowScope`, and `@RequiredAttributes`. `FlowObsinitySink` and the logging sink are both built with the same hook annotations you can use.
+- `FlowProcessorSupport` maintains a thread-local stack and event batch per root flow. `FlowContext` is cleared after every method exit so async hand-offs do not leak attributes.
 
 Quick Start (Spring)
 1) Add dependencies (choose a transport; WebClient shown):
@@ -34,8 +44,37 @@ Quick Start (Spring)
    - obsinity.collection.logging.enabled = true|false
    - obsinity.collection.obsinity.enabled = true|false
 
+Obsinity determines the HTTP endpoint in this order:
+1. `obsinity.ingest.url` system property
+2. `OBSINITY_INGEST_URL` environment variable
+3. Auto-detected `http://<host.docker.internal or default gateway>:8086/events/publish` when running in a container
+4. Hard-coded fallback `http://localhost:8086/events/publish`
+
+The service identifier on outbound payloads is resolved from:
+1. `FlowEvent.serviceId()` if you set it programmatically
+2. `resource.service.name` inside the event attributes
+3. `obsinity.collection.service` system property or `OBSINITY_SERVICE` environment variable
+4. Failure (the sink throws if no service name can be determined)
+
+### RabbitMQ emitter
+
+When you include `obsinity-client-transport-rabbitmq`, FlowObsinitySink can publish completed flow events directly to an AMQP exchange instead of HTTP. Configuration is handled via system properties or environment variables:
+
+| System property | Environment variable | Default |
+| --------------- | -------------------- | ------- |
+| `obsinity.rmq.host` | `OBSINITY_RMQ_HOST` | `localhost` |
+| `obsinity.rmq.port` | `OBSINITY_RMQ_PORT` | `5672` |
+| `obsinity.rmq.username` | `OBSINITY_RMQ_USERNAME` | `guest` |
+| `obsinity.rmq.password` | `OBSINITY_RMQ_PASSWORD` | `guest` |
+| `obsinity.rmq.vhost` | `OBSINITY_RMQ_VHOST` | `/` |
+| `obsinity.rmq.exchange` | `OBSINITY_RMQ_EXCHANGE` | `obsinity.events` |
+| `obsinity.rmq.routing-key` | `OBSINITY_RMQ_ROUTING_KEY` | `flows` |
+| `obsinity.rmq.mandatory` | `OBSINITY_RMQ_MANDATORY` | `false` |
+
+Pair the emitter with `obsinity-ingest-rabbitmq` (or your own worker) to process the canonical payload from a queue.
+
 What gets sent to Obsinity
-- The Obsinity sink converts an OEvent to a REST body accepted by UnifiedPublishController. Minimal fields below; optional richer fields are included when present (event.kind, trace, status, time, resource.telemetry, host, cloud).
+- The Obsinity sink listens to completed/failed lifecycles only, forces an `endedAt` timestamp if one is missing, and converts the terminal `FlowEvent` (plus any nested `events[]` recorded via `@Step`) into the REST body accepted by `UnifiedPublishController`. Minimal fields below; optional richer fields are included when present (event.kind, trace, status, time, resource.telemetry, host, cloud).
 
   {
     "time": {

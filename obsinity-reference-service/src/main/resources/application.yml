@@ -27,6 +27,16 @@ obsinity:
     hal:
       embedded: data
       links: links
+  ingest:
+    rmq:
+      enabled: false
+      queue: obsinity.events
+    kafka:
+      enabled: false
+      bootstrap-servers: localhost:9092
+      topic: obsinity.events
+      group-id: obsinity-reference-service
+      client-id: obsinity-reference-service
   histograms:
     persist:
       workers: 10

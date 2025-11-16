@@ -20,6 +20,8 @@
     <module>obsinity-client-transport-jdkhttp</module>
     <module>obsinity-client-transport-resttemplate</module>
     <module>obsinity-client-transport-webclient</module>
+    <module>obsinity-client-transport-rabbitmq</module>
+    <module>obsinity-ingest-kafka</module>
 
     <!-- removed: obsinity-client-logging-sink (replaced by obsinity-collection-sink-logging) -->
     <module>obsinity-client-testkit</module>
@@ -31,6 +33,7 @@
     <module>obsinity-controller-rest</module>
     <module>obsinity-controller-admin</module>
     <module>obsinity-controller-otlp</module>
+    <module>obsinity-ingest-rabbitmq</module>
     <module>obsinity-reference-service</module>
     <module>obsinity-core</module>
     
