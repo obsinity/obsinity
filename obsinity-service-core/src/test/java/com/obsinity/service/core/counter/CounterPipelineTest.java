@@ -40,11 +40,11 @@ class CounterPipelineTest {
         InMemoryPersistService persistService = new InMemoryPersistService();
         PipelineProperties pipelineProperties = new PipelineProperties();
         pipelineProperties.getCounters().getPersist().setQueueCapacity(2000);
-        pipelineProperties.getCounters().getPersist().setWorkers(4);
+        pipelineProperties.getCounters().getPersist().setWorkers(1);
         pipelineProperties.getCounters().getFlush().setMaxBatchSize(1000);
 
         CounterPersistExecutor executor = new CounterPersistExecutor(persistService, buffer, pipelineProperties);
-        executor.init(2000, 4);
+        executor.init(2000, 1);
         CounterFlushService flushService = new CounterFlushService(buffer, executor, pipelineProperties);
         flushService.configureBatchSize();
 
@@ -88,7 +88,7 @@ class CounterPipelineTest {
                 List.of(s5Counter, m1Counter, m5Counter),
                 List.of());
 
-        Instant occurredAt = Instant.parse("2025-01-01T00:00:02Z");
+        Instant occurredAt = Instant.now().minus(Duration.ofMinutes(1));
         EventEnvelope envelope = EventEnvelope.builder()
                 .serviceId(serviceKey)
                 .eventType(eventType)
@@ -101,11 +101,9 @@ class CounterPipelineTest {
 
         ingestService.process(envelope, eventConfig);
 
-        flushService.flushAndWait(CounterGranularity.S5);
-        flushService.flushAndWait(CounterGranularity.M1);
-        flushService.flushAndWait(CounterGranularity.M5);
-        executor.waitForDrain();
-        flushService.flushAndWait(CounterGranularity.S5);
+        flushService.flushAllPending(CounterGranularity.S5);
+        flushService.flushAllPending(CounterGranularity.M1);
+        flushService.flushAllPending(CounterGranularity.M5);
         executor.waitForDrain();
 
         ConfigLookup configLookup = Mockito.mock(ConfigLookup.class);

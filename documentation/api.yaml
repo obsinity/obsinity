@@ -696,12 +696,12 @@ components:
           example: 'user.status'
         fromStates:
           type: array
-          description: 'Optional list of source states to include.'
+          description: 'Optional list of source states to include. Use "*" for all states and "(none)" (case-insensitive) to include the implicit placeholder for previously unseen states.'
           items:
             type: string
         toStates:
           type: array
-          description: 'Optional list of destination states to include.'
+          description: 'Optional list of destination states to include. Accepts "*" for any state.'
           items:
             type: string
         interval:

@@ -204,7 +204,15 @@ Response:
 }
 ```
 
-The service key must match the logical service configured in `service_registry`. `objectType` and `attribute` correspond to the entries in `stateExtractors`. The server automatically aligns the requested interval to an available bucket (`5s`, `1m`, `5m`, `1h`, `1d`, `7d`).
+The service key must match the logical service configured in `service_registry`. `objectType` and `attribute` correspond to the entries in `stateExtractors`. The server automatically aligns the requested interval to an available bucket (`5s`, `1m`, `5m`, `1h`, `1d`, `7d`). For `fromStates` / `toStates`, omit the field (or pass an empty array) to include everything, add `"*"` to explicitly request all states, and use `"(none)"` (case-insensitive) to include transitions that originated from the implicit placeholder emitted the first time an object enters a state. Responses also surface that placeholder as `"(none)"` so dashboards can render initial transitions without leaking the internal `__NO_STATE__` marker.
+
+### State Transition Filters Cheat Sheet
+
+- `fromStates`/`toStates` omitted or `[]`: return every transition that matches the rest of the payload.
+- Include `"*"`: explicitly request *all* states while still allowing other tokens, e.g. `["*", "(none)"]` means “everything plus first-time transitions.”
+- Include `"(none)"`: query for transitions whose origin (or destination) was previously untracked. This is emitted when a state extractor sees an object attribute for the first time.
+- Mix-and-match tokens: `["(none)", "ACTIVE"]` finds objects that were first seen or already ACTIVE, while `["ARCHIVED"]` focuses on a specific destination.
+- Tokens are case-insensitive, so `(NONE)` or `(None)` work the same.
 
 ## REST State Count Query
 

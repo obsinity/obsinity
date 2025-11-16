@@ -124,7 +124,7 @@ resources:
     parentId: fld_demo
     created: 1757433600000
     modified: 1757433600000
-    name: Generate Unified Demo Events
+    name: Generate Demo Events
     method: POST
     url: "{{ base_url }}/internal/demo/generate-unified-events"
     headers:
@@ -138,8 +138,8 @@ resources:
         {
           "serviceKey": "payments",
           "eventType": "user_profile.updated",
-          "events": 200,
-          "profilePool": 40,
+          "events": 200000,
+          "profilePool": 4000,
           "statuses": ["NEW", "ACTIVE", "SUSPENDED", "ACTIVE", "BLOCKED", "UPGRADED", "ARCHIVED"],
           "channels": ["web", "mobile", "partner"],
           "regions": ["us-east", "us-west", "eu-central"],
@@ -244,29 +244,6 @@ resources:
         value: application/json
     _type: request
 
-  # ===================== Demo Data =====================
-  - _id: req_demo_state_cascade
-    parentId: fld_demo
-    created: 1758900600000
-    modified: 1758900600000
-    name: demo → enqueue state cascade
-    description: Trigger the internal state cascade generator (defaults to 250 profiles).
-    method: POST
-    url: "{{ base_url }}/internal/demo/state-cascade"
-    body:
-      mimeType: application/json
-      text: |
-        {
-          "profiles": 100,
-          "states": ["ACTIVE", "INACTIVE", "BLOCKED", "SUSPENDED", "ARCHIVED"],
-          "totalDurationMinutes": 10,
-          "transitionsPerProfile": 5
-        }
-    headers:
-      - name: Content-Type
-        value: application/json
-    _type: request
-
   # ===================== State Queries =====================
   - _id: req_state_transition_query
     parentId: fld_state_query
@@ -283,8 +260,8 @@ resources:
           "serviceKey": "{{ service_id }}",
           "objectType": "UserProfile",
           "attribute": "user.status",
-          "fromStates": ["ACTIVE"],
-          "toStates": ["BLOCKED"],
+          "fromStates": ["(none)"],
+          "toStates": ["NEW", "ACTIVE", "SUSPENDED", "BLOCKED", "ARCHIVED"],
           "interval": "5s",
           "start": "{% now 'iso-8601', 'utc', -60 %}",
           "end": "{% now 'iso-8601', 'utc' %}",
@@ -1305,32 +1282,6 @@ resources:
             "offset": 0,
             "limit": 60
           }
-        }
-    headers:
-      - name: Content-Type
-        value: application/json
-    _type: request
-
-  # ===================== Demo Data =====================
-  - _id: req_demo_generate_latency
-    parentId: fld_demo
-    created: 1756720101000
-    modified: 1756720101000
-    name: Demo - Generate latency sample data
-    description: Generate synthetic http_request events across the last 14 days for histogram testing.
-    method: POST
-    url: "{{ base_url }}/internal/demo/generate-latency"
-    body:
-      mimeType: application/json
-      text: |
-        {
-          "serviceKey": "{{ service_id }}",
-          "eventType": "{{ event_name }}",
-          "httpMethod": "GET",
-          "httpRoute": "/api/checkout",
-          "statusCodes": ["200", "500"],
-          "days": 14,
-          "eventsPerDay": 5000
         }
     headers:
       - name: Content-Type

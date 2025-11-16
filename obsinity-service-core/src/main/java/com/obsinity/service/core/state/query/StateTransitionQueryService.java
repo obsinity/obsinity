@@ -21,6 +21,9 @@ import org.springframework.stereotype.Service;
 public class StateTransitionQueryService {
 
     private static final DateTimeFormatter ISO_INSTANT = DateTimeFormatter.ISO_INSTANT;
+    private static final String WILDCARD = "*";
+    private static final String NO_STATE_LABEL = "(none)";
+    private static final String NO_STATE_PLACEHOLDER = "__NO_STATE__";
 
     private final ServicesCatalogRepository servicesCatalogRepository;
     private final StateTransitionQueryRepository repository;
@@ -76,7 +79,8 @@ public class StateTransitionQueryService {
 
             List<StateTransitionQueryWindow.Entry> entries = rows.stream()
                     .filter(row -> matches(row.fromState(), fromFilter) && matches(row.toState(), toFilter))
-                    .map(row -> new StateTransitionQueryWindow.Entry(row.fromState(), row.toState(), row.total()))
+                    .map(row -> new StateTransitionQueryWindow.Entry(
+                            renderState(row.fromState()), renderState(row.toState()), row.total()))
                     .collect(Collectors.toList());
 
             windows.add(new StateTransitionQueryWindow(ISO_INSTANT.format(cursor), ISO_INSTANT.format(next), entries));
@@ -120,11 +124,38 @@ public class StateTransitionQueryService {
         throw new IllegalArgumentException("No compatible bucket for interval " + requested);
     }
 
+    private String renderState(String value) {
+        if (value == null) {
+            return null;
+        }
+        return NO_STATE_PLACEHOLDER.equals(value) ? NO_STATE_LABEL : value;
+    }
+
     private boolean matches(String value, List<String> filter) {
         if (filter == null || filter.isEmpty()) {
             return true;
         }
-        return filter.contains(value);
+        for (String raw : filter) {
+            if (raw == null || raw.isBlank()) {
+                continue;
+            }
+            String token = raw.trim();
+            if (WILDCARD.equals(token)) {
+                return true;
+            }
+            if (NO_STATE_LABEL.equalsIgnoreCase(token)
+                    || "NONE".equalsIgnoreCase(token)
+                    || NO_STATE_PLACEHOLDER.equalsIgnoreCase(token)) {
+                if (value == null || NO_STATE_PLACEHOLDER.equals(value)) {
+                    return true;
+                }
+                continue;
+            }
+            if (token.equals(value)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private int computeTotalIntervals(Instant start, Instant end, Duration step) {
