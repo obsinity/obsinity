@@ -84,15 +84,16 @@ class StateDetectionServiceTest {
         verify(snapshotRepository).upsert(serviceId, "UserProfile", "profile-123", "user.status", "ACTIVE", now);
         verify(countRepository).increment(serviceId, "UserProfile", "user.status", "ACTIVE");
         verify(countRepository, never()).decrement(serviceId, "UserProfile", "user.status", "ACTIVE");
-        verify(transitionBuffer, never())
+        long expectedEpoch = CounterGranularity.S5.baseBucket().align(now).getEpochSecond();
+        verify(transitionBuffer)
                 .increment(
-                        org.mockito.Mockito.any(),
-                        org.mockito.Mockito.anyLong(),
-                        org.mockito.Mockito.any(),
-                        org.mockito.Mockito.any(),
-                        org.mockito.Mockito.any(),
-                        org.mockito.Mockito.any(),
-                        org.mockito.Mockito.any());
+                        CounterGranularity.S5,
+                        expectedEpoch,
+                        serviceId,
+                        "UserProfile",
+                        "user.status",
+                        "__NO_STATE__",
+                        "ACTIVE");
     }
 
     @Test

@@ -70,8 +70,8 @@ public class StateTransitionQueryService {
         Instant cursor = alignedStart.plus(step.multipliedBy(offset));
         int added = 0;
 
-        List<String> fromFilter = request.fromStates() != null ? request.fromStates() : List.of();
-        List<String> toFilter = request.toStates() != null ? request.toStates() : List.of();
+        List<String> fromFilter = normalizeFilter(request.fromStates());
+        List<String> toFilter = normalizeFilter(request.toStates());
 
         while (cursor.isBefore(alignedEnd) && added < limit) {
             Instant next = cursor.plus(step);
@@ -128,25 +128,22 @@ public class StateTransitionQueryService {
         if (value == null) {
             return null;
         }
-        return NO_STATE_PLACEHOLDER.equals(value) ? NO_STATE_LABEL : value;
+        if (NO_STATE_PLACEHOLDER.equals(value)) {
+            return NO_STATE_LABEL;
+        }
+        return value;
     }
 
     private boolean matches(String value, List<String> filter) {
         if (filter == null || filter.isEmpty()) {
             return true;
         }
-        for (String raw : filter) {
-            if (raw == null || raw.isBlank()) {
-                continue;
-            }
-            String token = raw.trim();
+        for (String token : filter) {
             if (WILDCARD.equals(token)) {
                 return true;
             }
-            if (NO_STATE_LABEL.equalsIgnoreCase(token)
-                    || "NONE".equalsIgnoreCase(token)
-                    || NO_STATE_PLACEHOLDER.equalsIgnoreCase(token)) {
-                if (value == null || NO_STATE_PLACEHOLDER.equals(value)) {
+            if (NO_STATE_LABEL.equals(token)) {
+                if (value == null || NO_STATE_PLACEHOLDER.equals(value) || NO_STATE_LABEL.equalsIgnoreCase(value)) {
                     return true;
                 }
                 continue;
@@ -156,6 +153,34 @@ public class StateTransitionQueryService {
             }
         }
         return false;
+    }
+
+    private List<String> normalizeFilter(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+        List<String> normalized = new ArrayList<>();
+        for (String raw : values) {
+            if (raw == null) {
+                continue;
+            }
+            String token = raw.trim();
+            if (token.isEmpty()) {
+                continue;
+            }
+            if (WILDCARD.equals(token)) {
+                normalized.add(WILDCARD);
+                continue;
+            }
+            if (NO_STATE_LABEL.equalsIgnoreCase(token)
+                    || "NONE".equalsIgnoreCase(token)
+                    || NO_STATE_PLACEHOLDER.equalsIgnoreCase(token)) {
+                normalized.add(NO_STATE_LABEL);
+                continue;
+            }
+            normalized.add(token);
+        }
+        return normalized;
     }
 
     private int computeTotalIntervals(Instant start, Instant end, Duration step) {
