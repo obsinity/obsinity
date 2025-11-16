@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +49,10 @@ public class SampleDataController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public Map<String, Object> generateLatencyData(@RequestBody(required = false) SampleRequest request) {
         SampleRequest req = SampleRequest.defaults(request);
+        return generateLatencyBatch(req);
+    }
+
+    private Map<String, Object> generateLatencyBatch(SampleRequest req) {
         Instant requestTime = Instant.now();
         Instant startOfCurrentDay = requestTime
                 .atZone(ZoneOffset.UTC)
@@ -107,6 +112,39 @@ public class SampleDataController {
         StateCascadeRequest req = StateCascadeRequest.defaults(maybe);
         CompletableFuture.runAsync(() -> runStateCascade(req), executor);
         return Map.of("queued", true, "profiles", req.profiles(), "states", req.states());
+    }
+
+    @PostMapping("/generate-unified-events")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public Map<String, Object> generateUnifiedEvents(@RequestBody(required = false) UnifiedEventRequest maybe) {
+        UnifiedEventRequest req = UnifiedEventRequest.defaults(maybe);
+        List<EventEnvelope> events = new ArrayList<>();
+        Instant now = Instant.now();
+        List<String> statuses = req.statuses();
+        List<String> channels = req.channels();
+        List<String> regions = req.regions();
+        List<String> tiers = req.tiers();
+        Map<String, String> lastStatusByProfile = new HashMap<>();
+        for (int i = 0; i < req.events(); i++) {
+            String profileId = String.format("profile-%04d", (i % req.profilePool()) + 1);
+            String previous = lastStatusByProfile.get(profileId);
+            String status = pickNextStatus(statuses, previous, i);
+            lastStatusByProfile.put(profileId, status);
+            String channel = channels.get(i % channels.size());
+            String region = regions.get(i % regions.size());
+            String tier = tiers.get(i % tiers.size());
+            long durationMs = Math.max(25L, random.nextInt(req.maxDurationMillis()));
+            Instant start = now.minusSeconds(random.nextInt(req.recentWindowSeconds()));
+            Instant end = start.plusMillis(durationMs);
+            events.add(buildUnifiedEvent(req.serviceKey(), req.eventType(), profileId, status, tier, channel, region, start, end, durationMs));
+        }
+        int stored = ingestService.ingestBatch(events);
+        triggerFlushes();
+        return Map.of(
+                "generated", events.size(),
+                "stored", stored,
+                "service", req.serviceKey(),
+                "eventType", req.eventType());
     }
 
     private String selectStatus(List<String> statusCodes, int eventIndex) {
@@ -190,6 +228,58 @@ public class SampleDataController {
                                 "status", state)))
                 .resourceAttributes(Map.of())
                 .build();
+    }
+
+    private EventEnvelope buildUnifiedEvent(
+            String serviceKey,
+            String eventType,
+            String profileId,
+            String status,
+            String tier,
+            String channel,
+            String region,
+            Instant start,
+            Instant end,
+            long durationMs) {
+        Map<String, Object> attributes = new LinkedHashMap<>();
+        attributes.put(
+                "user",
+                Map.of(
+                        "profile_id", profileId,
+                        "status", status,
+                        "tier", tier));
+        attributes.put("timings", Map.of("duration_ms", durationMs));
+        attributes.put(
+                "dimensions",
+                Map.of(
+                        "channel", channel,
+                        "region", region));
+        return EventEnvelope.builder()
+                .serviceId(serviceKey)
+                .eventType(eventType)
+                .eventId(UUID.randomUUID().toString())
+                .timestamp(start)
+                .endTimestamp(end)
+                .ingestedAt(Instant.now())
+                .name(eventType)
+                .attributes(attributes)
+                .resourceAttributes(Map.of())
+                .build();
+    }
+
+    private String pickNextStatus(List<String> statuses, String previous, int seed) {
+        if (statuses == null || statuses.isEmpty()) {
+            return previous == null ? "ACTIVE" : previous;
+        }
+        if (statuses.size() == 1) {
+            return statuses.get(0);
+        }
+        int index = Math.floorMod(seed, statuses.size());
+        String candidate = statuses.get(index);
+        if (previous == null || !previous.equals(candidate)) {
+            return candidate;
+        }
+        return statuses.get((index + 1) % statuses.size());
     }
 
     private void triggerFlushes() {
@@ -297,6 +387,61 @@ public class SampleDataController {
                     ? st.size()
                     : maybe.transitionsPerProfile;
             return new StateCascadeRequest(prof, st, duration, transitions);
+        }
+    }
+
+    public record UnifiedEventRequest(
+            String serviceKey,
+            String eventType,
+            Integer events,
+            Integer profilePool,
+            List<String> statuses,
+            List<String> channels,
+            List<String> regions,
+            List<String> tiers,
+            Integer maxDurationMillis,
+            Integer recentWindowSeconds) {
+        static UnifiedEventRequest defaults(UnifiedEventRequest maybe) {
+            if (maybe == null) {
+                return new UnifiedEventRequest(
+                        "payments",
+                        "user_profile.updated",
+                        500,
+                        50,
+                        List.of("NEW", "ACTIVE", "SUSPENDED", "ACTIVE", "ARCHIVED"),
+                        List.of("web", "mobile", "partner"),
+                        List.of("us-east", "us-west", "eu-central"),
+                        List.of("FREE", "PLUS", "PRO"),
+                        1500,
+                        3600);
+            }
+            return new UnifiedEventRequest(
+                    emptyToDefault(maybe.serviceKey, "payments"),
+                    emptyToDefault(maybe.eventType, "user_profile.updated"),
+                    maybe.events == null || maybe.events <= 0 ? 500 : maybe.events,
+                    maybe.profilePool == null || maybe.profilePool <= 0 ? 50 : maybe.profilePool,
+                    (maybe.statuses == null || maybe.statuses.isEmpty())
+                            ? List.of("NEW", "ACTIVE", "SUSPENDED", "ACTIVE", "ARCHIVED")
+                            : maybe.statuses,
+                    (maybe.channels == null || maybe.channels.isEmpty())
+                            ? List.of("web", "mobile", "partner")
+                            : maybe.channels,
+                    (maybe.regions == null || maybe.regions.isEmpty())
+                            ? List.of("us-east", "us-west", "eu-central")
+                            : maybe.regions,
+                    (maybe.tiers == null || maybe.tiers.isEmpty())
+                            ? List.of("FREE", "PLUS", "PRO")
+                            : maybe.tiers,
+                    maybe.maxDurationMillis == null || maybe.maxDurationMillis <= 0
+                            ? 1500
+                            : maybe.maxDurationMillis,
+                    maybe.recentWindowSeconds == null || maybe.recentWindowSeconds <= 0
+                            ? 3600
+                            : maybe.recentWindowSeconds);
+        }
+
+        private static String emptyToDefault(String value, String fallback) {
+            return (value == null || value.isBlank()) ? fallback : value;
         }
     }
 }
