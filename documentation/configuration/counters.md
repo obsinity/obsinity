@@ -210,9 +210,11 @@ The service key must match the logical service configured in `service_registry`.
 | ------ | ------------ | ------------------- |
 | `obsinity-controller-rest` | 8080 (see `application.yml`) | `/events/publish`(single), `/events/publish/batch`, `/api/search/events`, `/api/catalog/*`, `/api/objql/query`, `/api/counters/query`, `/api/histograms/query`, `/api/query/state-transitions`. |
 | `obsinity-controller-admin` | 8080 (inherits Spring Boot default when run standalone) | `/api/admin/config/ready`, `/api/admin/config/service` (JSON `ServiceConfig` ingest), `/api/admin/configs/import` (tar/tgz CRD archives). |
-| `obsinity-reference-service` | 8086 (`src/main/resources/application.yml`) | Bundles the REST + Admin controllers with the storage layer, Flyway migrations, and config loader. Ships as the default server for local development and is the target for the JVM Collection SDK (`EventSender` defaults to `http://localhost:8086/events/publish`). |
+| `obsinity-ingest-rabbitmq` | n/a (worker) | Spring Boot worker that consumes canonical Obsinity payloads from `obsinity.ingest.rmq.queue` (default `obsinity.events`) and pushes them through `EventIngestService`. Enable with `obsinity.ingest.rmq.enabled=true`. |
+| `obsinity-ingest-kafka` | n/a (worker) | Spring Boot worker built on Spring Kafka. Reads from `obsinity.ingest.kafka.topic` using the configured bootstrap servers/group/client IDs and hands each payload to the same ingest pipeline. Enable with `obsinity.ingest.kafka.enabled=true`. |
+| `obsinity-reference-service` | 8086 (`src/main/resources/application.yml`) | Bundles the REST + Admin controllers with the storage layer, Flyway migrations, config loader, and optional RMQ/Kafka workers. Ships as the default server for local development and is the target for the JVM Collection SDK (`EventSender` defaults to `http://localhost:8086/events/publish`). |
 
-When you run `obsinity-controller-rest` directly it uses `server.port=8080` and connects to `jdbc:postgresql://localhost:5432/obsinity` (see its `application.yml`). The reference service overrides those values to line up with `docker-compose`.
+The broker workers default to disabled; flip `obsinity.ingest.rmq.enabled=true` and/or `obsinity.ingest.kafka.enabled=true` on the reference service (or the workers themselves) to start consuming. When you run `obsinity-controller-rest` directly it uses `server.port=8080` and connects to `jdbc:postgresql://localhost:5432/obsinity` (see its `application.yml`). The reference service overrides those values to line up with `docker-compose`.
 
 Key server config snippets (reference service):
 

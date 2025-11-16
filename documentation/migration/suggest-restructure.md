@@ -101,11 +101,11 @@ Turn live OTEL spans into Obsinity events and send via your chosen transport.
 
 ### `engine/obsinity-engine-otel-endpoint` (optional)
 
-Accept **OTLP** directly (HTTP/protobuf or JSON), convert to native, feed ingest pipeline.
+Accept **OpenTelemetry (OTLP)** directly (HTTP/protobuf or JSON), convert to native, feed ingest pipeline.
 
 **Packages:** `com.obsinity.engine.otel.*`
 
-* `OtlpHttpController` or Netty endpoint → decode OTLP → `OtelToObsinity` → call `EventIngestService`
+* `OtlpHttpController` or Netty endpoint → decode OpenTelemetry (OTLP) → `OtelToObsinity` → call `EventIngestService`
 * Back-pressure / batch sizing
 * Feature flag to enable/disable
 
@@ -201,5 +201,5 @@ public final class OtelToObsinity {
 
 * Create **shared** with `obsinity-wire` (native ingestion) + `obsinity-types` (VOs) + `obsinity-otel-wire` (mappers).
 * Keep **client** free of engine code; add an optional **client OTEL adapter**.
-* Keep **engine** focused on ingest/rollup/query; add an optional **OTLP endpoint** module.
+* Keep **engine** focused on ingest/rollup/query; add an optional **OpenTelemetry (OTLP) endpoint** module.
 * Move Chronograf code into **engine** modules; move any wire‑level DTOs into **shared** so both sides reuse one contract.

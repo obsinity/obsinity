@@ -12,7 +12,7 @@
 * Event DDL: `CREATE/ALTER/DROP/DESCRIBE EVENT`.
 * OB-SQL v0.1 + OB-JQL v0.1 + Criteria Builder stub.
 * CLI alpha: connect + run queries.
-* OTLP/HTTP + OTLP/gRPC ingest (raw events).
+* OpenTelemetry (OTLP)/HTTP + OpenTelemetry (OTLP)/gRPC ingest (raw events).
 
 **Perf Target:**
 
@@ -47,7 +47,7 @@
 * Materialised counters at ingest (5s→1m→1h→1d→7d→1mo rollups).
 * Rollups: `SUM`, `RATE`, `GROUP BY`.
 * Counter DDL (`CREATE/ALTER/DROP/DESCRIBE COUNTER`).
-* OTEL export: counters → OTLP.
+* OTEL export: counters → OpenTelemetry (OTLP).
 * CLI: `SHOW COUNTERS`, `EXPLAIN COUNTER`.
 
 **Perf Target:**

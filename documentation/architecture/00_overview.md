@@ -17,7 +17,7 @@ This document presents an end‑to‑end view of Obsinity: client collection, ev
 | REST ingest, search, catalog, counter/histogram/state queries | ✅ | Shipping today via `obsinity-controller-rest`. |
 | Service configuration ingest (JSON & archive) | ✅ | `obsinity-controller-admin`. |
 | State detection & transition counters | ✅ | Driven by `stateExtractors` + `StateDetectionService`. |
-| OTLP ingest controller | ⚠️ Stub | `/otlp/v1/traces` endpoint exists but no translation logic yet. |
+| OpenTelemetry (OTLP) ingest controller | ⚠️ Stub | `/otlp/v1/traces` endpoint exists but no translation logic yet. |
 | Stream ingestion (Kafka/RabbitMQ) | ⚠️ Partial | RabbitMQ (`obsinity-ingest-rabbitmq`) and Kafka (`obsinity-ingest-kafka`) consumers ship today; UEQ/backoff hardening remains planned. |
 | Outbound forwarding connectors & outbox dispatcher | 🚧 Planned | Tables/design captured, but dispatcher/connectors not built. |
 | Gauges & advanced histogram schemes | 🚧 Planned | Metric registry handles metadata; server only persists counters + histograms + state transitions for now. |
@@ -50,7 +50,7 @@ Design Rationale
 - Compute stable spec hashes (e.g., histogram bucket layout) to detect changes.
 
 ## 3) Ingestion
-> **Status:** REST endpoints are implemented. `obsinity-ingest-rabbitmq` and `obsinity-ingest-kafka` ship production consumers that read canonical payloads from brokers and invoke the same `EventIngestService`. The OTLP controller (`/otlp/v1/traces`) is present as a stub and currently discards payloads.
+> **Status:** REST endpoints are implemented. `obsinity-ingest-rabbitmq` and `obsinity-ingest-kafka` ship production consumers that read canonical payloads from brokers and invoke the same `EventIngestService`. The OpenTelemetry (OTLP) controller (`/otlp/v1/traces`) is present as a stub and currently discards payloads.
 
 - REST Unified Publish (default) — `POST /events/publish`
   - Canonical JSON body includes:
@@ -66,6 +66,7 @@ Design Rationale
   - Stateless consumers parse messages into the same JSON shape and reuse the same mapping.
   - Consumer offsets/acks are managed after successful DB write.
   - `obsinity-ingest-rabbitmq` and `obsinity-ingest-kafka` are the reference implementations for AMQP queues and Kafka topics respectively.
+  - UEQ handling: if a payload cannot be mapped (unknown service/event, payload mismatch), the consumer records it in the Unconfigured Event Queue and still acknowledges the message/offset so brokers do not replay it. Operators can replay UEQ entries after fixing configuration.
 
 > **Implementation note:** Stream consumers and UEQ routing for broker inputs are planned; no worker binaries are produced in this repository today.
 
@@ -157,7 +158,7 @@ Reliability & Performance
 
 ## 9) Extensibility & Integration
 - Ingestion Adapters
-  - Additional sinks (e.g., OTLP, gRPC) translate to the canonical JSON/EventEnvelope.
+  - Additional sinks (e.g., OpenTelemetry (OTLP), gRPC) translate to the canonical JSON/EventEnvelope.
 - Query & API
   - HAL/REST for search and catalog; future GraphQL/SQL views possible.
 - Client SDKs

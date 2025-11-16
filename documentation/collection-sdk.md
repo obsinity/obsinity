@@ -3,6 +3,7 @@ Collection SDK (Client-Side Only)
 Overview
 - Goal: Collect application telemetry (annotations + AOP) and dispatch to pluggable sinks.
 - Transport-agnostic core; sinks integrate with logging, Obsinity ingest, or other backends.
+- The AOP-based experience requires Spring. `obsinity-collection-spring` supplies the aspect, filters, and auto-configuration; if you need to use the core types without Spring you must wire flows and sinks manually.
 
 Modules
 - obsinity-collection-api: Public annotations used by apps.

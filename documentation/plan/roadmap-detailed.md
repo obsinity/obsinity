@@ -48,7 +48,7 @@
 * **Sprint 5:** GROUP BY enforcement (dimension tuples).
 * **Sprint 6:** CLI: `SHOW/EXPLAIN COUNTER`.
 * **Sprint 7:** Criteria Builder support for counters.
-* **Sprint 8:** OTEL export v0.1 (counters → OTLP Sum).
+* **Sprint 8:** OTEL export v0.1 (counters → OpenTelemetry (OTLP) Sum).
 * **Sprint 9:** Perf/stabilization (≥3k ev/s, counters ≤600ms).
 
 ---

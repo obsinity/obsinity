@@ -8,6 +8,8 @@ Scope
 
 ## Modules Overview
 
+The annotation/AOP approach assumes Spring Boot is available; `obsinity-collection-spring` provides the aspect, filters, and auto-configuration. Core types can be used without Spring, but you must create flow events and dispatch them yourself.
+
 Core client-side pieces (add what you need):
 - `obsinity-collection-api` — public annotations (`@Flow`, `@Step`, `@PushAttribute`, `@PushContextValue`, …).
 - `obsinity-collection-core` — event model and processor (`OEvent`, `FlowEvent`, `FlowProcessor`).

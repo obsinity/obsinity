@@ -35,15 +35,20 @@ tags:
     description: 'Publish/ingest telemetry events.'
   - name: 'Searches'
     description: 'Search across ingested events with OB-JQL.'
+  - name: 'Counters'
+    description: 'Query counter rollups.'
+  - name: 'Histograms'
+    description: 'Query histogram rollups.'
+  - name: 'StateTransitions'
+    description: 'Query state transition counts.'
 
 paths:
 
-  /api/events:
+  /events/publish:
     post:
       tags: ['Events']
       summary: 'Publish a new event'
-      description: 'Publish a single OTEL-aligned event into Obsinity. The server validates
-        the event and enqueues it for durable ingestion and rollup.'
+      description: 'Publish a single OpenTelemetry-aligned event into Obsinity. The server performs basic validation and enqueues it for durable ingestion and rollup.'
       operationId: 'publishEvent'
       requestBody:
         required: true
@@ -74,14 +79,43 @@ paths:
                   status: '201'
                   method: 'GET'
       responses:
-        '201':
-          description: 'Event created and persisted successfully. Returns the created resource.'
+        '202':
+          description: 'Event accepted for ingestion (asynchronous flow). Returns an acknowledgement.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Accepted'
+
+  /events/publish/batch:
+    post:
+      tags: ['Events']
+      summary: 'Publish a batch of events'
+      description: 'Publish an array of canonical events. Useful for buffering on the producer side before delivering to Obsinity.'
+      operationId: 'publishEventBatch'
+      requestBody:
+        required: true
+        description: 'Array of event envelopes.'
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/EventEnvelope'
+      responses:
         '202':
-          description: 'Event accepted for ingestion (asynchronous flow). Returns an acknowledgement.'
+          description: 'Batch accepted. Response indicates how many events were stored vs. deduplicated.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stored:
+                    type: integer
+                    description: 'Number of unique events persisted.'
+                  duplicates:
+                    type: integer
+                    description: 'Number of events skipped because their IDs already existed with identical payloads.'
+                required: [stored, duplicates]
 
   /api/search/events:
     post:
@@ -287,6 +321,65 @@ paths:
                         http.route: ['/payments']
                       percentiles: [0.5, 0.9, 0.99]
                       limits: { offset: 0, limit: 60 }
+
+  /api/query/state-transitions:
+    post:
+      tags: ['StateTransitions']
+      summary: 'Query state transition counts'
+      description: 'Retrieve how many times objects moved from one state to another in fixed intervals.'
+      operationId: 'queryStateTransitions'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StateTransitionQueryRequestPayload'
+            example:
+              serviceKey: 'payments'
+              objectType: 'UserProfile'
+              attribute: 'user.status'
+              fromStates: ['pending', 'review']
+              toStates: ['approved', 'rejected']
+              interval: '5m'
+              start: '2025-01-01T00:00:00Z'
+              end: '2025-01-01T01:00:00Z'
+              limits: { offset: 0, limit: 6 }
+      responses:
+        '200':
+          description: 'HAL-style response with transition counts per interval.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateTransitionQueryHalResponse'
+              example:
+                count: 6
+                total: 12
+                limit: 6
+                offset: 0
+                data:
+                  intervals:
+                    - start: '2025-01-01T00:00:00Z'
+                      end: '2025-01-01T00:05:00Z'
+                      transitions:
+                        - fromState: 'pending'
+                          toState: 'approved'
+                          count: 42
+                        - fromState: 'review'
+                          toState: 'rejected'
+                          count: 3
+                links:
+                  self:
+                    href: '/api/query/state-transitions'
+                    method: 'POST'
+                    body:
+                      serviceKey: 'payments'
+                      objectType: 'UserProfile'
+                      attribute: 'user.status'
+                      fromStates: ['pending', 'review']
+                      toStates: ['approved', 'rejected']
+                      interval: '5m'
+                      start: '2025-01-01T00:00:00Z'
+                      end: '2025-01-01T01:00:00Z'
 
 components:
   schemas:
@@ -537,6 +630,87 @@ components:
         limits:
           $ref: '#/components/schemas/CounterPageLimits'
       required: [serviceKey, eventType, histogramName]
+
+    StateTransitionQueryRequestPayload:
+      type: object
+      description: 'State transition query payload.'
+      properties:
+        serviceKey:
+          type: string
+          description: 'Service slug.'
+          example: 'payments'
+        objectType:
+          type: string
+          description: 'Logical object being tracked (e.g., UserProfile, Job).'
+          example: 'UserProfile'
+        attribute:
+          type: string
+          description: 'Attribute path that represents the state (e.g., `user.status`).'
+          example: 'user.status'
+        fromStates:
+          type: array
+          description: 'Optional list of source states to include.'
+          items:
+            type: string
+        toStates:
+          type: array
+          description: 'Optional list of destination states to include.'
+          items:
+            type: string
+        interval:
+          type: string
+          description: 'Interval to aggregate (must align to supported buckets such as 5s, 1m, 5m, 1h, 1d, 7d).'
+          example: '5m'
+        start:
+          type: string
+          format: date-time
+          description: 'Inclusive start of the query window.'
+        end:
+          type: string
+          format: date-time
+          description: 'Exclusive end of the query window.'
+        limits:
+          $ref: '#/components/schemas/CounterPageLimits'
+      required: [serviceKey, objectType, attribute]
+
+    StateTransitionQueryHalResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        data:
+          type: object
+          properties:
+            intervals:
+              type: array
+              items:
+                type: object
+                properties:
+                  start:
+                    type: string
+                    format: date-time
+                  end:
+                    type: string
+                    format: date-time
+                  transitions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        fromState:
+                          type: string
+                        toState:
+                          type: string
+                        count:
+                          type: integer
+        links:
+          type: object
 
     HistogramQueryHalResponse:
       type: object

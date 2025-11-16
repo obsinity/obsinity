@@ -26,9 +26,9 @@ Read the full highlight reel in [`documentation/obsinity-highlights.md`](documen
 
 These are described in the architecture/design docs but are not yet implemented:
 
-1. **Stream ingestion (Kafka)** — the Kafka consumer ships as `obsinity-ingest-kafka`, but UEQ/backoff hardening is still planned.
+1. **UEQ tooling/backoff** — Kafka/RabbitMQ consumers persist bad payloads to the UEQ today, but automated replay tooling, throttling, and alerting are still planned.
 2. **Outbound forwarding connectors (Kafka, RabbitMQ, S3, remote Postgres)** — outbox tables and connector implementations are pending.
-3. **OTLP ingest** — `obsinity-controller-otlp` exposes `/otlp/v1/traces` as a stub only.
+3. **OpenTelemetry (OTLP) ingest** — `obsinity-controller-otlp` exposes `/otlp/v1/traces` as a stub only.
 4. **Gauges & advanced histogram schemes** — metric model supports them conceptually, but the server currently materialises counters, histograms, and state counters only.
 5. **GraphQL/SQL query surfaces** — roadmap mentions richer query APIs; current interfaces are HAL-style REST endpoints.
 
