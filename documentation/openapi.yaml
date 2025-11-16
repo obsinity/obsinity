@@ -81,7 +81,7 @@ paths:
                 type: array
                 items:
                   type: object
-  /api/counters/query:
+  /api/query/counters:
     post:
       tags: [Counters]
       summary: Query counter intervals (HAL)

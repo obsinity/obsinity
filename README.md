@@ -11,7 +11,7 @@ Obsinity is a modular telemetry system with a PostgreSQL backend, REST controlle
 
 - **Long-term raw event storage**: `obsinity-service-core` writes every event into partitioned Postgres tables (`events_raw`, `event_attr_index`) with per-service/event TTLs for retention control.
 - **Multi-dimensional search**: `/api/search/events`, `/api/catalog/*`, and `/api/objql/query` expose attribute-level filtering, HAL pagination, and catalog discovery.
-- **Multi-dimensional counters & histograms**: `/api/counters/query` and `/api/histograms/query` serve HAL interval payloads from ingest-time rollups (5s → 7d) with per-metric granularity knobs.
+- **Multi-dimensional counters & histograms**: `/api/query/counters` and `/api/histograms/query` serve HAL interval payloads from ingest-time rollups (5s → 7d) with per-metric granularity knobs.
 - **Multi-attribute state snapshots & transitions**: `StateDetectionService` + `/api/query/state-transitions` turn arbitrary attribute changes into real-time counters.
 - **HAL everywhere**: all query endpoints emit HAL responses (complete with `_links` and interval arrays) for easy dashboard integration.
 - **Extremely configurable**: Service configs (JSON/CRD) define indexes, derived fields, metrics, and retention. Pipeline properties (`obsinity.counters.*`, `obsinity.histograms.*`, etc.) tune worker counts, flush rates, and batch sizes.

@@ -10,10 +10,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping(path = "/api/counters", produces = MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(path = "/api/query", produces = MediaType.APPLICATION_JSON_VALUE)
 public class CounterQueryController {
 
-    private static final String QUERY_PATH = "/api/counters/query";
+    private static final String QUERY_PATH = "/api/query/counters";
 
     private final CounterQueryService queryService;
 
@@ -21,7 +21,7 @@ public class CounterQueryController {
         this.queryService = queryService;
     }
 
-    @PostMapping(path = "/query", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(path = "/counters", consumes = MediaType.APPLICATION_JSON_VALUE)
     public CounterQueryHalResponse query(@RequestBody CounterQueryRequest request) {
         CounterQueryResult result = queryService.runQuery(request);
         return CounterQueryHalResponse.from(QUERY_PATH, request, result);

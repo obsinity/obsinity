@@ -1254,7 +1254,7 @@ resources:
     name: Counters - HTTP status rollup (5m)
     description: Query the counter rollup API for HTTP status groups over the last hour.
     method: POST
-    url: "{{ base_url }}/api/counters/query"
+    url: "{{ base_url }}/api/query/counters"
     body:
       mimeType: application/json
       text: |
@@ -1537,7 +1537,7 @@ resources:
     name: Counters - HTTP API rollup (1m)
     description: Query the counter rollup API grouping by API name.
     method: POST
-    url: "{{ base_url }}/api/counters/query"
+    url: "{{ base_url }}/api/query/counters"
     body:
       mimeType: application/json
       text: |

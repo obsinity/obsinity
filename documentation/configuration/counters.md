@@ -36,7 +36,7 @@ The ingester will buffer counts in minute buckets, flush once per minute, and ro
 The REST controller exposes the counter query endpoint:
 
 ```http
-POST /api/counters/query
+POST /api/query/counters
 Content-Type: application/json
 
 {
@@ -77,17 +77,17 @@ Response shape:
   },
   "links": {
     "self": {
-      "href": "/api/counters/query",
+      "href": "/api/query/counters",
       "method": "POST",
       "body": { "… original request …" }
     },
     "first": {
-      "href": "/api/counters/query",
+      "href": "/api/query/counters",
       "method": "POST",
       "body": { "… with offset 0 …" }
     },
     "next": {
-      "href": "/api/counters/query",
+      "href": "/api/query/counters",
       "method": "POST",
       "body": { "… with offset 24 …" }
     }
@@ -210,7 +210,7 @@ The service key must match the logical service configured in `service_registry`.
 
 | Module | Default port | Purpose / Endpoints |
 | ------ | ------------ | ------------------- |
-| `obsinity-controller-rest` | 8080 (see `application.yml`) | `/events/publish`(single), `/events/publish/batch`, `/api/search/events`, `/api/catalog/*`, `/api/objql/query`, `/api/counters/query`, `/api/histograms/query`, `/api/query/state-transitions`. |
+| `obsinity-controller-rest` | 8080 (see `application.yml`) | `/events/publish`(single), `/events/publish/batch`, `/api/search/events`, `/api/catalog/*`, `/api/objql/query`, `/api/query/counters`, `/api/histograms/query`, `/api/query/state-transitions`. |
 | `obsinity-controller-admin` | 8080 (inherits Spring Boot default when run standalone) | `/api/admin/config/ready`, `/api/admin/config/service` (JSON `ServiceConfig` ingest), `/api/admin/configs/import` (tar/tgz CRD archives). |
 | `obsinity-ingest-rabbitmq` | n/a (worker) | Spring Boot worker that consumes canonical Obsinity payloads from `obsinity.ingest.rmq.queue` (default `obsinity.events`) and pushes them through `EventIngestService`. Enable with `obsinity.ingest.rmq.enabled=true`. |
 | `obsinity-ingest-kafka` | n/a (worker) | Spring Boot worker built on Spring Kafka. Reads from `obsinity.ingest.kafka.topic` using the configured bootstrap servers/group/client IDs and hands each payload to the same ingest pipeline. Enable with `obsinity.ingest.kafka.enabled=true`. |

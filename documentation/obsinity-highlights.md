@@ -20,7 +20,7 @@ Obsinity unifies raw event storage, multi-dimensional metrics, state tracking, a
 
 - MetricCounter definitions live next to events (YAML CRDs → ServiceConfig) with `key.dimensions` describing arbitrary attribute tuples.
 - Ingest path hashes every dimension combination deterministically and materialises counts in fixed rollups (5s → 7d) with per-metric granularity (`S5`, `M1`, `M5`).
-- REST: `/api/counters/query` emits interval slices with HAL pagination so dashboards can render directly.
+- REST: `/api/query/counters` emits interval slices with HAL pagination so dashboards can render directly.
 
 ## Multi-Dimensional Histograms
 

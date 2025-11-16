@@ -180,7 +180,7 @@ paths:
                     method: 'POST'
                     body: { service: 'payments', event: 'http_request', period: { since: '-1h' } }
 
-  /api/counters/query:
+  /api/query/counters:
     post:
       tags: ['Counters']
       summary: 'Query counter intervals'
@@ -226,7 +226,7 @@ paths:
                           count: 128
                 links:
                   self:
-                    href: '/api/counters/query'
+                    href: '/api/query/counters'
                     method: 'POST'
                     body:
                       serviceKey: 'payments'
@@ -240,7 +240,7 @@ paths:
                         http.status_code_group: ['2xx', '5xx']
                       limits: { offset: 0, limit: 24 }
                   next:
-                    href: '/api/counters/query'
+                    href: '/api/query/counters'
                     method: 'POST'
                     body:
                       serviceKey: 'payments'

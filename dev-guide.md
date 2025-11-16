@@ -168,7 +168,7 @@ FIND EVENTS
 Obsinity’s counter endpoint reuses the same HAL pattern. Request a counter by name, interval, and optional key matrix:
 
 ```json
-POST /api/counters/query
+POST /api/query/counters
 {
   "serviceKey": "payments",
   "eventType": "transaction.completed",
@@ -208,12 +208,12 @@ Response mirrors the events search structure but emits `intervals` instead of ro
   },
   "links": {
     "self": {
-      "href": "/api/counters/query",
+      "href": "/api/query/counters",
       "method": "POST",
       "body": { "serviceKey": "payments", "eventType": "transaction.completed", "counterName": "http_requests_total", "interval": "5m", "start": "2025-01-01T00:00:00Z", "end": "2025-01-01T02:00:00Z", "limits": { "offset": 0, "limit": 24 } }
     },
     "next": {
-      "href": "/api/counters/query",
+      "href": "/api/query/counters",
       "method": "POST",
       "body": { "serviceKey": "payments", "eventType": "transaction.completed", "counterName": "http_requests_total", "interval": "5m", "start": "2025-01-01T00:00:00Z", "end": "2025-01-01T02:00:00Z", "limits": { "offset": 24, "limit": 24 } }
     }
