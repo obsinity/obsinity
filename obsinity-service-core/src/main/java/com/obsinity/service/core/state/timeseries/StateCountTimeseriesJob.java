@@ -17,7 +17,9 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class StateCountTimeseriesJob {
 
-    private static final CounterBucket SNAPSHOT_BUCKET = CounterBucket.M1;
+    private static final CounterBucket BASE_BUCKET = CounterBucket.M1;
+    private static final List<CounterBucket> MATERIALISED_BUCKETS =
+            List.of(CounterBucket.M1, CounterBucket.M5, CounterBucket.H1, CounterBucket.D1);
 
     private final ObjectStateCountRepository stateCountRepository;
     private final StateCountTimeseriesRepository timeseriesRepository;
@@ -31,14 +33,21 @@ public class StateCountTimeseriesJob {
         if (!enabled) {
             return;
         }
-        Instant aligned = SNAPSHOT_BUCKET.align(Instant.now(clock));
+        Instant now = Instant.now(clock);
         List<ObjectStateCountRepository.StateCountSnapshot> snapshots = stateCountRepository.snapshotAll();
         if (snapshots.isEmpty()) {
             return;
         }
-        timeseriesRepository.upsertBatch(aligned, SNAPSHOT_BUCKET, snapshots);
+        MATERIALISED_BUCKETS.forEach(bucket -> {
+            Instant aligned = bucket.align(now);
+            timeseriesRepository.upsertBatch(aligned, bucket, snapshots);
+        });
         if (log.isDebugEnabled()) {
-            log.debug("Recorded {} state count snapshots for {}", snapshots.size(), aligned);
+            log.debug(
+                    "Recorded {} state count snapshots for {} buckets at {}",
+                    snapshots.size(),
+                    MATERIALISED_BUCKETS.size(),
+                    BASE_BUCKET.align(now));
         }
     }
 }

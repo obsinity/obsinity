@@ -17,7 +17,8 @@ import org.springframework.stereotype.Service;
 public class StateCountTimeseriesQueryService {
 
     private static final DateTimeFormatter ISO_INSTANT = DateTimeFormatter.ISO_INSTANT;
-    private static final CounterBucket SNAPSHOT_BUCKET = CounterBucket.M1;
+    private static final List<CounterBucket> SUPPORTED_BUCKETS =
+            List.of(CounterBucket.M1, CounterBucket.M5, CounterBucket.H1, CounterBucket.D1);
 
     private final ServicesCatalogRepository servicesCatalogRepository;
     private final StateCountTimeseriesQueryRepository repository;
@@ -36,16 +37,13 @@ public class StateCountTimeseriesQueryService {
         }
 
         Duration requestedInterval =
-                request.interval() != null ? DurationParser.parse(request.interval()) : SNAPSHOT_BUCKET.duration();
-        if (!requestedInterval.equals(SNAPSHOT_BUCKET.duration())) {
-            throw new IllegalArgumentException("State count snapshots only support 1m intervals");
-        }
+                request.interval() != null ? DurationParser.parse(request.interval()) : CounterBucket.M1.duration();
+        CounterBucket bucket = resolveBucket(requestedInterval);
 
         Instant defaultEnd = Instant.now();
-        Instant earliest = repository.findEarliestTimestamp(serviceId, request.objectType(), request.attribute());
-        Instant defaultStart = earliest != null
-                ? SNAPSHOT_BUCKET.align(earliest)
-                : SNAPSHOT_BUCKET.align(defaultEnd.minus(Duration.ofDays(7)));
+        Instant earliest = repository.findEarliestTimestamp(serviceId, request.objectType(), request.attribute(), bucket);
+        Instant defaultStart =
+                earliest != null ? bucket.align(earliest) : bucket.align(defaultEnd.minus(Duration.ofDays(7)));
 
         Instant start = request.start() != null ? Instant.parse(request.start()) : defaultStart;
         if (earliest != null && start.isBefore(earliest)) {
@@ -56,8 +54,8 @@ public class StateCountTimeseriesQueryService {
             throw new IllegalArgumentException("The requested end time must be after start");
         }
 
-        Instant alignedStart = SNAPSHOT_BUCKET.align(start);
-        Instant alignedEnd = SNAPSHOT_BUCKET.alignToNext(end);
+        Instant alignedStart = bucket.align(start);
+        Instant alignedEnd = bucket.alignToNext(end);
 
         int offset = request.limits() != null && request.limits().offset() != null
                 ? Math.max(0, request.limits().offset())
@@ -74,7 +72,7 @@ public class StateCountTimeseriesQueryService {
         while (cursor.isBefore(alignedEnd) && intervalsAdded < limit) {
             Instant next = cursor.plus(step);
             List<StateCountTimeseriesQueryRepository.Row> rows = repository.fetchWindow(
-                    serviceId, request.objectType(), request.attribute(), request.states(), cursor);
+                    serviceId, request.objectType(), request.attribute(), request.states(), bucket, cursor);
             List<StateCountTimeseriesWindow.Entry> entries = rows.stream()
                     .map(r -> new StateCountTimeseriesWindow.Entry(r.stateValue(), r.count()))
                     .toList();
@@ -104,5 +102,14 @@ public class StateCountTimeseriesQueryService {
         long millis = Duration.between(start, end).toMillis();
         long stepMillis = step.toMillis();
         return (int) Math.max(0, millis / stepMillis);
+    }
+
+    private CounterBucket resolveBucket(Duration requested) {
+        for (CounterBucket bucket : SUPPORTED_BUCKETS) {
+            if (requested.equals(bucket.duration())) {
+                return bucket;
+            }
+        }
+        throw new IllegalArgumentException("Unsupported interval for state count snapshots: " + requested);
     }
 }

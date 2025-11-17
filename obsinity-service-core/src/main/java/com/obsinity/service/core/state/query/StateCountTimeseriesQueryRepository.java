@@ -11,8 +11,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class StateCountTimeseriesQueryRepository {
 
-    private static final CounterBucket SNAPSHOT_BUCKET = CounterBucket.M1;
-
     private final NamedParameterJdbcTemplate jdbc;
 
     public StateCountTimeseriesQueryRepository(NamedParameterJdbcTemplate jdbc) {
@@ -20,10 +18,15 @@ public class StateCountTimeseriesQueryRepository {
     }
 
     public List<Row> fetchWindow(
-            UUID serviceId, String objectType, String attribute, List<String> states, Instant timestamp) {
+            UUID serviceId,
+            String objectType,
+            String attribute,
+            List<String> states,
+            CounterBucket bucket,
+            Instant timestamp) {
         MapSqlParameterSource params = baseParams(serviceId, objectType, attribute)
                 .addValue("ts", java.sql.Timestamp.from(timestamp))
-                .addValue("bucket", SNAPSHOT_BUCKET.label());
+                .addValue("bucket", bucket.label());
         StringBuilder sql = new StringBuilder(
                 """
                 SELECT state_value, state_count
@@ -45,9 +48,9 @@ public class StateCountTimeseriesQueryRepository {
                 (rs, rowNum) -> new Row(rs.getString("state_value"), rs.getLong("state_count")));
     }
 
-    public Instant findEarliestTimestamp(UUID serviceId, String objectType, String attribute) {
+    public Instant findEarliestTimestamp(UUID serviceId, String objectType, String attribute, CounterBucket bucket) {
         MapSqlParameterSource params =
-                baseParams(serviceId, objectType, attribute).addValue("bucket", SNAPSHOT_BUCKET.label());
+                baseParams(serviceId, objectType, attribute).addValue("bucket", bucket.label());
         return jdbc
                 .query(
                         """
