@@ -262,7 +262,7 @@ Tuning knobs:
 
 - `obsinity.stateCounts.timeseries.enabled` (default `true`) toggles the snapshot job.
 - `obsinity.stateCounts.timeseries.snapshotRateMillis` (default `60000`) controls the cadence.
-- Supported intervals: `"1m"` (raw snapshot), `"5m"`, `"30m"`, `"1h"`, `"1d"` rollups, all materialised automatically when the M1 snapshots run.
+- Supported intervals: `"1m"` (raw snapshot), `"5m"`, `"1h"`, `"1d"` rollups, and any other duration that is a multiple of one minute (e.g., `"30m"`, `"4h"`, `"2d"`). Non-rollup intervals reuse the `1m` snapshot at the aligned timestamp rather than aggregating.
 
 ## REST State Count Query
 

@@ -59,11 +59,6 @@ class StateCountTimeseriesJobTest {
         order.verify(timeseriesRepository)
                 .upsertBatch(
                         Instant.parse("2025-01-01T00:00:00Z"),
-                        com.obsinity.service.core.counter.CounterBucket.M30,
-                        snapshots);
-        order.verify(timeseriesRepository)
-                .upsertBatch(
-                        Instant.parse("2025-01-01T00:00:00Z"),
                         com.obsinity.service.core.counter.CounterBucket.H1,
                         snapshots);
         order.verify(timeseriesRepository)

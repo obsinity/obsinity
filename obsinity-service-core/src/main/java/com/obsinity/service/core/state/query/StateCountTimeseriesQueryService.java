@@ -18,7 +18,7 @@ public class StateCountTimeseriesQueryService {
 
     private static final DateTimeFormatter ISO_INSTANT = DateTimeFormatter.ISO_INSTANT;
     private static final List<CounterBucket> SUPPORTED_BUCKETS =
-            List.of(CounterBucket.M1, CounterBucket.M5, CounterBucket.M30, CounterBucket.H1, CounterBucket.D1);
+            List.of(CounterBucket.M1, CounterBucket.M5, CounterBucket.H1, CounterBucket.D1);
 
     private final ServicesCatalogRepository servicesCatalogRepository;
     private final StateCountTimeseriesQueryRepository repository;
@@ -38,13 +38,17 @@ public class StateCountTimeseriesQueryService {
 
         Duration requestedInterval =
                 request.interval() != null ? DurationParser.parse(request.interval()) : CounterBucket.M1.duration();
-        CounterBucket bucket = resolveBucket(requestedInterval);
+        CounterBucket resolvedBucket = resolveBucket(requestedInterval);
+        CounterBucket queryBucket = requestedInterval.equals(resolvedBucket.duration())
+                ? resolvedBucket
+                : CounterBucket.M1;
 
         Instant defaultEnd = Instant.now();
         Instant earliest =
-                repository.findEarliestTimestamp(serviceId, request.objectType(), request.attribute(), bucket);
-        Instant defaultStart =
-                earliest != null ? bucket.align(earliest) : bucket.align(defaultEnd.minus(Duration.ofDays(7)));
+                repository.findEarliestTimestamp(serviceId, request.objectType(), request.attribute(), queryBucket);
+        Instant defaultStart = earliest != null
+                ? alignToInterval(earliest, requestedInterval)
+                : alignToInterval(defaultEnd.minus(Duration.ofDays(7)), requestedInterval);
 
         Instant start = request.start() != null ? Instant.parse(request.start()) : defaultStart;
         if (earliest != null && start.isBefore(earliest)) {
@@ -55,8 +59,11 @@ public class StateCountTimeseriesQueryService {
             throw new IllegalArgumentException("The requested end time must be after start");
         }
 
-        Instant alignedStart = bucket.align(start);
-        Instant alignedEnd = bucket.alignToNext(end);
+        Instant alignedStart = alignToInterval(start, requestedInterval);
+        if (alignedStart.isBefore(start)) {
+            alignedStart = alignToNextInterval(start, requestedInterval);
+        }
+        Instant alignedEnd = alignToNextInterval(end, requestedInterval);
 
         int offset = request.limits() != null && request.limits().offset() != null
                 ? Math.max(0, request.limits().offset())
@@ -72,8 +79,9 @@ public class StateCountTimeseriesQueryService {
 
         while (cursor.isBefore(alignedEnd) && intervalsAdded < limit) {
             Instant next = cursor.plus(step);
+            Instant fetchTs = queryBucket.align(cursor);
             List<StateCountTimeseriesQueryRepository.Row> rows = repository.fetchWindow(
-                    serviceId, request.objectType(), request.attribute(), request.states(), bucket, cursor);
+                    serviceId, request.objectType(), request.attribute(), request.states(), queryBucket, fetchTs);
             List<StateCountTimeseriesWindow.Entry> entries = rows.stream()
                     .map(r -> new StateCountTimeseriesWindow.Entry(r.stateValue(), r.count()))
                     .toList();
@@ -111,6 +119,30 @@ public class StateCountTimeseriesQueryService {
                 return bucket;
             }
         }
+        Duration base = CounterBucket.M1.duration();
+        if (requested.toMillis() % base.toMillis() == 0) {
+            return CounterBucket.M1;
+        }
         throw new IllegalArgumentException("Unsupported interval for state count snapshots: " + requested);
+    }
+
+    private Instant alignToInterval(Instant instant, Duration interval) {
+        long millis = interval.toMillis();
+        if (millis <= 0) {
+            throw new IllegalArgumentException("Interval must be positive");
+        }
+        long epochMillis = instant.toEpochMilli();
+        long alignedMillis = (epochMillis / millis) * millis;
+        return Instant.ofEpochMilli(alignedMillis);
+    }
+
+    private Instant alignToNextInterval(Instant instant, Duration interval) {
+        long millis = interval.toMillis();
+        if (millis <= 0) {
+            throw new IllegalArgumentException("Interval must be positive");
+        }
+        long epochMillis = instant.toEpochMilli();
+        long alignedMillis = ((epochMillis + millis - 1) / millis) * millis;
+        return Instant.ofEpochMilli(alignedMillis);
     }
 }

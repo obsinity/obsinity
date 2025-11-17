@@ -299,7 +299,7 @@ resources:
     created: 1760000000000
     modified: 1760000000000
     name: query → state count time series
-    description: Query state count snapshots (supports 1m/5m/1h/1d intervals).
+    description: Query state count snapshots (any minute-multiple interval).
     method: POST
     url: "{{ base_url }}/api/query/state-count-timeseries"
     body:
