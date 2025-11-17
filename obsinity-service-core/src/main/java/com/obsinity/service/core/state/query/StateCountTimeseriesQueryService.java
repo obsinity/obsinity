@@ -2,7 +2,6 @@ package com.obsinity.service.core.state.query;
 
 import com.obsinity.service.core.counter.CounterBucket;
 import com.obsinity.service.core.counter.DurationParser;
-import com.obsinity.service.core.repo.ObjectStateCountRepository;
 import com.obsinity.service.core.repo.ServicesCatalogRepository;
 import com.obsinity.service.core.state.query.StateCountTimeseriesQueryResult.StateCountTimeseriesWindow;
 import java.time.Duration;
@@ -36,17 +35,17 @@ public class StateCountTimeseriesQueryService {
             throw new IllegalArgumentException("Unknown service key: " + request.serviceKey());
         }
 
-        Duration requestedInterval = request.interval() != null
-                ? DurationParser.parse(request.interval())
-                : SNAPSHOT_BUCKET.duration();
+        Duration requestedInterval =
+                request.interval() != null ? DurationParser.parse(request.interval()) : SNAPSHOT_BUCKET.duration();
         if (!requestedInterval.equals(SNAPSHOT_BUCKET.duration())) {
             throw new IllegalArgumentException("State count snapshots only support 1m intervals");
         }
 
         Instant defaultEnd = Instant.now();
         Instant earliest = repository.findEarliestTimestamp(serviceId, request.objectType(), request.attribute());
-        Instant defaultStart =
-                earliest != null ? SNAPSHOT_BUCKET.align(earliest) : SNAPSHOT_BUCKET.align(defaultEnd.minus(Duration.ofDays(7)));
+        Instant defaultStart = earliest != null
+                ? SNAPSHOT_BUCKET.align(earliest)
+                : SNAPSHOT_BUCKET.align(defaultEnd.minus(Duration.ofDays(7)));
 
         Instant start = request.start() != null ? Instant.parse(request.start()) : defaultStart;
         if (earliest != null && start.isBefore(earliest)) {
