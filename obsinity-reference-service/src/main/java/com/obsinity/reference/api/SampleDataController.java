@@ -80,19 +80,17 @@ public class SampleDataController {
 
         int unifiedEventCount = req.events();
         long windowSeconds = Math.max(1, DEMO_WINDOW_SECONDS);
-        double spacingSeconds = (double) windowSeconds / Math.max(1, unifiedEventCount);
-        Instant windowStart = now.minusSeconds(windowSeconds);
+        double strideSeconds = windowSeconds / Math.max(1.0, unifiedEventCount);
+        Instant cursor = Instant.now().minusSeconds(windowSeconds);
         int profiles = Math.max(1, req.profilePool());
 
-        // Seed initial random state per profile so first transitions aren't from (none)
-        int stored = 0;
+        // Seed random initial state per profile
         for (int profileIndex = 0; profileIndex < profiles; profileIndex++) {
             String profileId = String.format("profile-%04d", profileIndex + 1);
             String seedStatus = pickRandomStatus(statuses);
             lastStatusByProfile.put(profileId, seedStatus);
-            Instant seedStart = windowStart.plusSeconds(profileIndex);
-            long durationMs = 50L;
-            stored += ingestService.ingestOne(buildUnifiedEvent(
+            Instant seedStart = cursor.plusSeconds(profileIndex);
+            ingestService.ingestOne(buildUnifiedEvent(
                     req.serviceKey(),
                     req.eventType(),
                     profileId,
@@ -101,11 +99,9 @@ public class SampleDataController {
                     channels.get(profileIndex % channels.size()),
                     regions.get(profileIndex % regions.size()),
                     seedStart,
-                    seedStart.plusMillis(durationMs),
-                    durationMs));
+                    seedStart.plusMillis(50)));
         }
 
-        long lastOffsetSeconds = -1;
         for (int i = 0; i < unifiedEventCount; i++) {
             String profileId = String.format("profile-%04d", (i % profiles) + 1);
             String status = pickRandomStateDifferent(lastStatusByProfile.get(profileId), statuses);
@@ -113,15 +109,10 @@ public class SampleDataController {
             String channel = channels.get(i % channels.size());
             String region = regions.get(i % regions.size());
             String tier = tiers.get(i % tiers.size());
-            long durationMs = Math.max(25L, req.maxDurationMillis());
-            long offsetSeconds = Math.min(windowSeconds - 1, (long) Math.floor(i * spacingSeconds));
-            if (offsetSeconds <= lastOffsetSeconds) {
-                offsetSeconds = Math.min(windowSeconds - 1, lastOffsetSeconds + 1);
-            }
-            lastOffsetSeconds = offsetSeconds;
-            Instant start = windowStart.plusSeconds(offsetSeconds);
+            long durationMs = 25L + random.nextInt(Math.max(1, req.maxDurationMillis()));
+            Instant start = cursor;
             Instant end = start.plusMillis(durationMs);
-            stored += ingestService.ingestOne(buildUnifiedEvent(
+            ingestService.ingestOne(buildUnifiedEvent(
                     req.serviceKey(),
                     req.eventType(),
                     profileId,
@@ -132,19 +123,18 @@ public class SampleDataController {
                     start,
                     end,
                     durationMs));
+            cursor = cursor.plusSeconds(Math.max(1L, Math.round(strideSeconds)));
         }
 
-        stored += ingestHistogramEvents(req, windowStart, now, unifiedEventCount);
+        ingestHistogramEvents(req, cursor.minusSeconds(unifiedEventCount), Instant.now(), unifiedEventCount);
 
-        Map<String, Object> histogramSeed =
-                Map.of("generated", unifiedEventCount, "service", req.serviceKey(), "eventType", "http_request");
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("generated", stored);
-        response.put("stored", stored);
-        response.put("service", req.serviceKey());
-        response.put("eventType", req.eventType());
-        response.put("histogramSeed", histogramSeed);
-        return response;
+        return Map.of(
+                "generated", unifiedEventCount + profiles,
+                "stored", unifiedEventCount + profiles,
+                "service", req.serviceKey(),
+                "eventType", req.eventType(),
+                "histogramSeed",
+                        Map.of("generated", unifiedEventCount, "service", req.serviceKey(), "eventType", "http_request"));
     }
 
     private String selectStatus(List<String> statusCodes, int eventIndex) {
