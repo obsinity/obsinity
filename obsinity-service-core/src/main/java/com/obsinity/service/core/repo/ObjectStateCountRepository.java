@@ -97,5 +97,23 @@ public class ObjectStateCountRepository {
                 params);
     }
 
+    public java.util.List<StateCountSnapshot> snapshotAll() {
+        return jdbc.query(
+                """
+                select service_id, object_type, attribute, state_value, count
+                  from obsinity.object_state_counts
+                """,
+                new MapSqlParameterSource(),
+                (rs, rowNum) -> new StateCountSnapshot(
+                        (java.util.UUID) rs.getObject("service_id"),
+                        rs.getString("object_type"),
+                        rs.getString("attribute"),
+                        rs.getString("state_value"),
+                        rs.getLong("count")));
+    }
+
     public record StateCountRow(String state, long count) {}
+
+    public record StateCountSnapshot(
+            java.util.UUID serviceId, String objectType, String attribute, String stateValue, long count) {}
 }

@@ -216,6 +216,15 @@ The service key must match the logical service configured in `service_registry`.
 - Mix-and-match tokens: `["(none)", "ACTIVE"]` finds objects that were first seen or already ACTIVE, while `["ARCHIVED"]` focuses on a specific destination.
 - Tokens are case-insensitive, so `(NONE)` or `(None)` work the same.
 
+### State Count Time Series (new)
+
+The ingestion pipeline now snapshots `object_state_counts` into `object_state_count_timeseries` every minute. The background job aligns to the `M1` bucket and upserts the full set of state counts per (service, object type, attribute, state). This makes it easy to chart how many objects were ACTIVE/ARCHIVED/etc. over time without replaying transitions yourself. Tuning knobs:
+
+- `obsinity.stateCounts.timeseries.enabled` (default `true`) toggles the job.
+- `obsinity.stateCounts.timeseries.snapshotRateMillis` (default `60000`) controls how often we capture the snapshot.
+
+The table schema is lightweight (ts, bucket, service/object/attribute/state, count) so you can query it with the usual `SELECT` filters or expose a dedicated REST endpoint later.
+
 ## REST State Count Query
 
 To inspect the current distribution of objects per state, use `/api/query/state-counts`:
