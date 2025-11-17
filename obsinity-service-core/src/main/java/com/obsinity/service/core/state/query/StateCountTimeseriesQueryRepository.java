@@ -46,9 +46,10 @@ public class StateCountTimeseriesQueryRepository {
     }
 
     public Instant findEarliestTimestamp(UUID serviceId, String objectType, String attribute) {
-        MapSqlParameterSource params = baseParams(serviceId, objectType, attribute)
-                .addValue("bucket", SNAPSHOT_BUCKET.label());
-        return jdbc.query(
+        MapSqlParameterSource params =
+                baseParams(serviceId, objectType, attribute).addValue("bucket", SNAPSHOT_BUCKET.label());
+        return jdbc
+                .query(
                         """
                 SELECT MIN(ts)
                   FROM obsinity.object_state_count_timeseries
@@ -58,8 +59,10 @@ public class StateCountTimeseriesQueryRepository {
                    AND bucket = :bucket
                 """,
                         params,
-                        (rs, rowNum) -> rs.getTimestamp(1) != null ? rs.getTimestamp(1).toInstant() : null)
+                        (rs, rowNum) ->
+                                rs.getTimestamp(1) != null ? rs.getTimestamp(1).toInstant() : null)
                 .stream()
+                .filter(java.util.Objects::nonNull)
                 .findFirst()
                 .orElse(null);
     }
