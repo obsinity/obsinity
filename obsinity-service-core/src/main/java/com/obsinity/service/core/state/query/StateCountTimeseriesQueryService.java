@@ -46,8 +46,8 @@ public class StateCountTimeseriesQueryService {
         Instant earliest =
                 repository.findEarliestTimestamp(serviceId, request.objectType(), request.attribute(), queryBucket);
         Instant defaultStart = earliest != null
-                ? alignToInterval(earliest, requestedInterval)
-                : alignToInterval(defaultEnd.minus(Duration.ofDays(7)), requestedInterval);
+                ? truncateToMinute(earliest)
+                : truncateToMinute(defaultEnd.minus(Duration.ofDays(7)));
 
         Instant start = request.start() != null ? Instant.parse(request.start()) : defaultStart;
         if (earliest != null && start.isBefore(earliest)) {
@@ -58,11 +58,11 @@ public class StateCountTimeseriesQueryService {
             throw new IllegalArgumentException("The requested end time must be after start");
         }
 
-        Instant alignedStart = alignToInterval(start, requestedInterval);
-        if (alignedStart.isBefore(start)) {
-            alignedStart = alignToNextInterval(start, requestedInterval);
+        Instant alignedStart = truncateToMinute(start);
+        Instant alignedEnd = truncateToMinute(end);
+        if (!alignedEnd.isAfter(alignedStart)) {
+            alignedEnd = alignedStart.plus(requestedInterval);
         }
-        Instant alignedEnd = alignToNextInterval(end, requestedInterval);
 
         int offset = request.limits() != null && request.limits().offset() != null
                 ? Math.max(0, request.limits().offset())
@@ -125,23 +125,8 @@ public class StateCountTimeseriesQueryService {
         throw new IllegalArgumentException("Unsupported interval for state count snapshots: " + requested);
     }
 
-    private Instant alignToInterval(Instant instant, Duration interval) {
-        long millis = interval.toMillis();
-        if (millis <= 0) {
-            throw new IllegalArgumentException("Interval must be positive");
-        }
-        long epochMillis = instant.toEpochMilli();
-        long alignedMillis = (epochMillis / millis) * millis;
-        return Instant.ofEpochMilli(alignedMillis);
-    }
-
-    private Instant alignToNextInterval(Instant instant, Duration interval) {
-        long millis = interval.toMillis();
-        if (millis <= 0) {
-            throw new IllegalArgumentException("Interval must be positive");
-        }
-        long epochMillis = instant.toEpochMilli();
-        long alignedMillis = ((epochMillis + millis - 1) / millis) * millis;
-        return Instant.ofEpochMilli(alignedMillis);
+    private Instant truncateToMinute(Instant instant) {
+        CounterBucket bucket = CounterBucket.M1;
+        return bucket.align(instant);
     }
 }
