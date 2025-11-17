@@ -39,9 +39,8 @@ public class StateCountTimeseriesQueryService {
         Duration requestedInterval =
                 request.interval() != null ? DurationParser.parse(request.interval()) : CounterBucket.M1.duration();
         CounterBucket resolvedBucket = resolveBucket(requestedInterval);
-        CounterBucket queryBucket = requestedInterval.equals(resolvedBucket.duration())
-                ? resolvedBucket
-                : CounterBucket.M1;
+        CounterBucket queryBucket =
+                requestedInterval.equals(resolvedBucket.duration()) ? resolvedBucket : CounterBucket.M1;
 
         Instant defaultEnd = Instant.now();
         Instant earliest =
