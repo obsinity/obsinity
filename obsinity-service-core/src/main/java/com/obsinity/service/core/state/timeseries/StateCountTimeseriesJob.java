@@ -38,10 +38,7 @@ public class StateCountTimeseriesJob {
         }
         timeseriesRepository.upsertBatch(aligned, SNAPSHOT_BUCKET, snapshots);
         if (log.isDebugEnabled()) {
-            log.debug(
-                    "Recorded {} state count snapshots for {}",
-                    snapshots.size(),
-                    aligned);
+            log.debug("Recorded {} state count snapshots for {}", snapshots.size(), aligned);
         }
     }
 }

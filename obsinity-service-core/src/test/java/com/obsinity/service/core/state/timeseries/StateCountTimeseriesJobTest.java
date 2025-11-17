@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import com.obsinity.service.core.repo.ObjectStateCountRepository;
 import com.obsinity.service.core.repo.ObjectStateCountRepository.StateCountSnapshot;
 import com.obsinity.service.core.repo.StateCountTimeseriesRepository;
+import java.lang.reflect.Field;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -16,7 +17,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import java.lang.reflect.Field;
 
 class StateCountTimeseriesJobTest {
 

@@ -294,6 +294,31 @@ resources:
       - name: Content-Type
         value: application/json
     _type: request
+  - _id: req_state_counts_timeseries
+    parentId: fld_state_query
+    created: 1760000000000
+    modified: 1760000000000
+    name: query → state count time series
+    description: Query minute-level state count snapshots.
+    method: POST
+    url: "{{ base_url }}/api/query/state-count-timeseries"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "serviceKey": "{{ service_id }}",
+          "objectType": "UserProfile",
+          "attribute": "user.status",
+          "states": ["ACTIVE", "SUSPENDED", "ARCHIVED"],
+          "interval": "1m",
+          "start": "{% now 'iso-8601', 'utc', -60 %}",
+          "end": "{% now 'iso-8601', 'utc' %}",
+          "limits": { "offset": 0, "limit": 30 }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
 
   - _id: req_publish_payments_http
     parentId: fld_publish

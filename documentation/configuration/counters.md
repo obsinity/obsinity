@@ -218,12 +218,50 @@ The service key must match the logical service configured in `service_registry`.
 
 ### State Count Time Series (new)
 
-The ingestion pipeline now snapshots `object_state_counts` into `object_state_count_timeseries` every minute. The background job aligns to the `M1` bucket and upserts the full set of state counts per (service, object type, attribute, state). This makes it easy to chart how many objects were ACTIVE/ARCHIVED/etc. over time without replaying transitions yourself. Tuning knobs:
+The ingestion pipeline now snapshots `object_state_counts` into `object_state_count_timeseries` every minute (`M1` bucket). Use `/api/query/state-count-timeseries` to plot how many objects were ACTIVE/ARCHIVED/etc. over time without replaying transitions yourself:
 
-- `obsinity.stateCounts.timeseries.enabled` (default `true`) toggles the job.
-- `obsinity.stateCounts.timeseries.snapshotRateMillis` (default `60000`) controls how often we capture the snapshot.
+```http
+POST /api/query/state-count-timeseries
+Content-Type: application/json
 
-The table schema is lightweight (ts, bucket, service/object/attribute/state, count) so you can query it with the usual `SELECT` filters or expose a dedicated REST endpoint later.
+{
+  "serviceKey": "payments",
+  "objectType": "UserProfile",
+  "attribute": "user.status",
+  "states": ["ACTIVE", "SUSPENDED", "ARCHIVED"],
+  "interval": "1m",
+  "start": "2025-11-03T10:00:00Z",
+  "end": "2025-11-03T11:00:00Z",
+  "limits": { "offset": 0, "limit": 30 }
+}
+```
+
+Response snippet:
+
+```json
+{
+  "count": 30,
+  "total": 60,
+  "data": {
+    "intervals": [
+      {
+        "from": "2025-11-03T10:00:00Z",
+        "to": "2025-11-03T10:01:00Z",
+        "states": [
+          { "state": "ACTIVE", "count": 4201 },
+          { "state": "SUSPENDED", "count": 310 },
+          { "state": "ARCHIVED", "count": 98 }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Tuning knobs:
+
+- `obsinity.stateCounts.timeseries.enabled` (default `true`) toggles the snapshot job.
+- `obsinity.stateCounts.timeseries.snapshotRateMillis` (default `60000`) controls the cadence.
 
 ## REST State Count Query
 
