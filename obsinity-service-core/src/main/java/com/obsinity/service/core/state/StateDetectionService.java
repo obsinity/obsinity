@@ -57,8 +57,9 @@ public class StateDetectionService {
                 }
                 if (loggingEnabled) {
                     log.info(
-                            "StateExtractor matched: event={} objectType={} objectId={} attribute={} from={} to={} extractor={}",
+                            "StateExtractor matched: event={} timestamp={} objectType={} objectId={} attribute={} from={} to={} extractor={}",
                             envelope.getEventId(),
+                            envelope.getTimestamp(),
                             match.extractor().objectType(),
                             match.objectId(),
                             attr,
