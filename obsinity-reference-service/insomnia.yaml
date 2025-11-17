@@ -1287,6 +1287,38 @@ resources:
       - name: Content-Type
         value: application/json
     _type: request
+  - _id: req_histogram_query_profile
+    parentId: fld_histograms
+    created: 1759870000000
+    modified: 1759870000000
+    name: Histograms - Profile update duration (1m percentiles)
+    description: Query `user_profile_update_duration_ms` histogram for profile-update durations.
+    method: POST
+    url: "{{ base_url }}/api/histograms/query"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "serviceKey": "{{ service_id }}",
+          "eventType": "user_profile.updated",
+          "histogramName": "user_profile_update_duration_ms",
+          "interval": "1m",
+          "start": "{% now 'iso-8601', 'utc', -60 %}",
+          "end": "{% now 'iso-8601', 'utc' %}",
+          "key": {
+            "dimensions.channel": ["web", "mobile", "partner"],
+            "dimensions.region": ["us-east", "us-west", "eu-central"]
+          },
+          "percentiles": [0.5, 0.9, 0.95, 0.99],
+          "limits": {
+            "offset": 0,
+            "limit": 60
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
 
   # ===================== Catalog =====================
   - _id: req_catalog_create_type

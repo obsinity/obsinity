@@ -63,8 +63,7 @@ class StateTransitionPipelineTest {
         UUID serviceId = UUID.randomUUID();
         Instant occurred = Instant.parse("2025-01-01T00:00:02Z");
         long epoch = CounterGranularity.S5.baseBucket().align(occurred).getEpochSecond();
-        buffer.increment(
-                CounterGranularity.S5, epoch, serviceId, "UserProfile", "user.status", "__NO_STATE__", "ACTIVE");
+        buffer.increment(CounterGranularity.S5, epoch, serviceId, "UserProfile", "user.status", "(none)", "ACTIVE");
 
         flushService.flushAllPending(CounterGranularity.S5);
 
@@ -72,6 +71,7 @@ class StateTransitionPipelineTest {
         StateTransitionPersistService.BatchItem item = persistService.captured.get(0);
         assertThat(item.fromState()).isEqualTo("(none)");
         assertThat(item.toState()).isEqualTo("ACTIVE");
+        assertThat(buffer.getBuffer(CounterGranularity.S5).get(epoch)).isNullOrEmpty();
     }
 
     private static final class RecordingPersistService extends StateTransitionPersistService {

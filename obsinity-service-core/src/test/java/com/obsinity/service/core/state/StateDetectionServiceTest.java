@@ -92,7 +92,7 @@ class StateDetectionServiceTest {
                         serviceId,
                         "UserProfile",
                         "user.status",
-                        "__NO_STATE__",
+                        "(none)",
                         "ACTIVE");
     }
 

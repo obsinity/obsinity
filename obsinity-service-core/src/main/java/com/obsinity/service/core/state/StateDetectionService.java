@@ -22,7 +22,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class StateDetectionService {
 
-    private static final String NO_STATE_PLACEHOLDER = "__NO_STATE__";
+    private static final String NO_STATE_LABEL = "(none)";
 
     private final ConfigLookup configLookup;
     private final StateSnapshotRepository snapshotRepository;
@@ -91,7 +91,7 @@ public class StateDetectionService {
                             serviceId,
                             match.extractor().objectType(),
                             attr,
-                            NO_STATE_PLACEHOLDER,
+                            NO_STATE_LABEL,
                             value);
                 }
                 stateCountRepository.increment(serviceId, match.extractor().objectType(), attr, value);

@@ -20,9 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class StateTransitionPersistService {
 
-    private static final String NO_STATE_PLACEHOLDER = "__NO_STATE__";
-    private static final String NO_STATE_LABEL = "(none)";
-
     private final JdbcTemplate jdbcTemplate;
 
     @Transactional
@@ -75,18 +72,11 @@ public class StateTransitionPersistService {
                     item.serviceId(),
                     item.objectType(),
                     item.attribute(),
-                    toStorageState(item.fromState()),
-                    toStorageState(item.toState()),
+                    item.fromState(),
+                    item.toState(),
                     item.count()));
         }
         return aligned;
-    }
-
-    private String toStorageState(String state) {
-        if (state == null) {
-            return null;
-        }
-        return NO_STATE_PLACEHOLDER.equals(state) ? NO_STATE_LABEL : state;
     }
 
     public record BatchItem(

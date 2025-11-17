@@ -23,7 +23,7 @@ public class StateTransitionQueryService {
     private static final DateTimeFormatter ISO_INSTANT = DateTimeFormatter.ISO_INSTANT;
     private static final String WILDCARD = "*";
     private static final String NO_STATE_LABEL = "(none)";
-    private static final String NO_STATE_PLACEHOLDER = "__NO_STATE__";
+    private static final String LEGACY_NO_STATE_PLACEHOLDER = "__NO_STATE__";
 
     private final ServicesCatalogRepository servicesCatalogRepository;
     private final StateTransitionQueryRepository repository;
@@ -128,7 +128,7 @@ public class StateTransitionQueryService {
         if (value == null) {
             return null;
         }
-        if (NO_STATE_PLACEHOLDER.equals(value)) {
+        if (LEGACY_NO_STATE_PLACEHOLDER.equals(value)) {
             return NO_STATE_LABEL;
         }
         return value;
@@ -143,7 +143,9 @@ public class StateTransitionQueryService {
                 return true;
             }
             if (NO_STATE_LABEL.equals(token)) {
-                if (value == null || NO_STATE_PLACEHOLDER.equals(value) || NO_STATE_LABEL.equalsIgnoreCase(value)) {
+                if (value == null
+                        || LEGACY_NO_STATE_PLACEHOLDER.equals(value)
+                        || NO_STATE_LABEL.equalsIgnoreCase(value)) {
                     return true;
                 }
                 continue;
@@ -174,7 +176,7 @@ public class StateTransitionQueryService {
             }
             if (NO_STATE_LABEL.equalsIgnoreCase(token)
                     || "NONE".equalsIgnoreCase(token)
-                    || NO_STATE_PLACEHOLDER.equalsIgnoreCase(token)) {
+                    || LEGACY_NO_STATE_PLACEHOLDER.equalsIgnoreCase(token)) {
                 normalized.add(NO_STATE_LABEL);
                 continue;
             }

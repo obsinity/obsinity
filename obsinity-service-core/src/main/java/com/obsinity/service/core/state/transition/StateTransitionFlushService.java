@@ -21,9 +21,6 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class StateTransitionFlushService {
 
-    private static final String NO_STATE_PLACEHOLDER = "__NO_STATE__";
-    private static final String NO_STATE_LABEL = "(none)";
-
     private final StateTransitionBuffer buffer;
     private final StateTransitionPersistExecutor persistExecutor;
     private final PipelineProperties pipelineProperties;
@@ -97,8 +94,8 @@ public class StateTransitionFlushService {
                     key.getServiceId(),
                     key.getObjectType(),
                     key.getAttribute(),
-                    toStorageState(key.getFromState()),
-                    toStorageState(key.getToState()),
+                    key.getFromState(),
+                    key.getToState(),
                     entry.getCount()));
         }
 
@@ -112,12 +109,5 @@ public class StateTransitionFlushService {
             List<BatchItem> chunk = new ArrayList<>(batch.subList(i, toIndex));
             persistExecutor.submit(new StateTransitionPersistExecutor.Job(granularity, epoch, chunk));
         }
-    }
-
-    private String toStorageState(String state) {
-        if (state == null) {
-            return null;
-        }
-        return NO_STATE_PLACEHOLDER.equals(state) ? NO_STATE_LABEL : state;
     }
 }

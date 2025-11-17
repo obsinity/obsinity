@@ -157,6 +157,8 @@ Response (trimmed):
 
 The controller returns the configured default percentiles even if the request overrides them. `series[].sum` stores the running total of the measurement (e.g., total milliseconds), `samples` is the count, and `mean` is precomputed if the sketch can expose it cheaply.
 
+> **Known limitation (Dec 2025):** Histogram queries only return series for the exact key combinations requested. If you omit a keyed dimension (for example leaving out `dimensions.channel`) the API hashes the “empty” value and fails to match any stored rows, so you get zero samples instead of an aggregate. Workaround: either include the explicit value list for each key (`["web","mobile","partner"]`, `["us-east","us-west","eu-central"]`, etc.) and perform aggregation client side, or define a companion histogram with no keyed dimensions when you need a pre-aggregated view.
+
 ## REST State Transition Query
 
 State detection emits transition counters (A→B) and snapshots automatically. Query them via `/api/query/state-transitions`:
@@ -204,7 +206,7 @@ Response:
 }
 ```
 
-The service key must match the logical service configured in `service_registry`. `objectType` and `attribute` correspond to the entries in `stateExtractors`. The server automatically aligns the requested interval to an available bucket (`5s`, `1m`, `5m`, `1h`, `1d`, `7d`). For `fromStates` / `toStates`, omit the field (or pass an empty array) to include everything, add `"*"` to explicitly request all states, and use `"(none)"` (case-insensitive) to include transitions that originated from the implicit placeholder emitted the first time an object enters a state. Responses also surface that placeholder as `"(none)"` so dashboards can render initial transitions without leaking the internal `__NO_STATE__` marker.
+The service key must match the logical service configured in `service_registry`. `objectType` and `attribute` correspond to the entries in `stateExtractors`. The server automatically aligns the requested interval to an available bucket (`5s`, `1m`, `5m`, `1h`, `1d`, `7d`). For `fromStates` / `toStates`, omit the field (or pass an empty array) to include everything, add `"*"` to explicitly request all states, and use `"(none)"` (case-insensitive) to include transitions that originated the first time an object enters a state. Responses also surface that value as `"(none)"` so dashboards can render initial transitions without any internal placeholder.
 
 ### State Transition Filters Cheat Sheet
 

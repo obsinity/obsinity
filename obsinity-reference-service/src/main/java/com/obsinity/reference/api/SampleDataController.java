@@ -78,10 +78,11 @@ public class SampleDataController {
         List<String> tiers = req.tiers();
         Map<String, String> lastStatusByProfile = new HashMap<>();
 
-        int unifiedEventCount = req.events();
+        int unifiedEventCount = Math.max(1, req.events());
         long windowSeconds = Math.max(1, DEMO_WINDOW_SECONDS);
+        Instant windowStart = now.minusSeconds(windowSeconds);
         double strideSeconds = windowSeconds / Math.max(1.0, unifiedEventCount);
-        Instant cursor = Instant.now().minusSeconds(windowSeconds);
+        Instant cursor = windowStart;
         int profiles = Math.max(1, req.profilePool());
 
         // Seed random initial state per profile
@@ -95,9 +96,9 @@ public class SampleDataController {
                     req.eventType(),
                     profileId,
                     seedStatus,
-                    tiers.get(profileIndex % tiers.size()),
-                    channels.get(profileIndex % channels.size()),
-                    regions.get(profileIndex % regions.size()),
+                    pickRandomValue(tiers, "FREE"),
+                    pickRandomValue(channels, "web"),
+                    pickRandomValue(regions, "us-east"),
                     seedStart,
                     seedStart.plusMillis(50),
                     50));
@@ -107,9 +108,9 @@ public class SampleDataController {
             String profileId = String.format("profile-%04d", (i % profiles) + 1);
             String status = pickRandomStateDifferent(lastStatusByProfile.get(profileId), statuses);
             lastStatusByProfile.put(profileId, status);
-            String channel = channels.get(i % channels.size());
-            String region = regions.get(i % regions.size());
-            String tier = tiers.get(i % tiers.size());
+            String channel = pickRandomValue(channels, "web");
+            String region = pickRandomValue(regions, "us-east");
+            String tier = pickRandomValue(tiers, "FREE");
             long durationMs = 25L + random.nextInt(Math.max(1, req.maxDurationMillis()));
             Instant start = cursor;
             Instant end = start.plusMillis(durationMs);
@@ -127,7 +128,7 @@ public class SampleDataController {
             cursor = cursor.plusSeconds(Math.max(1L, Math.round(strideSeconds)));
         }
 
-        ingestHistogramEvents(req, cursor.minusSeconds(unifiedEventCount), Instant.now(), unifiedEventCount);
+        ingestHistogramEvents(req, windowStart, Instant.now(), unifiedEventCount);
 
         return Map.of(
                 "generated", unifiedEventCount + profiles,
@@ -142,6 +143,13 @@ public class SampleDataController {
                                 req.serviceKey(),
                                 "eventType",
                                 "http_request"));
+    }
+
+    private String pickRandomValue(List<String> values, String fallback) {
+        if (values == null || values.isEmpty()) {
+            return fallback;
+        }
+        return values.get(random.nextInt(values.size()));
     }
 
     private String selectStatus(List<String> statusCodes, int eventIndex) {
