@@ -205,7 +205,7 @@
         <configuration>
           <lineEndings>UNIX</lineEndings>
           <java>
-            <palantirJavaFormat version="${palantir.java.format.version}"/>
+            <palantirJavaFormat version="2.28.0"/>
             <removeUnusedImports/>
             <formatAnnotations/>
             <includes>
