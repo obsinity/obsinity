@@ -90,7 +90,7 @@ public class SampleDataController {
             String profileId = String.format("profile-%04d", profileIndex + 1);
             String seedStatus = pickRandomStatus(statuses);
             lastStatusByProfile.put(profileId, seedStatus);
-            Instant seedStart = windowStart;
+            Instant seedStart = windowStart.plusSeconds(profileIndex);
             long durationMs = 50L;
             stored += ingestService.ingestOne(buildUnifiedEvent(
                     req.serviceKey(),
@@ -105,6 +105,7 @@ public class SampleDataController {
                     durationMs));
         }
 
+        long lastOffsetSeconds = -1;
         for (int i = 0; i < unifiedEventCount; i++) {
             String profileId = String.format("profile-%04d", (i % profiles) + 1);
             String status = pickRandomStateDifferent(lastStatusByProfile.get(profileId), statuses);
@@ -113,7 +114,11 @@ public class SampleDataController {
             String region = regions.get(i % regions.size());
             String tier = tiers.get(i % tiers.size());
             long durationMs = Math.max(25L, req.maxDurationMillis());
-            long offsetSeconds = Math.min(windowSeconds - 1, Math.round(i * spacingSeconds));
+            long offsetSeconds = Math.min(windowSeconds - 1, (long) Math.floor(i * spacingSeconds));
+            if (offsetSeconds <= lastOffsetSeconds) {
+                offsetSeconds = Math.min(windowSeconds - 1, lastOffsetSeconds + 1);
+            }
+            lastOffsetSeconds = offsetSeconds;
             Instant start = windowStart.plusSeconds(offsetSeconds);
             Instant end = start.plusMillis(durationMs);
             stored += ingestService.ingestOne(buildUnifiedEvent(
@@ -182,7 +187,6 @@ public class SampleDataController {
         }
         return statuses.get(random.nextInt(statuses.size()));
     }
-*** End Patch
 
     private void runStateCascade(StateCascadeRequest request) {
         List<String> states = request.states();
