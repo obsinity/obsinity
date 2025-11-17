@@ -14,6 +14,7 @@ import java.util.List;
 public enum CounterBucket {
     D7("D7", Duration.ofDays(7)),
     D1("D1", Duration.ofDays(1)),
+    M30("M30", Duration.ofMinutes(30)),
     H1("H1", Duration.ofHours(1)),
     M5("M5", Duration.ofMinutes(5)),
     M1("M1", Duration.ofMinutes(1)),
@@ -50,6 +51,11 @@ public enum CounterBucket {
             case M5 -> {
                 int minute = zdt.getMinute();
                 int aligned = (minute / 5) * 5;
+                yield zdt.withMinute(aligned).withSecond(0).withNano(0).toInstant();
+            }
+            case M30 -> {
+                int minute = zdt.getMinute();
+                int aligned = (minute / 30) * 30;
                 yield zdt.withMinute(aligned).withSecond(0).withNano(0).toInstant();
             }
             case M1 -> zdt.withSecond(0).withNano(0).toInstant();

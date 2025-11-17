@@ -19,7 +19,7 @@ public class StateCountTimeseriesJob {
 
     private static final CounterBucket BASE_BUCKET = CounterBucket.M1;
     private static final List<CounterBucket> MATERIALISED_BUCKETS =
-            List.of(CounterBucket.M1, CounterBucket.M5, CounterBucket.H1, CounterBucket.D1);
+            List.of(CounterBucket.M1, CounterBucket.M5, CounterBucket.M30, CounterBucket.H1, CounterBucket.D1);
 
     private final ObjectStateCountRepository stateCountRepository;
     private final StateCountTimeseriesRepository timeseriesRepository;

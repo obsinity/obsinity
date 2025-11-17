@@ -18,7 +18,7 @@ public class StateCountTimeseriesQueryService {
 
     private static final DateTimeFormatter ISO_INSTANT = DateTimeFormatter.ISO_INSTANT;
     private static final List<CounterBucket> SUPPORTED_BUCKETS =
-            List.of(CounterBucket.M1, CounterBucket.M5, CounterBucket.H1, CounterBucket.D1);
+            List.of(CounterBucket.M1, CounterBucket.M5, CounterBucket.M30, CounterBucket.H1, CounterBucket.D1);
 
     private final ServicesCatalogRepository servicesCatalogRepository;
     private final StateCountTimeseriesQueryRepository repository;
@@ -41,7 +41,8 @@ public class StateCountTimeseriesQueryService {
         CounterBucket bucket = resolveBucket(requestedInterval);
 
         Instant defaultEnd = Instant.now();
-        Instant earliest = repository.findEarliestTimestamp(serviceId, request.objectType(), request.attribute(), bucket);
+        Instant earliest =
+                repository.findEarliestTimestamp(serviceId, request.objectType(), request.attribute(), bucket);
         Instant defaultStart =
                 earliest != null ? bucket.align(earliest) : bucket.align(defaultEnd.minus(Duration.ofDays(7)));
 
