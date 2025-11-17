@@ -99,7 +99,8 @@ public class SampleDataController {
                     channels.get(profileIndex % channels.size()),
                     regions.get(profileIndex % regions.size()),
                     seedStart,
-                    seedStart.plusMillis(50)));
+                    seedStart.plusMillis(50),
+                    50));
         }
 
         for (int i = 0; i < unifiedEventCount; i++) {
@@ -134,7 +135,13 @@ public class SampleDataController {
                 "service", req.serviceKey(),
                 "eventType", req.eventType(),
                 "histogramSeed",
-                        Map.of("generated", unifiedEventCount, "service", req.serviceKey(), "eventType", "http_request"));
+                        Map.of(
+                                "generated",
+                                unifiedEventCount,
+                                "service",
+                                req.serviceKey(),
+                                "eventType",
+                                "http_request"));
     }
 
     private String selectStatus(List<String> statusCodes, int eventIndex) {
