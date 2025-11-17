@@ -45,9 +45,8 @@ public class StateCountTimeseriesQueryService {
         Instant defaultEnd = Instant.now();
         Instant earliest =
                 repository.findEarliestTimestamp(serviceId, request.objectType(), request.attribute(), queryBucket);
-        Instant defaultStart = earliest != null
-                ? truncateToMinute(earliest)
-                : truncateToMinute(defaultEnd.minus(Duration.ofDays(7)));
+        Instant defaultStart =
+                earliest != null ? truncateToMinute(earliest) : truncateToMinute(defaultEnd.minus(Duration.ofDays(7)));
 
         Instant start = request.start() != null ? Instant.parse(request.start()) : defaultStart;
         if (earliest != null && start.isBefore(earliest)) {
