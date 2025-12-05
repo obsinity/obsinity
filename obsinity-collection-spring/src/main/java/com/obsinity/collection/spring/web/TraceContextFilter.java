@@ -1,5 +1,6 @@
 package com.obsinity.collection.spring.web;
 
+import com.obsinity.flow.processor.FlowProcessorSupport;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -11,6 +12,12 @@ import java.util.Locale;
 import org.slf4j.MDC;
 
 public final class TraceContextFilter implements Filter {
+    private final FlowProcessorSupport support;
+
+    public TraceContextFilter(FlowProcessorSupport support) {
+        this.support = support;
+    }
+
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
@@ -53,6 +60,10 @@ public final class TraceContextFilter implements Filter {
             }
             chain.doFilter(request, response);
         } finally {
+            // Ensure ThreadLocal cleanup even if aspect fails (safety net for memory leak prevention)
+            if (support != null) {
+                support.cleanupThreadLocals();
+            }
             // Restore prior MDC state
             restore("traceId", prevTraceId);
             restore("spanId", prevSpanId);

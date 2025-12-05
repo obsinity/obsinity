@@ -13,7 +13,7 @@ import reactor.core.publisher.Mono;
 
 class TraceContextWebFilterTest {
 
-    private final TraceContextWebFilter filter = new TraceContextWebFilter();
+    private final TraceContextWebFilter filter = new TraceContextWebFilter(null);
 
     @AfterEach
     void clear() {

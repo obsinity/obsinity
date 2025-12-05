@@ -1,5 +1,6 @@
 package com.obsinity.collection.spring.webflux;
 
+import com.obsinity.flow.processor.FlowProcessorSupport;
 import java.util.Locale;
 import org.slf4j.MDC;
 import org.springframework.http.HttpHeaders;
@@ -9,6 +10,12 @@ import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 public final class TraceContextWebFilter implements WebFilter {
+    private final FlowProcessorSupport support;
+
+    public TraceContextWebFilter(FlowProcessorSupport support) {
+        this.support = support;
+    }
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         String prevTraceId = MDC.get("traceId");
@@ -49,6 +56,10 @@ public final class TraceContextWebFilter implements WebFilter {
         if (parentSpanId != null) MDC.put("parentSpanId", parentSpanId);
 
         return chain.filter(exchange).doFinally(sig -> {
+            // Ensure ThreadLocal cleanup even if aspect fails (safety net for memory leak prevention)
+            if (support != null) {
+                support.cleanupThreadLocals();
+            }
             restore("traceId", prevTraceId);
             restore("spanId", prevSpanId);
             restore("parentSpanId", prevParentSpanId);

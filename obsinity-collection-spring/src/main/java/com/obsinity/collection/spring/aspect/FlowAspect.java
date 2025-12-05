@@ -38,6 +38,10 @@ public class FlowAspect {
         FlowMeta meta = buildMeta(pjp, null);
         MethodSignature ms = (MethodSignature) pjp.getSignature();
         boolean returnsVoid = ms.getReturnType() == Void.TYPE;
+
+        // Determine if this is a root-level flow (no parent)
+        boolean isRootFlow = (support != null && support.currentHolder() == null);
+
         processor.onFlowStarted(name, ac.attributes(), ac.context(), meta);
         try {
             Object result = pjp.proceed();
@@ -58,6 +62,11 @@ public class FlowAspect {
             FlowMeta err = buildMeta(pjp, new StatusHint("ERROR", t.getMessage()));
             processor.onFlowFailed(name, t, attrs, ac.context(), err);
             throw t;
+        } finally {
+            // Critical: Clean up ThreadLocals for root-level flows to prevent memory leaks
+            if (isRootFlow && support != null) {
+                support.cleanupThreadLocals();
+            }
         }
     }
 
@@ -83,6 +92,11 @@ public class FlowAspect {
                 processor.onFlowFailed(
                         name, t, attrs, ac.context(), buildMeta(pjp, new StatusHint("ERROR", t.getMessage())));
                 throw t;
+            } finally {
+                // Clean up ThreadLocals for orphan steps (promoted to flows) to prevent leaks
+                if (support != null) {
+                    support.cleanupThreadLocals();
+                }
             }
         }
 

@@ -1,6 +1,8 @@
 package com.obsinity.collection.spring.autoconfigure;
 
 import com.obsinity.collection.spring.webflux.TraceContextWebFilter;
+import com.obsinity.flow.processor.FlowProcessorSupport;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -19,7 +21,7 @@ public class WebfluxTraceAutoConfiguration {
             havingValue = "true",
             matchIfMissing = true)
     @ConditionalOnMissingBean(name = "obsinityWebfluxTraceContextFilter")
-    public WebFilter obsinityWebfluxTraceContextFilter() {
-        return new TraceContextWebFilter();
+    public WebFilter obsinityWebfluxTraceContextFilter(@Autowired(required = false) FlowProcessorSupport support) {
+        return new TraceContextWebFilter(support);
     }
 }

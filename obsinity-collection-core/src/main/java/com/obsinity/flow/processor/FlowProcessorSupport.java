@@ -73,8 +73,16 @@ public class FlowProcessorSupport {
             final FlowEvent last = d.peekLast();
             if (last == expectedTop) {
                 d.removeLast();
+                if (d.isEmpty()) {
+                    ctx.remove(); // Clean up ThreadLocal when stack is empty
+                }
             } else {
-                d.clear(); // inconsistent nesting; reset to avoid leaks
+                // inconsistent nesting; log warning and clean up completely
+                log.warn(
+                        "Inconsistent flow nesting detected: expected {} but found {}. Cleaning up thread state.",
+                        expectedTop != null ? expectedTop.name() : "null",
+                        last != null ? last.name() : "null");
+                ctx.remove(); // Remove ThreadLocal completely
             }
         }
     }
@@ -108,8 +116,6 @@ public class FlowProcessorSupport {
     /** Clear the batch <b>after</b> ROOT_FLOW_FINISHED dispatch so binders can read it during invocation. */
     public void clearBatchAfterDispatch() {
         batch.remove();
-        // re-initialize to avoid extra allocations on the next root
-        batch.set(new ArrayList<>());
     }
 
     /* --------------------- mutation helpers --------------------- */
@@ -133,6 +139,43 @@ public class FlowProcessorSupport {
             r.run();
         } catch (Exception ignored) {
             // Intentionally ignore to keep the main flow healthy
+        }
+    }
+
+    /* --------------------- ThreadLocal cleanup --------------------- */
+
+    /**
+     * Clean up all ThreadLocal state. Should be called at request/transaction boundaries to prevent memory leaks
+     * in thread pool environments.
+     */
+    public void cleanupThreadLocals() {
+        try {
+            final Deque<FlowEvent> d = ctx.get();
+            if (d != null && !d.isEmpty()) {
+                // Log warning about unpopped events - indicates potential bug
+                log.warn(
+                        "Cleaning up {} unpopped FlowEvent(s) from thread {}. This may indicate improper flow nesting or missing exception handling.",
+                        d.size(),
+                        Thread.currentThread().getName());
+            }
+        } catch (Exception e) {
+            log.debug("Error checking ctx ThreadLocal during cleanup", e);
+        } finally {
+            ctx.remove();
+        }
+
+        try {
+            final List<FlowEvent> b = batch.get();
+            if (b != null && !b.isEmpty()) {
+                log.debug(
+                        "Cleaning up {} undispatched FlowEvent(s) from batch on thread {}",
+                        b.size(),
+                        Thread.currentThread().getName());
+            }
+        } catch (Exception e) {
+            log.debug("Error checking batch ThreadLocal during cleanup", e);
+        } finally {
+            batch.remove();
         }
     }
 

@@ -11,7 +11,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 class TraceContextFilterTest {
 
-    private final TraceContextFilter filter = new TraceContextFilter();
+    private final TraceContextFilter filter = new TraceContextFilter(null);
 
     @AfterEach
     void clear() {
