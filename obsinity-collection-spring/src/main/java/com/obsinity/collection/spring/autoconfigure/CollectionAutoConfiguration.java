@@ -28,7 +28,6 @@ public class CollectionAutoConfiguration {
      * The validator (HibernateEntityDetector or LoggingEntityDetector) is automatically
      * selected based on the hibernate-entity-check configuration property.
      */
-
     @Bean
     public FlowProcessor telemetryProcessor(
             AsyncDispatchBus asyncBus,
@@ -37,5 +36,3 @@ public class CollectionAutoConfiguration {
         return new DefaultFlowProcessor(asyncBus, support, validator);
     }
 }
-
-
