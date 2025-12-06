@@ -4,6 +4,7 @@ import com.obsinity.collection.core.dispatch.AsyncDispatchBus;
 import com.obsinity.flow.model.FlowEvent;
 import com.obsinity.flow.model.OStatus;
 import com.obsinity.flow.processor.FlowProcessorSupport;
+import com.obsinity.flow.validation.FlowAttributeValidator;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.StatusCode;
 import java.time.Instant;
@@ -11,12 +12,24 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class DefaultFlowProcessor implements FlowProcessor {
+    public static final String LIFECYCLE = "lifecycle";
+    public static final String STARTED = "STARTED";
+    public static final String ATTRIBUTES = "attributes";
+    public static final String CONTEXT = "context";
+    public static final String COMPLETED = "COMPLETED";
     private final AsyncDispatchBus asyncBus;
     private final FlowProcessorSupport support;
+    private final FlowAttributeValidator validator;
 
     public DefaultFlowProcessor(AsyncDispatchBus asyncBus, FlowProcessorSupport support) {
+        this(asyncBus, support, null);
+    }
+
+    public DefaultFlowProcessor(
+            AsyncDispatchBus asyncBus, FlowProcessorSupport support, FlowAttributeValidator validator) {
         this.asyncBus = asyncBus;
         this.support = support;
+        this.validator = validator;
     }
 
     @Override
@@ -52,7 +65,7 @@ public class DefaultFlowProcessor implements FlowProcessor {
                     FlowEvent.builder().name(name).timestamp(Instant.now()).build();
             holder.attributes().map().putAll(attrs);
             holder.eventContext().putAll(ctx);
-            holder.eventContext().put("lifecycle", "STARTED");
+            holder.eventContext().put(LIFECYCLE, STARTED);
             applyMeta(holder, meta);
             support.push(holder);
             support.startNewBatch();
@@ -66,12 +79,19 @@ public class DefaultFlowProcessor implements FlowProcessor {
             String name, Map<String, Object> extraAttrs, Map<String, Object> extraContext, FlowMeta meta) {
         var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
         var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
+
+        // Validate attributes and context to prevent entities/problematic objects
+        if (validator != null) {
+            validator.validateMap(attrs, ATTRIBUTES);
+            validator.validateMap(ctx, CONTEXT);
+        }
+
         if (support != null) {
             FlowEvent top = support.currentHolder();
             if (top != null) {
                 top.attributes().map().putAll(attrs);
                 top.eventContext().putAll(ctx);
-                top.eventContext().put("lifecycle", "COMPLETED");
+                top.eventContext().put(LIFECYCLE, COMPLETED);
                 applyCompletionMeta(top, meta);
             }
             support.clearBatchAfterDispatch();
@@ -90,12 +110,19 @@ public class DefaultFlowProcessor implements FlowProcessor {
         var attrs = new LinkedHashMap<String, Object>(extraAttrs == null ? Map.of() : extraAttrs);
         if (error != null) attrs.putIfAbsent("error", error.getClass().getSimpleName());
         var ctx = new LinkedHashMap<String, Object>(extraContext == null ? Map.of() : extraContext);
+
+        // Validate attributes and context to prevent entities/problematic objects
+        if (validator != null) {
+            validator.validateMap(attrs, ATTRIBUTES);
+            validator.validateMap(ctx, CONTEXT);
+        }
+
         if (support != null) {
             FlowEvent top = support.currentHolder();
             if (top != null) {
                 top.attributes().map().putAll(attrs);
                 top.eventContext().putAll(ctx);
-                top.eventContext().put("lifecycle", "FAILED");
+                top.eventContext().put(LIFECYCLE, "FAILED");
                 if (error != null) top.setThrowable(error);
                 applyCompletionMeta(top, meta);
             }
