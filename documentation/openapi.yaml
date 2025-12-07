@@ -544,6 +544,23 @@ components:
             application/json:
               schema:
                 $ref: '#/components/schemas/StateCountQueryResponse'
+  /api/query/state-count-timeseries:
+    post:
+      tags: [State]
+      summary: Query historical state count snapshots
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StateCountTimeseriesQueryRequest'
+      responses:
+        "200":
+          description: State count time series
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateCountTimeseriesQueryResponse'
     StateCountQueryRequest:
       type: object
       properties:
@@ -586,3 +603,63 @@ components:
                     type: integer
         links:
           type: object
+
+    StateCountTimeseriesQueryRequest:
+      type: object
+      properties:
+        serviceKey:
+          type: string
+        objectType:
+          type: string
+        attribute:
+          type: string
+        states:
+          type: array
+          items:
+            type: string
+        interval:
+          type: string
+        start:
+          type: string
+        end:
+          type: string
+        limits:
+          $ref: '#/components/schemas/PageLimits'
+      required: [serviceKey, objectType, attribute]
+
+    StateCountTimeseriesQueryResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        data:
+          type: object
+          properties:
+            intervals:
+              type: array
+              items:
+                type: object
+                properties:
+                  start:
+                    type: string
+                  end:
+                    type: string
+                  states:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        state:
+                          type: string
+                        count:
+                          type: integer
+        links:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/HalLink'

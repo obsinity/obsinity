@@ -1,0 +1,2054 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Obsinity API",
+    "version": "0.1.0",
+    "description": "The Obsinity API enables developers to **publish** (ingest) structured, OTEL-aligned events and to **search** across those events using a JSON request format (OB-JQL). Search responses are **HAL-style** for easy pagination and HATEOAS navigation.\n### Design notes - **Event model** mirrors OTEL concepts (`event`, `resource.service`, `trace`, `attributes`, `time.startedAt`, `time.elapsedNanos`). - **Search** splits fast **indexed predicates** (`matches`) from expressive **row filters** (`filter`). - **Responses** use `links` (HAL-style). For strict HAL, rename `links` → `_links` and set `application/json`.",
+    "termsOfService": "https://obsinity.dev/terms",
+    "contact": {
+      "name": "API Support",
+      "email": "apisupport@mastercard.com",
+      "url": "https://developer.mastercard.com/support"
+    },
+    "license": {
+      "name": "Apache 2.0",
+      "url": "https://www.apache.org/licenses/LICENSE-2.0"
+    }
+  },
+  "externalDocs": {
+    "description": "Developer Guide and examples",
+    "url": "https://docs.obsinity.dev"
+  },
+  "servers": [
+    {
+      "url": "https://api.mastercard.com/",
+      "description": "Production server"
+    },
+    {
+      "url": "https://sandbox.api.mastercard.com/",
+      "description": "Sandbox server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Events",
+      "description": "Publish/ingest telemetry events."
+    },
+    {
+      "name": "Searches",
+      "description": "Search across ingested events with OB-JQL."
+    },
+    {
+      "name": "Counters",
+      "description": "Query counter rollups."
+    },
+    {
+      "name": "Histograms",
+      "description": "Query histogram rollups."
+    },
+    {
+      "name": "StateTransitions",
+      "description": "Query state transition counts."
+    },
+    {
+      "name": "StateCounts",
+      "description": "Query current state distributions."
+    }
+  ],
+  "paths": {
+    "/events/publish": {
+      "post": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Publish a new event",
+        "description": "Publish a single OpenTelemetry-aligned event into Obsinity. The server performs basic validation and enqueues it for durable ingestion and rollup.",
+        "operationId": "publishEvent",
+        "requestBody": {
+          "required": true,
+          "description": "Event envelope with service, trace, attributes, and time.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventEnvelope"
+              },
+              "example": {
+                "event": {
+                  "name": "http_request",
+                  "kind": "SERVER"
+                },
+                "resource": {
+                  "service": {
+                    "name": "payments"
+                  }
+                },
+                "trace": {
+                  "correlationId": "req-123",
+                  "traceId": "trace-456",
+                  "spanId": "span-789"
+                },
+                "time": {
+                  "startedAt": "2025-09-15 12:00:00 UTC",
+                  "startUnixNano": 1736990400000000000
+                },
+                "attributes": {
+                  "api": {
+                    "name": "getAccountHolders",
+                    "version": "v2"
+                  },
+                  "http": {
+                    "status": "201",
+                    "method": "GET"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Event accepted for ingestion (asynchronous flow). Returns an acknowledgement.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events/publish/batch": {
+      "post": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Publish a batch of events",
+        "description": "Publish an array of canonical events. Useful for buffering on the producer side before delivering to Obsinity.",
+        "operationId": "publishEventBatch",
+        "requestBody": {
+          "required": true,
+          "description": "Array of event envelopes.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/EventEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Batch accepted. Response indicates how many events were stored vs. deduplicated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stored": {
+                      "type": "integer",
+                      "description": "Number of unique events persisted."
+                    },
+                    "duplicates": {
+                      "type": "integer",
+                      "description": "Number of events skipped because their IDs already existed with identical payloads."
+                    }
+                  },
+                  "required": [
+                    "stored",
+                    "duplicates"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/search/events": {
+      "post": {
+        "tags": [
+          "Searches"
+        ],
+        "summary": "Search events",
+        "description": "Search for events by service, event type, time window, match predicates, and filters. Results are paginated and returned as HAL-style pages.\n**Back-compat note:** This endpoint replaces `/api/search/events`. If you previously integrated with the singular path, migrate to this pluralized resource.",
+        "operationId": "searchEvents",
+        "requestBody": {
+          "required": true,
+          "description": "OB-JQL style search request.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Query"
+              },
+              "example": {
+                "service": "payments",
+                "event": "http_request",
+                "period": {
+                  "betweenTimestamps": [
+                    "2025-09-15T00:00:00Z",
+                    "2025-09-15T06:00:00Z"
+                  ]
+                },
+                "matches": [
+                  {
+                    "attribute": "http.status",
+                    "operator": "!=",
+                    "value": 500
+                  }
+                ],
+                "filter": {
+                  "allConditions": [
+                    {
+                      "path": "attributes.client.ip",
+                      "operator": "!=",
+                      "value": "10.0.0.1"
+                    },
+                    {
+                      "anyConditions": [
+                        {
+                          "path": "attributes.api.name",
+                          "operator": "like",
+                          "value": "%account%"
+                        },
+                        {
+                          "path": "attributes.api.name",
+                          "operator": "ilike",
+                          "value": "create%"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "orders": [
+                  {
+                    "field": "time.startedAt",
+                    "direction": "desc"
+                  }
+                ],
+                "limit": 100
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "HAL-style paginated response representing matching events and navigation links.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponseHAL"
+                },
+                "example": {
+                  "count": 1,
+                  "total": 1,
+                  "limit": 100,
+                  "offset": 0,
+                  "defaultPercentiles": [
+                    0.5,
+                    0.9,
+                    0.95,
+                    0.99
+                  ],
+                  "data": {
+                    "events": [
+                      {
+                        "event": {
+                          "name": "http_request",
+                          "kind": "SERVER"
+                        },
+                        "resource": {
+                          "service": {
+                            "name": "payments"
+                          }
+                        },
+                        "time": {
+                          "startedAt": "2025-09-15 12:00:00 UTC",
+                          "endUnixNano": 1736990401234000000,
+                          "elapsedNanos": 123400000
+                        },
+                        "attributes": {
+                          "http": {
+                            "status": 201,
+                            "method": "GET"
+                          }
+                        },
+                        "elapsedNanos": 123400000,
+                        "return": "OK"
+                      }
+                    ]
+                  },
+                  "links": {
+                    "self": {
+                      "href": "/api/search/events",
+                      "method": "POST",
+                      "body": {
+                        "service": "payments",
+                        "event": "http_request",
+                        "period": {
+                          "since": "-1h"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/query/counters": {
+      "post": {
+        "tags": [
+          "Counters"
+        ],
+        "summary": "Query counter intervals",
+        "description": "Retrieve aggregated counter intervals using HAL pagination.",
+        "operationId": "queryCounters",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CounterQueryRequestPayload"
+              },
+              "example": {
+                "serviceKey": "payments",
+                "eventType": "transaction.completed",
+                "counterName": "http_requests_total",
+                "interval": "5m",
+                "start": "2025-01-01T00:00:00Z",
+                "end": "2025-01-01T02:00:00Z",
+                "key": {
+                  "region": [
+                    "us-east"
+                  ],
+                  "http.status_code_group": [
+                    "2xx",
+                    "5xx"
+                  ]
+                },
+                "limits": {
+                  "offset": 0,
+                  "limit": 24
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "HAL-style counter response containing the requested intervals and navigation links.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CounterQueryHalResponse"
+                },
+                "example": {
+                  "count": 1,
+                  "total": 120,
+                  "limit": 24,
+                  "offset": 0,
+                  "data": {
+                    "intervals": [
+                      {
+                        "from": "2025-01-01T00:00:00Z",
+                        "to": "2025-01-01T00:05:00Z",
+                        "counts": [
+                          {
+                            "key": {
+                              "region": "us-east",
+                              "http.status_code_group": "2xx"
+                            },
+                            "count": 128
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "links": {
+                    "self": {
+                      "href": "/api/query/counters",
+                      "method": "POST",
+                      "body": {
+                        "serviceKey": "payments",
+                        "eventType": "transaction.completed",
+                        "counterName": "http_requests_total",
+                        "interval": "5m",
+                        "start": "2025-01-01T00:00:00Z",
+                        "end": "2025-01-01T02:00:00Z",
+                        "key": {
+                          "region": [
+                            "us-east"
+                          ],
+                          "http.status_code_group": [
+                            "2xx",
+                            "5xx"
+                          ]
+                        },
+                        "limits": {
+                          "offset": 0,
+                          "limit": 24
+                        }
+                      }
+                    },
+                    "next": {
+                      "href": "/api/query/counters",
+                      "method": "POST",
+                      "body": {
+                        "serviceKey": "payments",
+                        "eventType": "transaction.completed",
+                        "counterName": "http_requests_total",
+                        "interval": "5m",
+                        "start": "2025-01-01T00:00:00Z",
+                        "end": "2025-01-01T02:00:00Z",
+                        "key": {
+                          "region": [
+                            "us-east"
+                          ],
+                          "http.status_code_group": [
+                            "2xx",
+                            "5xx"
+                          ]
+                        },
+                        "limits": {
+                          "offset": 24,
+                          "limit": 24
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/histograms/query": {
+      "post": {
+        "tags": [
+          "Histograms"
+        ],
+        "summary": "Query histogram intervals",
+        "description": "Retrieve latency/size histogram summaries with percentiles.",
+        "operationId": "queryHistograms",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HistogramQueryRequestPayload"
+              },
+              "example": {
+                "serviceKey": "payments",
+                "eventType": "http_request",
+                "histogramName": "http_request_latency_ms",
+                "interval": "1m",
+                "start": "2025-01-01T00:00:00Z",
+                "end": "2025-01-01T01:00:00Z",
+                "key": {
+                  "http.method": [
+                    "GET"
+                  ],
+                  "http.route": [
+                    "/payments"
+                  ]
+                },
+                "percentiles": [
+                  0.5,
+                  0.9,
+                  0.99
+                ],
+                "limits": {
+                  "offset": 0,
+                  "limit": 60
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "HAL-style histogram response containing windowed summaries and navigation links.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistogramQueryHalResponse"
+                },
+                "example": {
+                  "count": 1,
+                  "total": 60,
+                  "limit": 60,
+                  "offset": 0,
+                  "data": {
+                    "intervals": [
+                      {
+                        "from": "2025-01-01T00:00:00Z",
+                        "to": "2025-01-01T00:01:00Z",
+                        "series": [
+                          {
+                            "key": {
+                              "http.method": "GET",
+                              "http.route": "/payments"
+                            },
+                            "samples": 120,
+                            "sum": 4800.0,
+                            "mean": 40.0,
+                            "percentiles": {
+                              "0.5": 32.0,
+                              "0.9": 70.0,
+                              "0.99": 180.0
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "links": {
+                    "self": {
+                      "href": "/api/histograms/query",
+                      "method": "POST",
+                      "body": {
+                        "serviceKey": "payments",
+                        "eventType": "http_request",
+                        "histogramName": "http_request_latency_ms",
+                        "interval": "1m",
+                        "start": "2025-01-01T00:00:00Z",
+                        "end": "2025-01-01T01:00:00Z",
+                        "key": {
+                          "http.method": [
+                            "GET"
+                          ],
+                          "http.route": [
+                            "/payments"
+                          ]
+                        },
+                        "percentiles": [
+                          0.5,
+                          0.9,
+                          0.99
+                        ],
+                        "limits": {
+                          "offset": 0,
+                          "limit": 60
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/query/state-transitions": {
+      "post": {
+        "tags": [
+          "StateTransitions"
+        ],
+        "summary": "Query state transition counts",
+        "description": "Retrieve how many times objects moved from one state to another in fixed intervals.",
+        "operationId": "queryStateTransitions",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StateTransitionQueryRequestPayload"
+              },
+              "example": {
+                "serviceKey": "payments",
+                "objectType": "UserProfile",
+                "attribute": "user.status",
+                "fromStates": [
+                  "pending",
+                  "review"
+                ],
+                "toStates": [
+                  "approved",
+                  "rejected"
+                ],
+                "interval": "5m",
+                "start": "2025-01-01T00:00:00Z",
+                "end": "2025-01-01T01:00:00Z",
+                "limits": {
+                  "offset": 0,
+                  "limit": 6
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "HAL-style response with transition counts per interval.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StateTransitionQueryHalResponse"
+                },
+                "example": {
+                  "count": 6,
+                  "total": 12,
+                  "limit": 6,
+                  "offset": 0,
+                  "data": {
+                    "intervals": [
+                      {
+                        "start": "2025-01-01T00:00:00Z",
+                        "end": "2025-01-01T00:05:00Z",
+                        "transitions": [
+                          {
+                            "fromState": "pending",
+                            "toState": "approved",
+                            "count": 42
+                          },
+                          {
+                            "fromState": "review",
+                            "toState": "rejected",
+                            "count": 3
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "links": {
+                    "self": {
+                      "href": "/api/query/state-transitions",
+                      "method": "POST"
+                    },
+                    "body": {
+                      "serviceKey": "payments",
+                      "objectType": "UserProfile",
+                      "attribute": "user.status",
+                      "fromStates": [
+                        "pending",
+                        "review"
+                      ],
+                      "toStates": [
+                        "approved",
+                        "rejected"
+                      ],
+                      "interval": "5m",
+                      "start": "2025-01-01T00:00:00Z",
+                      "end": "2025-01-01T01:00:00Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/query/state-counts": {
+      "post": {
+        "tags": [
+          "StateCounts"
+        ],
+        "summary": "Query current state counts",
+        "description": "Return the current number of objects in each state for a given extractor.",
+        "operationId": "queryStateCounts",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StateCountQueryRequestPayload"
+              },
+              "example": {
+                "serviceKey": "payments",
+                "objectType": "UserProfile",
+                "attribute": "user.status",
+                "states": [
+                  "ACTIVE",
+                  "BLOCKED",
+                  "ARCHIVED"
+                ],
+                "limits": {
+                  "offset": 0,
+                  "limit": 20
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "HAL-style response with state counts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StateCountQueryHalResponse"
+                },
+                "example": {
+                  "count": 3,
+                  "total": 6,
+                  "limit": 20,
+                  "offset": 0,
+                  "data": {
+                    "states": [
+                      {
+                        "state": "ACTIVE",
+                        "count": 420
+                      },
+                      {
+                        "state": "BLOCKED",
+                        "count": 15
+                      },
+                      {
+                        "state": "ARCHIVED",
+                        "count": 83
+                      }
+                    ]
+                  },
+                  "links": {
+                    "self": {
+                      "href": "/api/query/state-counts",
+                      "method": "POST"
+                    },
+                    "body": {
+                      "serviceKey": "payments",
+                      "objectType": "UserProfile",
+                      "attribute": "user.status",
+                      "states": [
+                        "ACTIVE",
+                        "BLOCKED",
+                        "ARCHIVED"
+                      ],
+                      "limits": {
+                        "offset": 0,
+                        "limit": 20
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/query/state-count-timeseries": {
+      "post": {
+        "tags": [
+          "StateCounts"
+        ],
+        "summary": "Query historical state count snapshots",
+        "description": "Return aligned snapshots of state counts over time (HAL).",
+        "operationId": "queryStateCountTimeseries",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StateCountTimeseriesQueryRequestPayload"
+              },
+              "example": {
+                "serviceKey": "payments",
+                "objectType": "UserProfile",
+                "attribute": "user.status",
+                "states": [
+                  "ACTIVE",
+                  "ARCHIVED"
+                ],
+                "interval": "30m",
+                "start": "2025-11-03T10:00:00Z",
+                "end": "2025-11-03T14:00:00Z",
+                "limits": {
+                  "offset": 0,
+                  "limit": 8
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "HAL-style response with point-in-time state counts per interval.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StateCountTimeseriesQueryHalResponse"
+                },
+                "example": {
+                  "count": 8,
+                  "total": 16,
+                  "limit": 8,
+                  "offset": 0,
+                  "data": {
+                    "intervals": [
+                      {
+                        "start": "2025-11-03T10:00:00Z",
+                        "end": "2025-11-03T10:30:00Z",
+                        "states": [
+                          {
+                            "state": "ACTIVE",
+                            "count": 4201
+                          },
+                          {
+                            "state": "ARCHIVED",
+                            "count": 98
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "links": {
+                    "self": {
+                      "href": "/api/query/state-count-timeseries",
+                      "method": "POST",
+                      "body": {
+                        "serviceKey": "payments",
+                        "objectType": "UserProfile",
+                        "attribute": "user.status",
+                        "states": [
+                          "ACTIVE",
+                          "ARCHIVED"
+                        ],
+                        "interval": "30m",
+                        "start": "2025-11-03T10:00:00Z",
+                        "end": "2025-11-03T14:00:00Z",
+                        "limits": {
+                          "offset": 0,
+                          "limit": 8
+                        }
+                      }
+                    },
+                    "next": {
+                      "href": "/api/query/state-count-timeseries",
+                      "method": "POST",
+                      "body": {
+                        "serviceKey": "payments",
+                        "objectType": "UserProfile",
+                        "attribute": "user.status",
+                        "interval": "30m",
+                        "start": "2025-11-03T10:00:00Z",
+                        "end": "2025-11-03T14:00:00Z",
+                        "limits": {
+                          "offset": 8,
+                          "limit": 8
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "EventEnvelope": {
+        "type": "object",
+        "description": "OTEL-aligned event envelope.",
+        "properties": {
+          "event": {
+            "type": "object",
+            "description": "Event identity and classification.",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Event name (e.g., `http_request`). Stable across producers.",
+                "example": "http_request",
+                "minLength": 1,
+                "maxLength": 63
+              },
+              "kind": {
+                "type": "string",
+                "description": "SpanKind-style role. Allowed values: SERVER, CLIENT, PRODUCER, CONSUMER, INTERNAL.",
+                "example": "SERVER",
+                "minLength": 1,
+                "maxLength": 63
+              }
+            },
+            "required": [
+              "name"
+            ]
+          },
+          "resource": {
+            "type": "object",
+            "description": "Resource identity of the emitter.",
+            "properties": {
+              "service": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Short service slug (primary partition key; e.g., `payments`).",
+                    "example": "payments",
+                    "minLength": 1,
+                    "maxLength": 63
+                  }
+                }
+              }
+            }
+          },
+          "trace": {
+            "type": "object",
+            "description": "Trace identifiers.",
+            "properties": {
+              "traceId": {
+                "type": "string",
+                "description": "Identifier of the distributed trace for this event (W3C/OTEL aligned).",
+                "example": "trace-456",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "spanId": {
+                "type": "string",
+                "description": "Identifier of the specific span or unit of work within the enclosing `traceId`.",
+                "example": "span-789",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "parentSpanId": {
+                "type": "string",
+                "description": "Optional parent span identifier (if this event is a child of another span).",
+                "example": "parent-1234",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "correlationId": {
+                "type": "string",
+                "description": "Cross-system correlation id (request/session).",
+                "example": "req-123",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            }
+          },
+          "time": {
+            "type": "object",
+            "description": "Producer timestamps and derived duration.",
+            "properties": {
+              "startedAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Producer timestamp in UTC (RFC3339 date-time).",
+                "example": "2025-09-17 12:34:56 UTC"
+              },
+              "startUnixNano": {
+                "type": "integer",
+                "format": "int64",
+                "description": "Start timestamp expressed as UNIX epoch nanoseconds.",
+                "example": 1737203696789000000
+              },
+              "endedAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Producer end timestamp in UTC (RFC3339).",
+                "example": "2025-09-17 12:34:57 UTC"
+              },
+              "endUnixNano": {
+                "type": "integer",
+                "format": "int64",
+                "description": "End timestamp expressed as UNIX epoch nanoseconds.",
+                "example": 1737203697012000000
+              },
+              "elapsedNanos": {
+                "type": "integer",
+                "format": "int64",
+                "description": "Derived duration in nanoseconds between start and end.",
+                "example": 233000000
+              }
+            },
+            "required": [
+              "startedAt"
+            ]
+          },
+          "status": {
+            "type": "object",
+            "description": "Outcome information.",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "OTEL StatusCode string (OK, ERROR, UNSET).",
+                "example": "OK"
+              },
+              "message": {
+                "type": "string",
+                "description": "Optional human-readable detail about the outcome.",
+                "example": "HTTP 200"
+              }
+            }
+          },
+          "attributes": {
+            "type": "object",
+            "description": "A flexible, namespaced map of producer-defined key/value pairs that enrich the event with queryable context (for example `api.name`, `api.version`, `http.status`, `http.method`, or `client.ip`). Attributes are indexed where possible for fast filtering and rollup, and can be safely extended by producers without breaking consumers.",
+            "example": {
+              "http": {
+                "status": 201,
+                "method": "GET"
+              }
+            }
+          },
+          "events": {
+            "type": "array",
+            "description": "Nested step/annotation events captured within the flow.",
+            "items": {
+              "type": "object"
+            }
+          },
+          "links": {
+            "type": "array",
+            "description": "Zero or more related span links.",
+            "items": {
+              "type": "object"
+            }
+          },
+          "synthetic": {
+            "type": "boolean",
+            "description": "True when the event originates from synthetic/test traffic.",
+            "example": false
+          },
+          "return": {
+            "description": "Captured return value when the intercepted method is non-void. Absent otherwise.",
+            "nullable": true,
+            "example": "OK"
+          },
+          "elapsedNanos": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Top-level copy of the derived duration (mirrors `time.elapsedNanos`).",
+            "example": 233000000
+          }
+        },
+        "required": [
+          "event",
+          "resource",
+          "time"
+        ]
+      },
+      "CounterQueryRequestPayload": {
+        "type": "object",
+        "description": "Counter query request payload.",
+        "properties": {
+          "serviceKey": {
+            "type": "string",
+            "description": "Service slug (e.g., `payments`).",
+            "example": "payments",
+            "minLength": 1,
+            "maxLength": 63
+          },
+          "eventType": {
+            "type": "string",
+            "description": "Event name associated with the counter.",
+            "example": "transaction.completed",
+            "minLength": 1,
+            "maxLength": 63
+          },
+          "counterName": {
+            "type": "string",
+            "description": "Name of the counter to query.",
+            "example": "http_requests_total",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "key": {
+            "type": "object",
+            "description": "Optional key matrix for multi-dimensional counters.",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": {
+              "region": [
+                "us-east"
+              ],
+              "http.status_code_group": [
+                "2xx",
+                "5xx"
+              ]
+            }
+          },
+          "interval": {
+            "type": "string",
+            "description": "Interval to aggregate (multiple of the counter granularity).",
+            "example": "5m"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Inclusive start of the query window.",
+            "example": "2025-01-01T00:00:00Z"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Exclusive end of the query window.",
+            "example": "2025-01-01T02:00:00Z"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/CounterPageLimits"
+          }
+        },
+        "required": [
+          "serviceKey",
+          "eventType",
+          "counterName"
+        ]
+      },
+      "CounterPageLimits": {
+        "type": "object",
+        "properties": {
+          "offset": {
+            "type": "integer",
+            "description": "Zero-based offset of the first window to return.",
+            "example": 0,
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of intervals to return.",
+            "example": 24
+          }
+        }
+      },
+      "HistogramQueryRequestPayload": {
+        "type": "object",
+        "description": "Histogram query request payload.",
+        "properties": {
+          "serviceKey": {
+            "type": "string",
+            "example": "payments",
+            "minLength": 1,
+            "maxLength": 63
+          },
+          "eventType": {
+            "type": "string",
+            "example": "http_request",
+            "minLength": 1,
+            "maxLength": 63
+          },
+          "histogramName": {
+            "type": "string",
+            "description": "Name of the histogram metric to query.",
+            "example": "http_request_latency_ms",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "key": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "Optional key matrix for per-dimension histograms."
+          },
+          "interval": {
+            "type": "string",
+            "description": "Interval to aggregate (multiple of the histogram granularity).",
+            "example": "1m"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Inclusive start of the query window."
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Exclusive end of the query window."
+          },
+          "percentiles": {
+            "type": "array",
+            "description": "Optional percentile list (0–1). Defaults to the metric definition.",
+            "items": {
+              "type": "number",
+              "format": "double"
+            },
+            "example": [
+              0.5,
+              0.9,
+              0.99
+            ]
+          },
+          "limits": {
+            "$ref": "#/components/schemas/CounterPageLimits"
+          }
+        },
+        "required": [
+          "serviceKey",
+          "eventType",
+          "histogramName"
+        ]
+      },
+      "StateTransitionQueryRequestPayload": {
+        "type": "object",
+        "description": "State transition query payload.",
+        "properties": {
+          "serviceKey": {
+            "type": "string",
+            "description": "Service slug.",
+            "example": "payments"
+          },
+          "objectType": {
+            "type": "string",
+            "description": "Logical object being tracked (e.g., UserProfile, Job).",
+            "example": "UserProfile"
+          },
+          "attribute": {
+            "type": "string",
+            "description": "Attribute path that represents the state (e.g., `user.status`).",
+            "example": "user.status"
+          },
+          "fromStates": {
+            "type": "array",
+            "description": "Optional list of source states to include. Use \"*\" for all states and \"(none)\" (case-insensitive) to include the implicit placeholder for previously unseen states.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "toStates": {
+            "type": "array",
+            "description": "Optional list of destination states to include. Accepts \"*\" for any state.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "interval": {
+            "type": "string",
+            "description": "Interval to aggregate (must align to supported buckets such as 5s, 1m, 5m, 1h, 1d, 7d).",
+            "example": "5m"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Inclusive start of the query window."
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Exclusive end of the query window."
+          },
+          "limits": {
+            "$ref": "#/components/schemas/CounterPageLimits"
+          }
+        },
+        "required": [
+          "serviceKey",
+          "objectType",
+          "attribute"
+        ]
+      },
+      "StateTransitionQueryHalResponse": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "intervals": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "start": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "end": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "transitions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "fromState": {
+                            "type": "string"
+                          },
+                          "toState": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "links": {
+            "type": "object"
+          }
+        }
+      },
+      "HistogramQueryHalResponse": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "intervals": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "from": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "to": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "series": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
+                          "samples": {
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "sum": {
+                            "type": "number",
+                            "format": "double"
+                          },
+                          "mean": {
+                            "type": "number",
+                            "format": "double"
+                          },
+                          "percentiles": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "number",
+                              "format": "double"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "links": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "href": {
+                  "type": "string"
+                },
+                "method": {
+                  "type": "string"
+                },
+                "body": {
+                  "type": "object"
+                }
+              }
+            },
+            "minimum": 1
+          }
+        }
+      },
+      "CounterQueryHalResponse": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "description": "Number of intervals in this page.",
+            "example": 1,
+            "minimum": 0
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total number of intervals across the entire range.",
+            "example": 120,
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Page size (intervals) in effect for this response.",
+            "example": 24,
+            "minimum": 0
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Zero-based starting interval index for this page.",
+            "example": 0,
+            "minimum": 0
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "intervals": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CounterQueryInterval"
+                }
+              }
+            }
+          },
+          "links": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/HalActionLink"
+            }
+          }
+        },
+        "required": [
+          "count",
+          "total",
+          "limit",
+          "offset",
+          "data"
+        ]
+      },
+      "CounterQueryInterval": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Inclusive start of the interval.",
+            "example": "2025-01-01T00:00:00Z"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Exclusive end of the interval.",
+            "example": "2025-01-01T00:05:00Z"
+          },
+          "counts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CounterIntervalCount"
+            }
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "counts"
+        ]
+      },
+      "CounterIntervalCount": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "object",
+            "description": "Key combination represented by this count.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "region": "us-east",
+              "http.status_code_group": "2xx"
+            }
+          },
+          "count": {
+            "type": "integer",
+            "description": "Total count for the interval and key combination.",
+            "example": 128,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "key",
+          "count"
+        ]
+      },
+      "Query": {
+        "type": "object",
+        "description": "OB-JQL request payload for search.",
+        "properties": {
+          "service": {
+            "type": "string",
+            "description": "Service slug (e.g., `payments`).",
+            "example": "payments",
+            "minLength": 1,
+            "maxLength": 63
+          },
+          "event": {
+            "type": "string",
+            "description": "The canonical event name to search for.",
+            "example": "http_request",
+            "minLength": 1,
+            "maxLength": 63
+          },
+          "period": {
+            "$ref": "#/components/schemas/Period"
+          },
+          "matches": {
+            "type": "array",
+            "description": "Indexed predicates for fast lookup.",
+            "items": {
+              "$ref": "#/components/schemas/MatchPredicate"
+            }
+          },
+          "filter": {
+            "$ref": "#/components/schemas/FilterExpr"
+          },
+          "orders": {
+            "type": "array",
+            "description": "Sort order directives.",
+            "items": {
+              "$ref": "#/components/schemas/OrderBy"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of events to return in this page. Use together with `offset` to page through large result sets without overfetching.",
+            "example": 100,
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Zero-based index of the first event to include in the page. Set to 0 for the first page and increase by `limit` for subsequent pages.",
+            "example": 0,
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "tz": {
+            "type": "string",
+            "description": "IANA timezone for rendering timestamps.",
+            "example": "Europe/Dublin",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "service",
+          "event",
+          "period"
+        ]
+      },
+      "Period": {
+        "type": "object",
+        "description": "Defines the query time window.",
+        "properties": {
+          "previous": {
+            "type": "string",
+            "description": "Durational lookback window (e.g., `1h`, `24h`).",
+            "example": "1h",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "since": {
+            "type": "string",
+            "description": "Relative duration or absolute RFC3339 timestamp.",
+            "example": "-1h",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "betweenTimestamps": {
+            "type": "array",
+            "description": "Inclusive UTC start and end instants (two RFC3339 timestamps).",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "string",
+              "format": "date-time",
+              "minLength": 20,
+              "maxLength": 64
+            },
+            "example": [
+              "2025-09-15T00:00:00Z",
+              "2025-09-15T06:00:00Z"
+            ]
+          }
+        }
+      },
+      "MatchPredicate": {
+        "type": "object",
+        "description": "Condition over an indexed attribute.",
+        "properties": {
+          "attribute": {
+            "type": "string",
+            "description": "Indexed attribute path (e.g., `http.status`, `api.name`).",
+            "example": "http.status",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "operator": {
+            "type": "string",
+            "description": "Comparison operator. Allowed values: =, !=, >, >=, <, <=, like, ilike, in, not in.",
+            "example": "!=",
+            "minLength": 1,
+            "maxLength": 16
+          },
+          "value": {
+            "description": "Value to compare.",
+            "example": 500
+          }
+        },
+        "required": [
+          "attribute",
+          "operator",
+          "value"
+        ]
+      },
+      "FilterExpr": {
+        "description": "Recursive filter expression.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/FilterCmp"
+          },
+          {
+            "$ref": "#/components/schemas/FilterAnd"
+          },
+          {
+            "$ref": "#/components/schemas/FilterOr"
+          }
+        ]
+      },
+      "FilterCmp": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Dot path in the event.",
+            "example": "attributes.api.name",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "operator": {
+            "type": "string",
+            "description": "Comparison operator. Allowed values: =, !=, >, >=, <, <=, like, ilike, in, not in.",
+            "example": "like",
+            "minLength": 1,
+            "maxLength": 16
+          },
+          "value": {
+            "description": "Value to compare against.",
+            "example": "%account%"
+          }
+        },
+        "required": [
+          "path",
+          "operator",
+          "value"
+        ]
+      },
+      "FilterAnd": {
+        "type": "object",
+        "properties": {
+          "allConditions": {
+            "type": "array",
+            "description": "All child expressions must be true.",
+            "items": {
+              "$ref": "#/components/schemas/FilterExpr"
+            }
+          }
+        }
+      },
+      "FilterOr": {
+        "type": "object",
+        "properties": {
+          "anyConditions": {
+            "type": "array",
+            "description": "At least one child expression must be true.",
+            "items": {
+              "$ref": "#/components/schemas/FilterExpr"
+            }
+          }
+        }
+      },
+      "OrderBy": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "description": "Field name to sort by.",
+            "example": "time.startedAt",
+            "minLength": 3,
+            "maxLength": 63
+          },
+          "direction": {
+            "type": "string",
+            "description": "Sort direction. Allowed values: asc, desc.",
+            "example": "desc",
+            "minLength": 3,
+            "maxLength": 10
+          }
+        },
+        "required": [
+          "field"
+        ]
+      },
+      "SearchResponseHAL": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "description": "Number of items in the current page.",
+            "example": 10,
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total number of items across all pages.",
+            "example": 250,
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "limit": {
+            "type": "integer",
+            "description": "The page size applied when generating this response.",
+            "example": 100,
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "offset": {
+            "type": "integer",
+            "description": "The zero-based starting index of this page.",
+            "example": 0,
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "events": {
+                "type": "array",
+                "description": "Event rows matching the query.",
+                "items": {
+                  "$ref": "#/components/schemas/EventEnvelope"
+                }
+              }
+            }
+          },
+          "links": {
+            "type": "object",
+            "description": "HAL-style navigational links for this result page. Each property name is a link relation (e.g., `self`, `first`, `next`) and the value is a callable HAL action that a client can follow to reproduce the query or paginate.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/HalActionLink"
+            },
+            "example": {
+              "self": {
+                "href": "/api/search/events",
+                "method": "POST",
+                "body": {
+                  "service": "payments",
+                  "event": "http_request",
+                  "period": {
+                    "since": "-1h"
+                  }
+                }
+              },
+              "first": {
+                "href": "/api/search/events",
+                "method": "POST",
+                "body": {
+                  "service": "payments",
+                  "event": "http_request",
+                  "period": {
+                    "since": "-1h"
+                  },
+                  "limit": 100,
+                  "offset": 0
+                }
+              },
+              "next": {
+                "href": "/api/search/events",
+                "method": "POST",
+                "body": {
+                  "service": "payments",
+                  "event": "http_request",
+                  "period": {
+                    "since": "-1h"
+                  },
+                  "limit": 100,
+                  "offset": 100
+                }
+              }
+            }
+          }
+        }
+      },
+      "HalActionLink": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string",
+            "description": "The URL that represents this link relation.",
+            "example": "/api/search/events",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "method": {
+            "type": "string",
+            "description": "The HTTP method to use when invoking `href`.",
+            "example": "POST",
+            "minLength": 3,
+            "maxLength": 10
+          },
+          "body": {
+            "type": "object",
+            "description": "Optional request body for link invocation.",
+            "example": {
+              "service": "payments",
+              "event": "http_request",
+              "period": {
+                "since": "-1h"
+              }
+            }
+          }
+        },
+        "required": [
+          "href",
+          "method"
+        ]
+      },
+      "Accepted": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Outcome for the ingest request.",
+            "example": "accepted",
+            "minLength": 1,
+            "maxLength": 63
+          },
+          "eventId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Server-assigned identifier for the event.",
+            "example": "2cbb7a45-d7d5-4f6c-b7a8-1d2b8c52c88a"
+          }
+        },
+        "required": [
+          "status",
+          "eventId"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Machine-readable error code.",
+            "example": "VALIDATION_ERROR",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable error message.",
+            "example": "Missing required field: event.name",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "details": {
+            "type": "object",
+            "description": "Optional structured context for the error.",
+            "example": {
+              "field": "event.name"
+            }
+          }
+        }
+      },
+      "StateCountQueryRequestPayload": {
+        "type": "object",
+        "properties": {
+          "serviceKey": {
+            "type": "string"
+          },
+          "objectType": {
+            "type": "string"
+          },
+          "attribute": {
+            "type": "string"
+          },
+          "states": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limits": {
+            "$ref": "#/components/schemas/CounterPageLimits"
+          }
+        },
+        "required": [
+          "serviceKey",
+          "objectType",
+          "attribute"
+        ]
+      },
+      "StateCountQueryHalResponse": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "states": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "links": {
+            "type": "object"
+          }
+        }
+      },
+      "StateCountTimeseriesQueryRequestPayload": {
+        "type": "object",
+        "properties": {
+          "serviceKey": {
+            "type": "string"
+          },
+          "objectType": {
+            "type": "string"
+          },
+          "attribute": {
+            "type": "string"
+          },
+          "states": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "interval": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string"
+          },
+          "end": {
+            "type": "string"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/CounterPageLimits"
+          }
+        },
+        "required": [
+          "serviceKey",
+          "objectType",
+          "attribute"
+        ]
+      },
+      "StateCountTimeseriesQueryHalResponse": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "intervals": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "start": {
+                      "type": "string"
+                    },
+                    "end": {
+                      "type": "string"
+                    },
+                    "states": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "state": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "links": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}

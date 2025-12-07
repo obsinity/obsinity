@@ -228,7 +228,43 @@ Response mirrors the events search structure but emits `intervals` instead of ro
 
 ---
 
-## 5) Response Experience (HAL‑compliant)
+## 5) State counters & time series (new)
+
+**State detection** watches configured `stateExtractors` (per object type + attribute). When an incoming event changes a tracked attribute, Obsinity updates the live snapshot, records the transition, and emits metrics without requiring explicit `state.change` events.
+
+**Queries**
+
+* **Transitions** — `/api/query/state-transitions` returns `from → to` counts per interval (5s→7d rollups) with HAL links for paging.
+* **Current snapshot** — `/api/query/state-counts` returns the latest distribution for an extractor, HAL‑paginated.
+* **Time series snapshots (new)** — `/api/query/state-count-timeseries` samples the live snapshot once per minute and writes aligned snapshots into rollups (`1m`, `5m`, `1h`, `1d`). Any interval that is a whole‑minute multiple is supported (`30m`, `4h`, `2d`); non‑rollup intervals are sampled, not aggregated.
+
+Sample request:
+
+```http
+POST /api/query/state-count-timeseries
+Content-Type: application/json
+
+{
+  "serviceKey": "payments",
+  "objectType": "UserProfile",
+  "attribute": "user.status",
+  "states": ["ACTIVE", "ARCHIVED"],
+  "interval": "30m",
+  "start": "2025-11-03T10:00:00Z",
+  "end": "2025-11-03T14:00:00Z",
+  "limits": { "offset": 0, "limit": 16 }
+}
+```
+
+Behaviours & knobs:
+
+* Start/end default to the earliest available snapshot (or the last 7 days) through now; both are aligned to minute boundaries.
+* HAL response includes `links.self/prev/next` so dashboards can scroll the interval list.
+* Toggle with `obsinity.stateCounts.timeseries.enabled` (default `true`); adjust cadence via `obsinity.stateCounts.timeseries.snapshotRateMillis` (default `60000`).
+
+---
+
+## 6) Response Experience (HAL‑compliant)
 
 Obsinity’s API responses are **HAL‑compliant**, making them navigable and self‑describing with embedded `links`. Your sample response illustrates the pattern:
 
@@ -270,7 +306,7 @@ Obsinity’s API responses are **HAL‑compliant**, making them navigable and se
 
 ---
 
-## 6) What Obsinity does for you (behind the scenes)
+## 7) What Obsinity does for you (behind the scenes)
 
 * **Append‑only raw store**: durable, time‑partitioned by `service` for efficient pruning & scans.
 * **Attribute index**: selective inverted maps over popular paths (configurable) for sub‑second lookups.
@@ -280,7 +316,7 @@ Obsinity’s API responses are **HAL‑compliant**, making them navigable and se
 
 ---
 
-## 7) Developer ergonomics & principles
+## 8) Developer ergonomics & principles
 
 * **Name it once**: keep `event.name` stable (e.g., `http_request`). Specialize via attributes.
 * **Be generous with attributes**: anything you’ll need for slicing should be an attribute. Indexing makes it fast later.
@@ -289,9 +325,7 @@ Obsinity’s API responses are **HAL‑compliant**, making them navigable and se
 * **Readable queries**: OB‑SQL mirrors OB‑JQL but is optimized for human reading & dashboards.
 * **HAL everywhere**: responses are HAL‑compliant, making pagination and navigation consistent.
 
----
-
-## 8) Local Developer Loop
+## 9) Local Developer Loop
 
 * **Spin up** Obsinity Engine + PostgreSQL locally.
 * **Emit** sample events (curl/SDK) and **query immediately** in the CLI/UI.
@@ -300,7 +334,7 @@ Obsinity’s API responses are **HAL‑compliant**, making them navigable and se
 
 ---
 
-## 9) Production Posture
+## 10) Production Posture
 
 * **Throughput**: client‑side batching & async; horizontal ingest scaling.
 * **Durability**: raw before rollups; safe restarts and idempotent recompute.
@@ -309,7 +343,7 @@ Obsinity’s API responses are **HAL‑compliant**, making them navigable and se
 
 ---
 
-## 10) Quick Patterns & Gotchas
+## 11) Quick Patterns & Gotchas
 
 * **Use `match` for speed**: place high‑cardinality, frequently‑filtered fields in the index (or request indexing).
 * **Folded values**: you can derive groups like `2xx`/`4xx`/`5xx` later without changing producers.
@@ -320,7 +354,7 @@ Obsinity’s API responses are **HAL‑compliant**, making them navigable and se
 
 ---
 
-## 11) One‑page DX checklist
+## 12) One‑page DX checklist
 
 * [ ] Stable `event.name` and `resource.service.name`.
 * [ ] `started_at` set in UTC (ISO‑8601).

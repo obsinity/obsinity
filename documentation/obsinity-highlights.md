@@ -32,6 +32,7 @@ Obsinity unifies raw event storage, multi-dimensional metrics, state tracking, a
 
 - `stateExtractors` point at any attribute path (including dotted/nested paths). When incoming events change those attributes, `StateDetectionService` updates snapshots and transition buffers.
 - Queries: `/api/query/state-transitions` returns `from → to` counts per interval, exposed via HAL so UX can paginate/scroll.
+- Snapshot time series: `/api/query/state-count-timeseries` samples the live snapshot every minute, aligns to rollups (`1m`, `5m`, `1h`, `1d`), and accepts any whole‑minute interval (`30m`, `2h`, `2d`) for point‑in‑time trend lines without replaying transitions.
 
 ## HAL-Style Responses With Interval Support
 

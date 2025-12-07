@@ -427,6 +427,70 @@ paths:
                     attribute: 'user.status'
                     states: ['ACTIVE', 'BLOCKED', 'ARCHIVED']
                     limits: { offset: 0, limit: 20 }
+  /api/query/state-count-timeseries:
+    post:
+      tags: ['StateCounts']
+      summary: 'Query historical state count snapshots'
+      description: 'Return aligned snapshots of state counts over time (HAL).'
+      operationId: 'queryStateCountTimeseries'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StateCountTimeseriesQueryRequestPayload'
+            example:
+              serviceKey: 'payments'
+              objectType: 'UserProfile'
+              attribute: 'user.status'
+              states: ['ACTIVE', 'ARCHIVED']
+              interval: '30m'
+              start: '2025-11-03T10:00:00Z'
+              end: '2025-11-03T14:00:00Z'
+              limits: { offset: 0, limit: 8 }
+      responses:
+        '200':
+          description: 'HAL-style response with point-in-time state counts per interval.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateCountTimeseriesQueryHalResponse'
+              example:
+                count: 8
+                total: 16
+                limit: 8
+                offset: 0
+                data:
+                  intervals:
+                    - start: '2025-11-03T10:00:00Z'
+                      end: '2025-11-03T10:30:00Z'
+                      states:
+                        - { state: 'ACTIVE', count: 4201 }
+                        - { state: 'ARCHIVED', count: 98 }
+                links:
+                  self:
+                    href: '/api/query/state-count-timeseries'
+                    method: 'POST'
+                    body:
+                      serviceKey: 'payments'
+                      objectType: 'UserProfile'
+                      attribute: 'user.status'
+                      states: ['ACTIVE', 'ARCHIVED']
+                      interval: '30m'
+                      start: '2025-11-03T10:00:00Z'
+                      end: '2025-11-03T14:00:00Z'
+                      limits: { offset: 0, limit: 8 }
+                  next:
+                    href: '/api/query/state-count-timeseries'
+                    method: 'POST'
+                    body:
+                      serviceKey: 'payments'
+                      objectType: 'UserProfile'
+                      attribute: 'user.status'
+                      interval: '30m'
+                      start: '2025-11-03T10:00:00Z'
+                      end: '2025-11-03T14:00:00Z'
+                      limits: { offset: 8, limit: 8 }
 
 components:
   schemas:
@@ -1194,5 +1258,63 @@ components:
                     type: string
                   count:
                     type: integer
+        links:
+          type: object
+
+    StateCountTimeseriesQueryRequestPayload:
+      type: object
+      properties:
+        serviceKey:
+          type: string
+        objectType:
+          type: string
+        attribute:
+          type: string
+        states:
+          type: array
+          items:
+            type: string
+        interval:
+          type: string
+        start:
+          type: string
+        end:
+          type: string
+        limits:
+          $ref: '#/components/schemas/CounterPageLimits'
+      required: [serviceKey, objectType, attribute]
+
+    StateCountTimeseriesQueryHalResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        data:
+          type: object
+          properties:
+            intervals:
+              type: array
+              items:
+                type: object
+                properties:
+                  start:
+                    type: string
+                  end:
+                    type: string
+                  states:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        state:
+                          type: string
+                        count:
+                          type: integer
         links:
           type: object

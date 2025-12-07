@@ -263,6 +263,7 @@ Tuning knobs:
 - `obsinity.stateCounts.timeseries.enabled` (default `true`) toggles the snapshot job.
 - `obsinity.stateCounts.timeseries.snapshotRateMillis` (default `60000`) controls the cadence.
 - Supported intervals: `"1m"` (raw snapshot), `"5m"`, `"1h"`, `"1d"` rollups, and any other duration that is a multiple of one minute (e.g., `"30m"`, `"4h"`, `"2d"`). Non-rollup intervals reuse the `1m` snapshot taken at that minute; we simply drop the seconds component of your request and step forward by the interval.
+- If you omit `start`/`end`, the query uses the earliest available snapshot (or a 7-day default window) through “now,” and both boundaries are aligned to minute precision.
 
 ## REST State Count Query
 
@@ -309,7 +310,7 @@ If `states` is omitted, all states are returned (subject to `limit`). Counts are
 
 | Module | Default port | Purpose / Endpoints |
 | ------ | ------------ | ------------------- |
-| `obsinity-controller-rest` | 8080 (see `application.yml`) | `/events/publish`(single), `/events/publish/batch`, `/api/search/events`, `/api/catalog/*`, `/api/objql/query`, `/api/query/counters`, `/api/histograms/query`, `/api/query/state-transitions`, `/api/query/state-counts`. |
+| `obsinity-controller-rest` | 8080 (see `application.yml`) | `/events/publish`(single), `/events/publish/batch`, `/api/search/events`, `/api/catalog/*`, `/api/objql/query`, `/api/query/counters`, `/api/histograms/query`, `/api/query/state-transitions`, `/api/query/state-counts`, `/api/query/state-count-timeseries`. |
 | `obsinity-controller-admin` | 8080 (inherits Spring Boot default when run standalone) | `/api/admin/config/ready`, `/api/admin/config/service` (JSON `ServiceConfig` ingest), `/api/admin/configs/import` (tar/tgz CRD archives). |
 | `obsinity-ingest-rabbitmq` | n/a (worker) | Spring Boot worker that consumes canonical Obsinity payloads from `obsinity.ingest.rmq.queue` (default `obsinity.events`) and pushes them through `EventIngestService`. Enable with `obsinity.ingest.rmq.enabled=true`. |
 | `obsinity-ingest-kafka` | n/a (worker) | Spring Boot worker built on Spring Kafka. Reads from `obsinity.ingest.kafka.topic` using the configured bootstrap servers/group/client IDs and hands each payload to the same ingest pipeline. Enable with `obsinity.ingest.kafka.enabled=true`. |
