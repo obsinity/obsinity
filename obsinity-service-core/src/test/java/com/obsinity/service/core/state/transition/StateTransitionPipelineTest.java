@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -41,7 +42,8 @@ class StateTransitionPipelineTest {
         StateTransitionPersistService.BatchItem item = persistService.captured.get(0);
         assertThat(item.fromState()).isEqualTo("ACTIVE");
         assertThat(item.toState()).isEqualTo("BLOCKED");
-        assertThat(buffer.getBuffer(CounterGranularity.S5).get(epoch)).isNullOrEmpty();
+        assertThat(buffer.getBuffer(CounterGranularity.S5).getOrDefault(epoch, new ConcurrentHashMap<>()))
+                .isEmpty();
     }
 
     @Test
@@ -71,7 +73,8 @@ class StateTransitionPipelineTest {
         StateTransitionPersistService.BatchItem item = persistService.captured.get(0);
         assertThat(item.fromState()).isEqualTo("(none)");
         assertThat(item.toState()).isEqualTo("ACTIVE");
-        assertThat(buffer.getBuffer(CounterGranularity.S5).get(epoch)).isNullOrEmpty();
+        assertThat(buffer.getBuffer(CounterGranularity.S5).getOrDefault(epoch, new ConcurrentHashMap<>()))
+                .isEmpty();
     }
 
     private static final class RecordingPersistService extends StateTransitionPersistService {
