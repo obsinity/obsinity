@@ -19,6 +19,9 @@ public class FlowProcessorSupport {
     public static final String STEP_EXECUTED_WITH_NO_ACTIVE_FLOW_AUTO_PROMOTED_TO_FLOW =
             "Step '{}' executed with no active Flow; auto-promoted to Flow.";
 
+    /** Flag to control whether telemetry is enabled. When false, all operations become no-ops. */
+    private volatile boolean enabled = true;
+
     /** Per-thread stack of active flows/holders (top = current). */
     private final InheritableThreadLocal<Deque<FlowEvent>> ctx;
 
@@ -43,15 +46,37 @@ public class FlowProcessorSupport {
         };
     }
 
+    /* --------------------- enabled flag --------------------- */
+
+    /**
+     * Returns whether telemetry is enabled.
+     *
+     * @return {@code true} if telemetry is enabled (default), {@code false} if disabled
+     */
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    /**
+     * Sets whether telemetry is enabled.
+     * When disabled, most operations become no-ops to minimize overhead.
+     *
+     * @param enabled {@code true} to enable telemetry, {@code false} to disable
+     */
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
     /* --------------------- flow stack --------------------- */
 
-    public FlowEvent currentHolder() {
+    public FlowEvent currentContext() {
+        if (!enabled) return null;
         final Deque<FlowEvent> d = ctx.get();
         return d.isEmpty() ? null : d.peekLast();
     }
 
-    /** Returns the holder just below the current top (the parent), or null if none. */
-    FlowEvent currentHolderBelowTop() {
+    /** Returns the context just below the current top (the parent), or null if none. */
+    FlowEvent currentContextBelowTop() {
         final Deque<FlowEvent> d = ctx.get();
         if (d.size() < 2) return null;
         final var it = d.descendingIterator();

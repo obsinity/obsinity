@@ -87,16 +87,16 @@ public class DefaultFlowProcessor implements FlowProcessor {
         }
 
         if (support != null) {
-            FlowEvent top = support.currentHolder();
-            if (top != null) {
-                top.attributes().map().putAll(attrs);
-                top.eventContext().putAll(ctx);
-                top.eventContext().put(LIFECYCLE, COMPLETED);
-                applyCompletionMeta(top, meta);
+            FlowEvent context = support.currentContext();
+            if (context != null) {
+                context.attributes().map().putAll(attrs);
+                context.eventContext().putAll(ctx);
+                context.eventContext().put(LIFECYCLE, COMPLETED);
+                applyCompletionMeta(context, meta);
             }
             support.clearBatchAfterDispatch();
-            support.pop(top);
-            if (asyncBus != null && top != null) asyncBus.dispatch(top);
+            support.pop(context);
+            if (asyncBus != null && context != null) asyncBus.dispatch(context);
         }
     }
 
@@ -118,46 +118,46 @@ public class DefaultFlowProcessor implements FlowProcessor {
         }
 
         if (support != null) {
-            FlowEvent top = support.currentHolder();
-            if (top != null) {
-                top.attributes().map().putAll(attrs);
-                top.eventContext().putAll(ctx);
-                top.eventContext().put(LIFECYCLE, "FAILED");
-                if (error != null) top.setThrowable(error);
-                applyCompletionMeta(top, meta);
+            FlowEvent context = support.currentContext();
+            if (context != null) {
+                context.attributes().map().putAll(attrs);
+                context.eventContext().putAll(ctx);
+                context.eventContext().put(LIFECYCLE, "FAILED");
+                if (error != null) context.setThrowable(error);
+                applyCompletionMeta(context, meta);
             }
             support.clearBatchAfterDispatch();
-            support.pop(top);
-            if (asyncBus != null && top != null) asyncBus.dispatch(top);
+            support.pop(context);
+            if (asyncBus != null && context != null) asyncBus.dispatch(context);
         }
     }
 
-    private void applyMeta(FlowEvent holder, FlowMeta meta) {
-        if (holder == null || meta == null) return;
+    private void applyMeta(FlowEvent context, FlowMeta meta) {
+        if (context == null || meta == null) return;
         if (meta.kind() != null) {
             try {
-                holder.kind(SpanKind.valueOf(meta.kind()));
+                context.kind(SpanKind.valueOf(meta.kind()));
             } catch (Exception ignore) {
-                holder.kind(SpanKind.INTERNAL);
+                context.kind(SpanKind.INTERNAL);
             }
         }
         if (meta.traceId() != null || meta.spanId() != null || meta.parentSpanId() != null) {
-            holder.trace(meta.traceId(), meta.spanId(), meta.parentSpanId());
+            context.trace(meta.traceId(), meta.spanId(), meta.parentSpanId());
         }
         if (meta.tracestate() != null && !meta.tracestate().isBlank()) {
-            holder.attributes().put("trace.tracestate", meta.tracestate());
+            context.attributes().put("trace.tracestate", meta.tracestate());
         }
     }
 
-    private void applyCompletionMeta(FlowEvent holder, FlowMeta meta) {
-        applyMeta(holder, meta);
-        if (holder == null || meta == null) return;
+    private void applyCompletionMeta(FlowEvent context, FlowMeta meta) {
+        applyMeta(context, meta);
+        if (context == null || meta == null) return;
         if (meta.statusCode() != null) {
             try {
                 StatusCode code = StatusCode.valueOf(meta.statusCode());
-                holder.setStatus(new OStatus(code, meta.statusMessage()));
+                context.setStatus(new OStatus(code, meta.statusMessage()));
             } catch (Exception ignore) {
-                holder.setStatus(new OStatus(StatusCode.UNSET, meta.statusMessage()));
+                context.setStatus(new OStatus(StatusCode.UNSET, meta.statusMessage()));
             }
         }
     }

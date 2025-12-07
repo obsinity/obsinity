@@ -9,14 +9,22 @@ import com.obsinity.flow.processor.FlowProcessorSupport;
 import com.obsinity.flow.validation.FlowAttributeValidator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 
 @AutoConfiguration
-@Import({FlowAspect.class, FlowSupportAutoConfiguration.class})
+@EnableConfigurationProperties(ObsinityCollectionProperties.class)
+@Import({FlowSupportAutoConfiguration.class})
 @ComponentScan(basePackages = "com.obsinity.collection.spring.validation")
 public class CollectionAutoConfiguration {
+
+    @Bean
+    public FlowAspect flowAspect(
+            FlowProcessor processor, FlowProcessorSupport support, ObsinityCollectionProperties properties) {
+        return new FlowAspect(processor, support, properties);
+    }
 
     @Bean
     public AsyncDispatchBus asyncDispatchBus(FlowHandlerRegistry registry) {

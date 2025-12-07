@@ -34,50 +34,58 @@ public class FlowContext {
         putAllAttrs(map);
     }
 
-    /** Adds a single attribute to the current holder and returns the same typed value. */
+    /** Adds a single attribute to the current context and returns the same typed value. */
     public <T> T putAttr(String key, T value) {
+        // No-op if telemetry is disabled - check first for best performance
+        if (!support.isEnabled()) return value;
         if (key == null || key.isBlank()) return value;
-        FlowEvent holder = support.currentHolder();
-        if (holder != null) {
-            holder.attributes().put(key, value);
+        FlowEvent context = support.currentContext();
+        if (context != null) {
+            context.attributes().put(key, value);
         }
         return value;
     }
 
-    /** Adds all entries as attributes to the current holder. */
+    /** Adds all entries as attributes to the current context. */
     public void putAllAttrs(Map<String, ?> map) {
+        // No-op if telemetry is disabled - check first for best performance
+        if (!support.isEnabled()) return;
         if (map == null || map.isEmpty()) return;
-        FlowEvent holder = support.currentHolder();
-        if (holder == null) return;
+        FlowEvent context = support.currentContext();
+        if (context == null) return;
 
         map.forEach((k, v) -> {
             if (k != null && !k.isBlank()) {
-                holder.attributes().put(k, v);
+                context.attributes().put(k, v);
             }
         });
     }
 
     /* ===================== EventContext (ephemeral) ===================== */
 
-    /** Adds a single EventContext entry to the current holder and returns the same typed value. */
+    /** Adds a single EventContext entry to the current context and returns the same typed value. */
     public <T> T putContext(String key, T value) {
+        // No-op if telemetry is disabled - check first for best performance
+        if (!support.isEnabled()) return value;
         if (key == null || key.isBlank()) return value;
-        FlowEvent holder = support.currentHolder();
-        if (holder != null) {
-            holder.getEventContext().put(key, value);
+        FlowEvent context = support.currentContext();
+        if (context != null) {
+            context.getEventContext().put(key, value);
         }
         return value;
     }
 
-    /** Adds all entries to the EventContext of the current holder. */
+    /** Adds all entries to the EventContext of the current context. */
     public void putAllContext(Map<String, ?> map) {
+        // No-op if telemetry is disabled - check first for best performance
+        if (!support.isEnabled()) return;
         if (map == null || map.isEmpty()) return;
-        FlowEvent holder = support.currentHolder();
-        if (holder == null) return;
+        FlowEvent context = support.currentContext();
+        if (context == null) return;
 
         map.forEach((k, v) -> {
             if (k != null && !k.isBlank()) {
-                holder.getEventContext().put(k, v);
+                context.getEventContext().put(k, v);
             }
         });
     }

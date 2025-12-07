@@ -198,7 +198,7 @@ public class FlowEvent {
         }
 
         public FlowEvent build() {
-            FlowEvent holder = new FlowEvent(
+            FlowEvent context = new FlowEvent(
                     name,
                     timestamp,
                     timeUnixNano,
@@ -219,11 +219,11 @@ public class FlowEvent {
                     returnValue,
                     returnValueCaptured);
             if (eventContext != null && !eventContext.isEmpty()) {
-                holder.eventContext().putAll(eventContext);
+                context.eventContext().putAll(eventContext);
             }
-            holder.step = this.step;
-            holder.startNanoTime = this.startNanoTime;
-            return holder;
+            context.step = this.step;
+            context.startNanoTime = this.startNanoTime;
+            return context;
         }
     }
 
@@ -256,10 +256,12 @@ public class FlowEvent {
 
     /* ── EventContext (flow-scoped, non-serialized) ──────────────── */
     @JsonIgnore
+    @SuppressWarnings("squid:S1948") // Transient field used intentionally for non-serialized flow context
     private transient Map<String, Object> eventContext = new LinkedHashMap<>();
 
     /* ── Error/exception context (non-serialized) ────────────────── */
     @JsonIgnore
+    @SuppressWarnings("squid:S1948") // Transient field used intentionally for error context
     private transient Throwable throwable;
 
     /* ── Event cursor for nested steps (legacy helpers) ──────────── */
@@ -268,9 +270,11 @@ public class FlowEvent {
 
     /* ── Step emulation metadata (non-serialized) ────────────────── */
     @JsonIgnore
-    private transient boolean step; // true if this holder represents a promoted step
+    @SuppressWarnings("squid:S1948") // Transient field used intentionally for step metadata
+    private transient boolean step; // true if this context represents a promoted step
 
     @JsonIgnore
+    @SuppressWarnings("squid:S1948") // Transient field used intentionally for timing calculations
     private transient long startNanoTime; // monotonic start for accurate duration when folding
 
     /** Full constructor (validates service id consistency). */
@@ -538,48 +542,135 @@ public class FlowEvent {
     }
 
     @SuppressWarnings("unchecked")
+    /**
+     * Gets an attribute value converted to the specified type.
+     * Supports automatic conversion between compatible types (Number, String, Boolean).
+     *
+     * @param key the attribute key
+     * @param type the target type
+     * @return the converted value, or null if attribute doesn't exist
+     * @throws IllegalArgumentException if conversion is not possible
+     */
     public <T> T attr(String key, Class<T> type) {
         Object v = attrRaw(key);
         if (v == null) return null;
+
+        // Direct type match - no conversion needed
         if (type.isInstance(v)) return (T) v;
+
+        // String conversion - always possible
         if (type == String.class) return (T) String.valueOf(v);
+
+        // Delegate to type-specific converter
+        return convertToType(key, v, type);
+    }
+
+    /**
+     * Converts a value to the specified target type.
+     * Delegates to type-specific conversion methods.
+     */
+    @SuppressWarnings("unchecked")
+    private <T> T convertToType(String key, Object v, Class<T> type) {
         if (type == Boolean.class || type == boolean.class) {
-            if (v instanceof Boolean b) return (T) b;
-            if (v instanceof Number n) return (T) Boolean.valueOf(n.intValue() != 0);
-            if (v instanceof String s) {
-                String ss = s.trim();
-                if ("1".equals(ss)) return (T) Boolean.TRUE;
-                if ("0".equals(ss)) return (T) Boolean.FALSE;
-                return (T) Boolean.valueOf(Boolean.parseBoolean(ss));
-            }
-            throw new IllegalArgumentException("Cannot convert " + v.getClass().getName() + " to boolean");
+            return (T) convertToBoolean(v);
         }
         if (type == Integer.class || type == int.class) {
-            if (v instanceof Number n) return (T) Integer.valueOf(n.intValue());
-            if (v instanceof String s) return (T) Integer.valueOf(Integer.parseInt(s));
+            return (T) convertToInteger(v);
         }
         if (type == Long.class || type == long.class) {
-            if (v instanceof Number n) return (T) Long.valueOf(n.longValue());
-            if (v instanceof String s) return (T) Long.valueOf(Long.parseLong(s));
+            return (T) convertToLong(v);
         }
         if (type == Double.class || type == double.class) {
-            if (v instanceof Number n) return (T) Double.valueOf(n.doubleValue());
-            if (v instanceof String s) return (T) Double.valueOf(Double.parseDouble(s));
+            return (T) convertToDouble(v);
         }
         if (type == Float.class || type == float.class) {
-            if (v instanceof Number n) return (T) Float.valueOf(n.floatValue());
-            if (v instanceof String s) return (T) Float.valueOf(Float.parseFloat(s));
+            return (T) convertToFloat(v);
         }
         if (type == Short.class || type == short.class) {
-            if (v instanceof Number n) return (T) Short.valueOf(n.shortValue());
-            if (v instanceof String s) return (T) Short.valueOf(Short.parseShort(s));
+            return (T) convertToShort(v);
         }
         if (type == Byte.class || type == byte.class) {
-            if (v instanceof Number n) return (T) Byte.valueOf(n.byteValue());
-            if (v instanceof String s) return (T) Byte.valueOf(Byte.parseByte(s));
+            return (T) convertToByte(v);
         }
+
         throw new IllegalArgumentException("Attribute '" + key + "' is "
                 + v.getClass().getName() + " and cannot be converted to " + type.getName());
+    }
+
+    /**
+     * Converts a value to Boolean.
+     * Supports Boolean, Number (0=false, non-zero=true), and String ("1", "0", "true", "false").
+     */
+    private Boolean convertToBoolean(Object v) {
+        if (v instanceof Boolean b) return b;
+        if (v instanceof Number n) return n.intValue() != 0;
+        if (v instanceof String s) {
+            String trimmed = s.trim();
+            if ("1".equals(trimmed)) return Boolean.TRUE;
+            if ("0".equals(trimmed)) return Boolean.FALSE;
+            return Boolean.parseBoolean(trimmed);
+        }
+        throw new IllegalArgumentException("Cannot convert " + v.getClass().getName() + " to Boolean");
+    }
+
+    /**
+     * Converts a value to Integer.
+     * Supports Number (with intValue()) and String (parsed).
+     */
+    private Integer convertToInteger(Object v) {
+        if (v instanceof Number n) return n.intValue();
+        if (v instanceof String s) return Integer.parseInt(s);
+        throw new IllegalArgumentException("Cannot convert " + v.getClass().getName() + " to Integer");
+    }
+
+    /**
+     * Converts a value to Long.
+     * Supports Number (with longValue()) and String (parsed).
+     */
+    private Long convertToLong(Object v) {
+        if (v instanceof Number n) return n.longValue();
+        if (v instanceof String s) return Long.parseLong(s);
+        throw new IllegalArgumentException("Cannot convert " + v.getClass().getName() + " to Long");
+    }
+
+    /**
+     * Converts a value to Double.
+     * Supports Number (with doubleValue()) and String (parsed).
+     */
+    private Double convertToDouble(Object v) {
+        if (v instanceof Number n) return n.doubleValue();
+        if (v instanceof String s) return Double.parseDouble(s);
+        throw new IllegalArgumentException("Cannot convert " + v.getClass().getName() + " to Double");
+    }
+
+    /**
+     * Converts a value to Float.
+     * Supports Number (with floatValue()) and String (parsed).
+     */
+    private Float convertToFloat(Object v) {
+        if (v instanceof Number n) return n.floatValue();
+        if (v instanceof String s) return Float.parseFloat(s);
+        throw new IllegalArgumentException("Cannot convert " + v.getClass().getName() + " to Float");
+    }
+
+    /**
+     * Converts a value to Short.
+     * Supports Number (with shortValue()) and String (parsed).
+     */
+    private Short convertToShort(Object v) {
+        if (v instanceof Number n) return n.shortValue();
+        if (v instanceof String s) return Short.parseShort(s);
+        throw new IllegalArgumentException("Cannot convert " + v.getClass().getName() + " to Short");
+    }
+
+    /**
+     * Converts a value to Byte.
+     * Supports Number (with byteValue()) and String (parsed).
+     */
+    private Byte convertToByte(Object v) {
+        if (v instanceof Number n) return n.byteValue();
+        if (v instanceof String s) return Byte.parseByte(s);
+        throw new IllegalArgumentException("Cannot convert " + v.getClass().getName() + " to Byte");
     }
 
     public String attrAsString(String key) {
