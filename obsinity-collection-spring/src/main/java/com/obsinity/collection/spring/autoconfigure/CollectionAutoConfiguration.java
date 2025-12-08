@@ -38,7 +38,8 @@ public class CollectionAutoConfiguration {
             havingValue = "true",
             matchIfMissing = true)
     public FlowAttributeValidator flowAttributeValidator(ObsinityCollectionProperties properties) {
-        return new HibernateEntityDetector(properties.getValidation().getHibernateEntityCheck().getLogLevel());
+        return new HibernateEntityDetector(
+                properties.getValidation().getHibernateEntityCheck().getLogLevel());
     }
 
     @Bean
