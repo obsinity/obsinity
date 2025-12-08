@@ -22,6 +22,19 @@ Modules
 - Flow sinks (`@FlowSink` beans) subscribe to lifecycle callbacks using `@OnFlowStarted`, `@OnFlowCompleted`, `@OnFlowFailure`, `@OnOutcome`, `@OnFlowScope`, and `@RequiredAttributes`. `FlowObsinitySink` and the logging sink are both built with the same hook annotations you can use.
 - `FlowProcessorSupport` maintains a thread-local stack and event batch per root flow. `FlowContext` is cleared after every method exit so async hand-offs do not leak attributes.
 
+### Hibernate entity validation (safe defaults)
+
+By default the Spring starter scans attributes/context for Hibernate/JPA entities and throws on the first match (to avoid LazyInitializationException, proxies, and memory blow-ups). You can tune or disable it:
+
+```yaml
+# application.yml
+obsinity:
+  collection:
+    validation:
+      hibernate-entity-check-enabled: true   # default true; set false to skip the check entirely
+      hibernate-entity-check-log-level: ERROR # ERROR (throws), WARN (log + continue), INFO (log + continue)
+```
+
 Quick Start (Spring)
 1) Add dependencies (choose a transport; WebClient shown):
    - com.obsinity:obsinity-collection-api
