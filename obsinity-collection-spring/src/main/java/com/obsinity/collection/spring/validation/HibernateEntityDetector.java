@@ -41,8 +41,9 @@ import org.slf4j.LoggerFactory;
  * obsinity:
  *   collection:
  *     validation:
- *       hibernate-entity-check-enabled: true   # Enable/disable validation
- *       hibernate-entity-check-log-level: ERROR # ERROR (throws), WARN, INFO
+ *       hibernate-entity-check:
+ *         enabled: true    # Enable/disable validation
+ *         log-level: ERROR # ERROR (throws), WARN, INFO
  * }</pre>
  *
  * @see FlowAttributeValidator

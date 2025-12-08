@@ -31,8 +31,9 @@ By default the Spring starter scans attributes/context for Hibernate/JPA entitie
 obsinity:
   collection:
     validation:
-      hibernate-entity-check-enabled: true   # default true; set false to skip the check entirely
-      hibernate-entity-check-log-level: ERROR # ERROR (throws), WARN (log + continue), INFO (log + continue)
+      hibernate-entity-check:
+        enabled: true    # default true; set false to skip the check entirely
+        log-level: ERROR # ERROR (throws), WARN (log + continue), INFO (log + continue)
 ```
 
 Quick Start (Spring)

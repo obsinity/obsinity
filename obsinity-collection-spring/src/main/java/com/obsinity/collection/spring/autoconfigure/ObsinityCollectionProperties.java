@@ -16,8 +16,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *   collection:
  *     enabled: true  # Enable telemetry (default)
  *     validation:
- *       hibernate-entity-check-enabled: true   # Validate entities (default)
- *       hibernate-entity-check-log-level: ERROR # ERROR (throws), WARN, INFO
+ *       hibernate-entity-check:
+ *         enabled: true   # Validate entities (default)
+ *         log-level: ERROR # ERROR (throws), WARN, INFO
  * }</pre>
  *
  * @see org.springframework.boot.context.properties.ConfigurationProperties
@@ -89,31 +90,40 @@ public class ObsinityCollectionProperties {
      */
     public static class Validation {
 
-        /**
-         * Enable Hibernate entity validation for flow attributes/context.
-         */
-        private boolean hibernateEntityCheckEnabled = true;
+        private final HibernateEntityCheck hibernateEntityCheck = new HibernateEntityCheck();
 
-        /**
-         * Controls how detections are reported when validation is enabled.
-         * ERROR will throw, WARN/INFO log and continue.
-         */
-        private HibernateEntityLogLevel hibernateEntityCheckLogLevel = HibernateEntityLogLevel.ERROR;
-
-        public boolean isHibernateEntityCheckEnabled() {
-            return hibernateEntityCheckEnabled;
+        public HibernateEntityCheck getHibernateEntityCheck() {
+            return hibernateEntityCheck;
         }
 
-        public void setHibernateEntityCheckEnabled(boolean hibernateEntityCheckEnabled) {
-            this.hibernateEntityCheckEnabled = hibernateEntityCheckEnabled;
-        }
+        public static class HibernateEntityCheck {
 
-        public HibernateEntityLogLevel getHibernateEntityCheckLogLevel() {
-            return hibernateEntityCheckLogLevel;
-        }
+            /**
+             * Enable Hibernate entity validation for flow attributes/context.
+             */
+            private boolean enabled = true;
 
-        public void setHibernateEntityCheckLogLevel(HibernateEntityLogLevel hibernateEntityCheckLogLevel) {
-            this.hibernateEntityCheckLogLevel = hibernateEntityCheckLogLevel;
+            /**
+             * Controls how detections are reported when validation is enabled.
+             * ERROR will throw, WARN/INFO log and continue.
+             */
+            private HibernateEntityLogLevel logLevel = HibernateEntityLogLevel.ERROR;
+
+            public boolean isEnabled() {
+                return enabled;
+            }
+
+            public void setEnabled(boolean enabled) {
+                this.enabled = enabled;
+            }
+
+            public HibernateEntityLogLevel getLogLevel() {
+                return logLevel;
+            }
+
+            public void setLogLevel(HibernateEntityLogLevel logLevel) {
+                this.logLevel = logLevel;
+            }
         }
     }
 }

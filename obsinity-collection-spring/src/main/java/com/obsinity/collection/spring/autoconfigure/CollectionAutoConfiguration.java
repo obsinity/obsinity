@@ -33,12 +33,12 @@ public class CollectionAutoConfiguration {
 
     @Bean
     @ConditionalOnProperty(
-            prefix = "obsinity.collection.validation",
-            name = "hibernate-entity-check-enabled",
+            prefix = "obsinity.collection.validation.hibernate-entity-check",
+            name = "enabled",
             havingValue = "true",
             matchIfMissing = true)
     public FlowAttributeValidator flowAttributeValidator(ObsinityCollectionProperties properties) {
-        return new HibernateEntityDetector(properties.getValidation().getHibernateEntityCheckLogLevel());
+        return new HibernateEntityDetector(properties.getValidation().getHibernateEntityCheck().getLogLevel());
     }
 
     @Bean
