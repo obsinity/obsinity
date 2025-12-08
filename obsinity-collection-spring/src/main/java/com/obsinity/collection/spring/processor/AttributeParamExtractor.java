@@ -233,7 +233,8 @@ public final class AttributeParamExtractor {
         if (key != null && !key.isBlank()) {
             // Validate that value is not a Hibernate/JPA entity
             // Throws IllegalArgumentException if entity detected
-            HibernateEntityDetector.checkNotHibernateEntity(key, value);
+            HibernateEntityDetector.checkNotHibernateEntity(
+                    key, value, com.obsinity.collection.spring.validation.HibernateEntityLogLevel.ERROR);
 
             // Store the validated key-value pair
             target.put(key, value);

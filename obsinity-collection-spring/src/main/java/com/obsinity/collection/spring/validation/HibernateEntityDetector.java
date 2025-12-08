@@ -1,12 +1,24 @@
 package com.obsinity.collection.spring.validation;
 
 import com.obsinity.flow.validation.FlowAttributeValidator;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
+import java.lang.reflect.Field;
+import java.lang.reflect.InaccessibleObjectException;
+import java.lang.reflect.Modifier;
+import java.time.temporal.TemporalAccessor;
+import java.util.Collections;
+import java.util.Date;
+import java.util.Deque;
+import java.util.IdentityHashMap;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * Spring-managed component that detects Hibernate entities in flow attributes/context
- * to prevent serialization issues and memory leaks.
+ * Detects Hibernate entities in flow attributes/context to prevent serialization issues and memory leaks.
  *
  * <p>Hibernate entities should not be stored in flow context as they:
  * <ul>
@@ -15,11 +27,6 @@ import org.springframework.stereotype.Component;
  *   <li>May keep database connections/sessions alive</li>
  *   <li>Can cause ThreadLocal leaks via entity manager references</li>
  * </ul>
- *
- * <p>This validator is automatically registered as a Spring bean when the property
- * {@code obsinity.collection.validation.hibernate-entity-check} is {@code true} (default).
- * When disabled, {@link LoggingEntityDetector} is used instead, which logs errors
- * rather than throwing exceptions.
  *
  * <p>The detector checks for:
  * <ul>
@@ -34,77 +41,131 @@ import org.springframework.stereotype.Component;
  * obsinity:
  *   collection:
  *     validation:
- *       hibernate-entity-check: true  # Default: throws exception on entity detection
+ *       hibernate-entity-check-enabled: true   # Enable/disable validation
+ *       hibernate-entity-check-log-level: ERROR # ERROR (throws), WARN, INFO
  * }</pre>
  *
  * @see FlowAttributeValidator
- * @see LoggingEntityDetector
- * @see org.springframework.stereotype.Component
- * @see org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
  */
-@Component
-@ConditionalOnProperty(
-        prefix = "obsinity.collection.validation",
-        name = "hibernate-entity-check",
-        havingValue = "true",
-        matchIfMissing = true)
 public class HibernateEntityDetector implements FlowAttributeValidator {
 
-    /**
-     * Default constructor for Spring dependency injection.
-     * Empty by design - no initialization needed.
-     */
-    public HibernateEntityDetector() {
-        // Empty constructor for Spring component scanning and dependency injection
+    private static final Logger log = LoggerFactory.getLogger(HibernateEntityDetector.class);
+    private static final Set<Class<?>> SIMPLE_TYPES = Set.of(
+            Boolean.class,
+            Byte.class,
+            Short.class,
+            Integer.class,
+            Long.class,
+            Float.class,
+            Double.class,
+            Character.class);
+    private final HibernateEntityLogLevel logLevel;
+
+    public HibernateEntityDetector(HibernateEntityLogLevel logLevel) {
+        this.logLevel = logLevel == null ? HibernateEntityLogLevel.ERROR : logLevel;
     }
 
     @Override
     public void validate(String key, Object value) {
-        checkNotHibernateEntity(key, value);
+        checkNotHibernateEntity(key, value, logLevel);
     }
 
     /**
-     * Check if value is a Hibernate entity and throw exception if so.
+     * Check if value (or nested value) is a Hibernate entity and handle according to log level.
      *
      * @param key the attribute/context key
-     * @param value the value to check
-     * @throws IllegalArgumentException if value is a Hibernate entity
+     * @param value the value to check (including nested collections/fields)
+     * @param level log level to use; ERROR will throw
+     * @throws IllegalArgumentException if value is a Hibernate entity and level is ERROR
      */
-    public static void checkNotHibernateEntity(String key, Object value) {
-        if (value == null) {
-            return;
-        }
+    public static void checkNotHibernateEntity(String key, Object value, HibernateEntityLogLevel level) {
+        if (value == null) return;
+        detect(key, key, value, new IdentityHashMap<>(), level == null ? HibernateEntityLogLevel.ERROR : level);
+    }
+
+    private static void detect(
+            String root, String path, Object value, Map<Object, Boolean> visited, HibernateEntityLogLevel level) {
+        if (value == null) return;
+        if (visited.containsKey(value)) return;
 
         Class<?> clazz = value.getClass();
 
-        // Check for Hibernate proxy
-        if (clazz.getName().contains("$$_javassist_")
-                || clazz.getName().contains("_$$_jvst")
-                || clazz.getName().contains("$HibernateProxy$")) {
-            throw new IllegalArgumentException(String.format(
-                    "Hibernate proxy detected in flow attribute '%s'. "
+        if (isHibernateEntity(clazz)) {
+            String message = String.format(
+                    "Hibernate entity detected in flow attribute '%s' at path '%s'. "
                             + "Hibernate entities must not be stored in flow context. "
                             + "Extract primitive values or DTOs instead. Class: %s",
-                    key, clazz.getName()));
+                    root, path, clazz.getName());
+            if (level == HibernateEntityLogLevel.ERROR) {
+                throw new IllegalArgumentException(message);
+            }
+            if (level == HibernateEntityLogLevel.WARN) {
+                log.warn(message);
+            } else {
+                log.info(message);
+            }
+            return;
         }
 
-        // Check for common Hibernate entity annotations via reflection
-        // This catches non-proxied entities
-        if (hasHibernateEntityAnnotation(clazz)) {
-            throw new IllegalArgumentException(String.format(
-                    "Hibernate entity detected in flow attribute '%s'. "
-                            + "Hibernate entities must not be stored in flow context. "
-                            + "Extract primitive values or DTOs instead. Class: %s",
-                    key, clazz.getName()));
+        if (isTerminalValue(clazz)) return;
+
+        visited.put(value, Boolean.TRUE);
+
+        if (value instanceof Map<?, ?> map) {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                detect(root, path + "[" + String.valueOf(entry.getKey()) + "]", entry.getValue(), visited, level);
+            }
+            return;
         }
 
-        // Check for JPA entity annotations
-        if (hasJpaEntityAnnotation(clazz)) {
-            throw new IllegalArgumentException(String.format(
-                    "JPA entity detected in flow attribute '%s'. " + "JPA entities must not be stored in flow context. "
-                            + "Extract primitive values or DTOs instead. Class: %s",
-                    key, clazz.getName()));
+        if (value instanceof Iterable<?> iterable) {
+            int idx = 0;
+            for (Object element : iterable) {
+                detect(root, path + "[" + idx + "]", element, visited, level);
+                idx++;
+            }
+            return;
         }
+
+        if (clazz.isArray()) {
+            int length = java.lang.reflect.Array.getLength(value);
+            for (int i = 0; i < length; i++) {
+                detect(root, path + "[" + i + "]", java.lang.reflect.Array.get(value, i), visited, level);
+            }
+            return;
+        }
+
+        if (value instanceof Optional<?> optional) {
+            optional.ifPresent(nested -> detect(root, path + ".value", nested, visited, level));
+            return;
+        }
+
+        for (Field field : getAllFields(clazz)) {
+            if (Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers())) {
+                continue;
+            }
+            try {
+                if (!field.canAccess(value)) {
+                    field.setAccessible(true);
+                }
+                Object fieldValue = field.get(value);
+                detect(root, path + "." + field.getName(), fieldValue, visited, level);
+            } catch (IllegalAccessException | InaccessibleObjectException ignored) {
+                // Skip fields we cannot access
+            }
+        }
+    }
+
+    private static boolean isTerminalValue(Class<?> clazz) {
+        return clazz.isPrimitive()
+                || SIMPLE_TYPES.contains(clazz)
+                || CharSequence.class.isAssignableFrom(clazz)
+                || Number.class.isAssignableFrom(clazz)
+                || Enum.class.isAssignableFrom(clazz)
+                || UUID.class.isAssignableFrom(clazz)
+                || Date.class.isAssignableFrom(clazz)
+                || TemporalAccessor.class.isAssignableFrom(clazz)
+                || Class.class.isAssignableFrom(clazz);
     }
 
     private static boolean hasHibernateEntityAnnotation(Class<?> clazz) {
@@ -135,5 +196,26 @@ public class HibernateEntityDetector implements FlowAttributeValidator {
             // Ignore - class might not have annotation metadata
         }
         return false;
+    }
+
+    private static boolean isHibernateEntity(Class<?> clazz) {
+        return clazz.getName().contains("$$_javassist_")
+                || clazz.getName().contains("_$$_jvst")
+                || clazz.getName().contains("$HibernateProxy$")
+                || hasHibernateEntityAnnotation(clazz)
+                || hasJpaEntityAnnotation(clazz);
+    }
+
+    private static Iterable<Field> getAllFields(Class<?> type) {
+        if (type == null || Object.class.equals(type)) {
+            return Collections.emptyList();
+        }
+        Deque<Field> fields = new LinkedList<>();
+        Class<?> current = type;
+        while (current != null && !Object.class.equals(current)) {
+            Collections.addAll(fields, current.getDeclaredFields());
+            current = current.getSuperclass();
+        }
+        return fields;
     }
 }

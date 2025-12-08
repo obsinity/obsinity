@@ -1,5 +1,6 @@
 package com.obsinity.collection.spring.autoconfigure;
 
+import com.obsinity.collection.spring.validation.HibernateEntityLogLevel;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -15,7 +16,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *   collection:
  *     enabled: true  # Enable telemetry (default)
  *     validation:
- *       hibernate-entity-check: true  # Validate entities (default)
+ *       hibernate-entity-check-enabled: true   # Validate entities (default)
+ *       hibernate-entity-check-log-level: ERROR # ERROR (throws), WARN, INFO
  * }</pre>
  *
  * @see org.springframework.boot.context.properties.ConfigurationProperties
@@ -88,22 +90,30 @@ public class ObsinityCollectionProperties {
     public static class Validation {
 
         /**
-         * Enable Hibernate entity detection in flow attributes and context.
-         * When enabled, passing JPA/Hibernate entities to @PushAttribute or @PushContextValue
-         * will throw an IllegalArgumentException.
-         * <p>
-         * Default: true
-         * <p>
-         * Set to false to disable validation if you need to pass entities (not recommended).
+         * Enable Hibernate entity validation for flow attributes/context.
          */
-        private boolean hibernateEntityCheck = true;
+        private boolean hibernateEntityCheckEnabled = true;
 
-        public boolean isHibernateEntityCheck() {
-            return hibernateEntityCheck;
+        /**
+         * Controls how detections are reported when validation is enabled.
+         * ERROR will throw, WARN/INFO log and continue.
+         */
+        private HibernateEntityLogLevel hibernateEntityCheckLogLevel = HibernateEntityLogLevel.ERROR;
+
+        public boolean isHibernateEntityCheckEnabled() {
+            return hibernateEntityCheckEnabled;
         }
 
-        public void setHibernateEntityCheck(boolean hibernateEntityCheck) {
-            this.hibernateEntityCheck = hibernateEntityCheck;
+        public void setHibernateEntityCheckEnabled(boolean hibernateEntityCheckEnabled) {
+            this.hibernateEntityCheckEnabled = hibernateEntityCheckEnabled;
+        }
+
+        public HibernateEntityLogLevel getHibernateEntityCheckLogLevel() {
+            return hibernateEntityCheckLogLevel;
+        }
+
+        public void setHibernateEntityCheckLogLevel(HibernateEntityLogLevel hibernateEntityCheckLogLevel) {
+            this.hibernateEntityCheckLogLevel = hibernateEntityCheckLogLevel;
         }
     }
 }
