@@ -169,27 +169,12 @@ public class HibernateEntityDetector implements FlowAttributeValidator {
                 || Class.class.isAssignableFrom(clazz);
     }
 
-    private static boolean hasHibernateEntityAnnotation(Class<?> clazz) {
+    private static boolean hasIndicatingAnnotation(Class<?> clazz, Set<String> targetAnnotations) {
         try {
-            // Check for @Entity annotation from Hibernate
+            // Check for @Entity annotations (Hibernate/JPA)
             for (java.lang.annotation.Annotation ann : clazz.getAnnotations()) {
                 String annName = ann.annotationType().getName();
-                if ("org.hibernate.annotations.Entity".equals(annName)) {
-                    return true;
-                }
-            }
-        } catch (Exception e) {
-            // Ignore - class might not have annotation metadata
-        }
-        return false;
-    }
-
-    private static boolean hasJpaEntityAnnotation(Class<?> clazz) {
-        try {
-            // Check for @Entity annotation from JPA (jakarta.persistence or javax.persistence)
-            for (java.lang.annotation.Annotation ann : clazz.getAnnotations()) {
-                String annName = ann.annotationType().getName();
-                if ("jakarta.persistence.Entity".equals(annName) || "javax.persistence.Entity".equals(annName)) {
+                if (targetAnnotations.contains(annName)) {
                     return true;
                 }
             }
@@ -203,8 +188,12 @@ public class HibernateEntityDetector implements FlowAttributeValidator {
         return clazz.getName().contains("$$_javassist_")
                 || clazz.getName().contains("_$$_jvst")
                 || clazz.getName().contains("$HibernateProxy$")
-                || hasHibernateEntityAnnotation(clazz)
-                || hasJpaEntityAnnotation(clazz);
+                || hasIndicatingAnnotation(
+                        clazz,
+                        Set.of(
+                                "org.hibernate.annotations.Entity",
+                                "jakarta.persistence.Entity",
+                                "javax.persistence.Entity"));
     }
 
     private static Iterable<Field> getAllFields(Class<?> type) {
