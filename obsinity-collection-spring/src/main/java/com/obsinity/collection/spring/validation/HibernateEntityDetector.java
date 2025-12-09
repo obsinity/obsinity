@@ -60,8 +60,7 @@ public class HibernateEntityDetector implements FlowAttributeValidator {
             Float.class,
             Double.class,
             Character.class);
-    private static final Set<String> HIBERNATE_PROXY_MARKERS =
-            Set.of("$$_javassist_", "_$$_jvst", "$HibernateProxy$");
+    private static final Set<String> HIBERNATE_PROXY_MARKERS = Set.of("$$_javassist_", "_$$_jvst", "$HibernateProxy$");
     private static final Set<String> ENTITY_ANNOTATIONS =
             Set.of("org.hibernate.annotations.Entity", "jakarta.persistence.Entity", "javax.persistence.Entity");
     private final HibernateEntityLogLevel logLevel;
