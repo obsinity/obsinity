@@ -60,6 +60,10 @@ public class HibernateEntityDetector implements FlowAttributeValidator {
             Float.class,
             Double.class,
             Character.class);
+    private static final Set<String> HIBERNATE_PROXY_MARKERS =
+            Set.of("$$_javassist_", "_$$_jvst", "$HibernateProxy$");
+    private static final Set<String> ENTITY_ANNOTATIONS =
+            Set.of("org.hibernate.annotations.Entity", "jakarta.persistence.Entity", "javax.persistence.Entity");
     private final HibernateEntityLogLevel logLevel;
 
     public HibernateEntityDetector(HibernateEntityLogLevel logLevel) {
@@ -185,15 +189,12 @@ public class HibernateEntityDetector implements FlowAttributeValidator {
     }
 
     private static boolean isHibernateEntity(Class<?> clazz) {
-        return clazz.getName().contains("$$_javassist_")
-                || clazz.getName().contains("_$$_jvst")
-                || clazz.getName().contains("$HibernateProxy$")
-                || hasIndicatingAnnotation(
-                        clazz,
-                        Set.of(
-                                "org.hibernate.annotations.Entity",
-                                "jakarta.persistence.Entity",
-                                "javax.persistence.Entity"));
+        for (String marker : HIBERNATE_PROXY_MARKERS) {
+            if (clazz.getName().contains(marker)) {
+                return true;
+            }
+        }
+        return hasIndicatingAnnotation(clazz, ENTITY_ANNOTATIONS);
     }
 
     private static Iterable<Field> getAllFields(Class<?> type) {
