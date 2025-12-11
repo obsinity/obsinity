@@ -272,6 +272,34 @@ resources:
         value: application/json
     _type: request
 
+  - _id: req_state_transition_query_columnar
+    parentId: fld_state_query
+    created: 1766000000003
+    modified: 1766000000003
+    name: query → state transitions (columnar)
+    description: Columnar frictionless view of state transitions.
+    method: POST
+    url: "{{ base_url }}/api/query/state-transitions"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "serviceKey": "{{ service_id }}",
+          "objectType": "UserProfile",
+          "attribute": "user.status",
+          "fromStates": ["(none)"],
+          "toStates": ["NEW", "ACTIVE", "SUSPENDED", "BLOCKED", "ARCHIVED", "UPGRADED"],
+          "interval": "5s",
+          "start": "{% now 'iso-8601', 'utc', -60 %}",
+          "end": "{% now 'iso-8601', 'utc' %}",
+          "limits": { "offset": 0, "limit": 20 },
+          "format": "columnar"
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
   - _id: req_state_counts_query
     parentId: fld_state_query
     created: 1758900700200
@@ -289,6 +317,30 @@ resources:
           "attribute": "user.status",
           "states": ["NEW", "ACTIVE", "SUSPENDED", "ACTIVE", "BLOCKED", "UPGRADED", "ARCHIVED"],
           "limits": { "offset": 0, "limit": 20 }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_state_counts_query_columnar
+    parentId: fld_state_query
+    created: 1766000000004
+    modified: 1766000000004
+    name: query → state counts (columnar)
+    description: Columnar frictionless view of state counts.
+    method: POST
+    url: "{{ base_url }}/api/query/state-counts"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "serviceKey": "{{ service_id }}",
+          "objectType": "UserProfile",
+          "attribute": "user.status",
+          "states": ["NEW", "ACTIVE", "SUSPENDED", "ACTIVE", "BLOCKED", "UPGRADED", "ARCHIVED"],
+          "limits": { "offset": 0, "limit": 20 },
+          "format": "columnar"
         }
     headers:
       - name: Content-Type
@@ -314,6 +366,33 @@ resources:
           "start": "{% now 'iso-8601', 'utc', -60 %}",
           "end": "{% now 'iso-8601', 'utc' %}",
           "limits": { "offset": 0, "limit": 30 }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_state_counts_timeseries_columnar
+    parentId: fld_state_query
+    created: 1766000000005
+    modified: 1766000000005
+    name: query → state count time series (columnar)
+    description: Columnar frictionless view of state count snapshots.
+    method: POST
+    url: "{{ base_url }}/api/query/state-count-timeseries"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "serviceKey": "{{ service_id }}",
+          "objectType": "UserProfile",
+          "attribute": "user.status",
+          "states": ["ACTIVE", "SUSPENDED", "ARCHIVED"],
+          "interval": "1m",
+          "start": "{% now 'iso-8601', 'utc', -60 %}",
+          "end": "{% now 'iso-8601', 'utc' %}",
+          "limits": { "offset": 0, "limit": 30 },
+          "format": "columnar"
         }
     headers:
       - name: Content-Type
@@ -1037,6 +1116,36 @@ resources:
         value: application/json
     _type: request
 
+  - _id: req_search_columnar
+    parentId: fld_search
+    created: 1766000000000
+    modified: 1766000000000
+    name: Search - Columnar (Frictionless)
+    description: Same as the exact match example but asks for Frictionless columnar output under _embedded.events.
+    method: POST
+    url: "{{ base_url }}/api/search/events"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "service": "{{ service_id }}",
+          "event": "{{ event_name }}",
+          "period": { "previous": "-1h" },
+          "match": {
+            "and": [
+              { "attribute": "api.name",         "op": "=", "value": "getAccountHolders" },
+              { "attribute": "http.status_code", "op": "=", "value": 200 }
+            ]
+          },
+          "order": [{ "field": "started_at", "dir": "desc" }],
+          "limit": 50,
+          "format": "columnar"
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
   - _id: req_search_category
     parentId: fld_search
     created: 1754511489103
@@ -1279,6 +1388,34 @@ resources:
         value: application/json
     _type: request
 
+  - _id: req_counter_query_status_rollup_columnar
+    parentId: fld_counters
+    created: 1766000000001
+    modified: 1766000000001
+    name: Counters - HTTP status rollup (columnar)
+    description: Columnar frictionless rendering of the HTTP status rollup (embeds schema + column arrays).
+    method: POST
+    url: "{{ base_url }}/api/query/counters"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "serviceKey": "{{ service_id }}",
+          "eventType": "{{ event_name }}",
+          "counterName": "http_requests_by_status",
+          "interval": "5m",
+          "key": {
+            "http.method": ["GET"],
+            "http.status": ["200", "500"]
+          },
+          "limits": { "offset": 0, "limit": 12 },
+          "format": "columnar"
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
   # ===================== Histograms =====================
   - _id: req_histogram_query_latency
     parentId: fld_histograms
@@ -1300,13 +1437,44 @@ resources:
           "end": "{% now 'iso-8601', 'utc' %}",
           "key": {
             "http.method": ["GET"],
-            "http.route": ["/api/checkout"]
+            "http.route": ["/api/checkout", "/api/payments", "/api/profile"]
           },
           "percentiles": [0.5, 0.9, 0.95, 0.99],
           "limits": {
             "offset": 0,
             "limit": 60
           }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_histogram_query_latency_columnar
+    parentId: fld_histograms
+    created: 1766000000002
+    modified: 1766000000002
+    name: Histograms - HTTP latency (columnar)
+    description: Same histogram request with frictionless columnar output.
+    method: POST
+    url: "{{ base_url }}/api/histograms/query"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "serviceKey": "{{ service_id }}",
+          "eventType": "{{ event_name }}",
+          "histogramName": "http_request_latency_ms",
+          "interval": "1m",
+          "start": "{% now 'iso-8601', 'utc', -60 %}",
+          "end": "{% now 'iso-8601', 'utc' %}",
+          "key": {
+            "http.method": ["GET"],
+            "http.route": ["/api/checkout", "/api/payments", "/api/profile"]
+          },
+          "percentiles": [0.5, 0.9, 0.95, 0.99],
+          "limits": { "offset": 0, "limit": 60 },
+          "format": "columnar"
         }
     headers:
       - name: Content-Type

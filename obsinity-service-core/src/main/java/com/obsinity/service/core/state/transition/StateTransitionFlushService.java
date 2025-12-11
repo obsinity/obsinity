@@ -53,6 +53,8 @@ public class StateTransitionFlushService {
             }
         }
         persistExecutor.waitForDrain();
+        // Ensure any drained epochs are cleaned up after synchronous flushes used in tests/demos.
+        buffer.cleanupOldEntries(granularity);
     }
 
     private void flushGranularity(CounterGranularity granularity) {

@@ -1,6 +1,9 @@
 package com.obsinity.controller.rest;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.obsinity.service.core.api.FrictionlessData;
+import com.obsinity.service.core.api.ResponseFormat;
 import com.obsinity.service.core.histogram.HistogramQueryRequest;
 import com.obsinity.service.core.histogram.HistogramQueryResult;
 import com.obsinity.service.core.histogram.HistogramQueryWindow;
@@ -16,25 +19,73 @@ public record HistogramQueryHalResponse(
         int limit,
         int offset,
         List<Double> defaultPercentiles,
-        Data data,
-        Map<String, HalLink> links) {
+        Object data,
+        Map<String, HalLink> links,
+        String format) {
 
     record Data(List<HistogramQueryWindow> intervals) {}
 
     record HalLink(String href, String method, Object body) {}
 
-    static HistogramQueryHalResponse from(String href, HistogramQueryRequest request, HistogramQueryResult result) {
+    static HistogramQueryHalResponse from(
+            String href,
+            HistogramQueryRequest request,
+            HistogramQueryResult result,
+            ResponseFormat responseFormat,
+            ObjectMapper mapper) {
         int count = result.windows().size();
         int total = result.totalWindows();
         int offset = result.offset();
         int limit = determineLimit(request, count, total);
+        ResponseFormat format = ResponseFormat.defaulted(responseFormat);
 
         String effectiveStart = resolveBoundary(request.start(), result.start());
         String effectiveEnd = resolveBoundary(request.end(), result.end());
         Map<String, HalLink> links =
                 buildLinks(href, request, offset, limit, count, total, effectiveStart, effectiveEnd);
+        Object data = format == ResponseFormat.COLUMNAR
+                ? FrictionlessData.columnar(flattenWindows(result), mapper)
+                : new Data(result.windows());
         return new HistogramQueryHalResponse(
-                count, total, limit, offset, result.defaultPercentiles(), new Data(result.windows()), links);
+                count, total, limit, offset, result.defaultPercentiles(), data, links, format.wireValue());
+    }
+
+    private static List<Map<String, Object>> flattenWindows(HistogramQueryResult result) {
+        List<Double> percentiles = result.defaultPercentiles();
+        return result.windows().stream()
+                .flatMap(w -> w.series().stream().map(series -> toRow(w, series, percentiles)))
+                .toList();
+    }
+
+    private static Map<String, Object> toRow(
+            HistogramQueryWindow window, HistogramQueryWindow.Series series, List<Double> percentiles) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("from", window.from());
+        row.put("to", window.to());
+        if (series.key() != null) {
+            row.putAll(series.key());
+        }
+        row.put("samples", series.samples());
+        row.put("sum", series.sum());
+        row.put("mean", series.mean());
+        if (percentiles != null && series.percentiles() != null) {
+            for (Double p : percentiles) {
+                if (p == null) continue;
+                Double val = series.percentiles().get(p);
+                if (val == null) {
+                    // Percentiles map keys are strings; fall back to string lookup
+                    val = series.percentiles().get(Double.valueOf(p.toString()));
+                }
+                row.put("p" + percentileLabel(p), val);
+            }
+        }
+        return row;
+    }
+
+    private static String percentileLabel(Double p) {
+        if (p == null) return "";
+        long scaled = Math.round(p * 100);
+        return String.valueOf(scaled);
     }
 
     private static int determineLimit(HistogramQueryRequest request, int count, int total) {
@@ -94,7 +145,8 @@ public record HistogramQueryHalResponse(
                 start,
                 end,
                 base.percentiles(),
-                limits);
+                limits,
+                base.format());
     }
 
     private static String resolveBoundary(String requested, java.time.Instant calculated) {

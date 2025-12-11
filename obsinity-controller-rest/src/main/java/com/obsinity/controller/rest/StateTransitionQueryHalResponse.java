@@ -1,6 +1,9 @@
 package com.obsinity.controller.rest;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.obsinity.service.core.api.FrictionlessData;
+import com.obsinity.service.core.api.ResponseFormat;
 import com.obsinity.service.core.state.query.StateTransitionQueryRequest;
 import com.obsinity.service.core.state.query.StateTransitionQueryResult;
 import com.obsinity.service.core.state.query.StateTransitionQueryWindow;
@@ -12,25 +15,34 @@ import java.util.Map;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record StateTransitionQueryHalResponse(
-        int count, int total, int limit, int offset, Data data, Map<String, HalLink> links) {
+        int count, int total, int limit, int offset, Object data, Map<String, HalLink> links, String format) {
 
     record Data(List<StateTransitionQueryWindow> intervals) {}
 
     record HalLink(String href, String method, Object body) {}
 
     static StateTransitionQueryHalResponse from(
-            String href, StateTransitionQueryRequest request, StateTransitionQueryResult result) {
+            String href,
+            StateTransitionQueryRequest request,
+            StateTransitionQueryResult result,
+            ResponseFormat responseFormat,
+            ObjectMapper mapper) {
         int count = result.windows().size();
         int total = result.totalIntervals();
         int offset = result.offset();
         int limit = determineLimit(request, count, total);
+        ResponseFormat format = ResponseFormat.defaulted(responseFormat);
 
         String effectiveStart = resolveBoundary(request.start(), result.start());
         String effectiveEnd = resolveBoundary(request.end(), result.end());
         Map<String, HalLink> links =
                 buildLinks(href, request, offset, limit, count, total, effectiveStart, effectiveEnd);
 
-        return new StateTransitionQueryHalResponse(count, total, limit, offset, new Data(result.windows()), links);
+        Object data = format == ResponseFormat.COLUMNAR
+                ? FrictionlessData.columnar(result.windows(), mapper)
+                : new Data(result.windows());
+
+        return new StateTransitionQueryHalResponse(count, total, limit, offset, data, links, format.wireValue());
     }
 
     private static Map<String, HalLink> buildLinks(
@@ -79,7 +91,8 @@ public record StateTransitionQueryHalResponse(
                 base.interval(),
                 start,
                 end,
-                limits);
+                limits,
+                base.format());
     }
 
     private static int determineLimit(StateTransitionQueryRequest request, int count, int total) {

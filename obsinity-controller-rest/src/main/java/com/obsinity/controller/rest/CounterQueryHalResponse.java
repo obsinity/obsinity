@@ -1,6 +1,9 @@
 package com.obsinity.controller.rest;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.obsinity.service.core.api.FrictionlessData;
+import com.obsinity.service.core.api.ResponseFormat;
 import com.obsinity.service.core.counter.CounterQueryRequest;
 import com.obsinity.service.core.counter.CounterQueryResult;
 import com.obsinity.service.core.counter.CounterQueryWindow;
@@ -11,23 +14,32 @@ import java.util.Map;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record CounterQueryHalResponse(
-        int count, int total, int limit, int offset, Data data, Map<String, HalLink> links) {
+        int count, int total, int limit, int offset, Object data, Map<String, HalLink> links, String format) {
 
     record Data(List<CounterQueryWindow> intervals) {}
 
     record HalLink(String href, String method, Object body) {}
 
-    static CounterQueryHalResponse from(String href, CounterQueryRequest request, CounterQueryResult result) {
+    static CounterQueryHalResponse from(
+            String href,
+            CounterQueryRequest request,
+            CounterQueryResult result,
+            ResponseFormat responseFormat,
+            ObjectMapper mapper) {
         int count = result.windows().size();
         int total = result.totalWindows();
         int offset = result.offset();
         int limit = determineLimit(request, result, count, total);
+        ResponseFormat format = ResponseFormat.defaulted(responseFormat);
 
         String effectiveStart = resolveBoundary(request.start(), result.start());
         String effectiveEnd = resolveBoundary(request.end(), result.end());
         Map<String, HalLink> links =
                 buildLinks(href, request, offset, limit, count, total, effectiveStart, effectiveEnd);
-        return new CounterQueryHalResponse(count, total, limit, offset, new Data(result.windows()), links);
+        Object data = format == ResponseFormat.COLUMNAR
+                ? FrictionlessData.columnar(result.windows(), mapper)
+                : new Data(result.windows());
+        return new CounterQueryHalResponse(count, total, limit, offset, data, links, format.wireValue());
     }
 
     private static int determineLimit(CounterQueryRequest request, CounterQueryResult result, int count, int total) {
@@ -86,7 +98,8 @@ public record CounterQueryHalResponse(
                 base.interval(),
                 start,
                 end,
-                limits);
+                limits,
+                base.format());
     }
 
     private static String resolveBoundary(String requested, java.time.Instant calculated) {

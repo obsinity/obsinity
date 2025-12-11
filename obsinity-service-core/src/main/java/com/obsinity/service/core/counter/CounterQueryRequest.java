@@ -1,5 +1,6 @@
 package com.obsinity.service.core.counter;
 
+import com.obsinity.service.core.api.ResponseFormat;
 import java.util.List;
 import java.util.Map;
 
@@ -12,7 +13,8 @@ public record CounterQueryRequest(
         String interval,
         String start,
         String end,
-        Limits limits) {
+        Limits limits,
+        ResponseFormat format) {
 
     public record Limits(Integer offset, Integer limit) {}
 }

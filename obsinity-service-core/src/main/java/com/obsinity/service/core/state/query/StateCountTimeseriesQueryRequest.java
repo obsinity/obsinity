@@ -1,5 +1,6 @@
 package com.obsinity.service.core.state.query;
 
+import com.obsinity.service.core.api.ResponseFormat;
 import java.util.List;
 
 public record StateCountTimeseriesQueryRequest(
@@ -10,7 +11,8 @@ public record StateCountTimeseriesQueryRequest(
         String interval,
         String start,
         String end,
-        Limits limits) {
+        Limits limits,
+        ResponseFormat format) {
 
     public record Limits(Integer offset, Integer limit) {}
 }

@@ -3,6 +3,8 @@ package com.obsinity.controller.rest;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.obsinity.service.core.api.FrictionlessData;
+import com.obsinity.service.core.api.ResponseFormat;
 import com.obsinity.service.core.objql.OBJql;
 import com.obsinity.service.core.objql.OBJql.AttrExpr;
 import com.obsinity.service.core.objql.OBJqlPage;
@@ -103,16 +105,19 @@ public class SearchController {
         long count = data.size();
         int limit = page.limit();
         long offset = page.offset();
+        ResponseFormat format = ResponseFormat.defaulted(body.format);
 
         Map<String, Object> wrapper = new LinkedHashMap<>();
         wrapper.put("count", count);
         wrapper.put("total", total);
         wrapper.put("limit", limit);
         wrapper.put("offset", offset);
+        wrapper.put("format", format.wireValue());
         Map<String, Object> embedded = new LinkedHashMap<>();
-        embedded.put("events", data);
+        Object payload = format == ResponseFormat.COLUMNAR ? FrictionlessData.columnar(data, mapper) : data;
+        embedded.put("events", payload);
         wrapper.put(embeddedKey, embedded);
-        wrapper.put(linksKey, buildLinks(body, offset, limit, count, total));
+        wrapper.put(linksKey, buildLinks(body, offset, limit, count, total, format));
         return wrapper;
     }
 
@@ -129,6 +134,7 @@ public class SearchController {
         public List<Order> order; // optional
         public Integer limit; // defaulted by service
         public Long offset; // defaulted by service
+        public ResponseFormat format; // row (default) | columnar
     }
 
     public static class Period {
@@ -292,25 +298,26 @@ public class SearchController {
         return 0L;
     }
 
-    private Map<String, Object> buildLinks(SearchBody body, long offset, int limit, long count, long total) {
+    private Map<String, Object> buildLinks(
+            SearchBody body, long offset, int limit, long count, long total, ResponseFormat format) {
         Map<String, Object> links = new LinkedHashMap<>();
-        links.put("self", linkFor(offset, limit, body));
-        links.put("first", linkFor(0, limit, body));
+        links.put("self", linkFor(offset, limit, body, format));
+        links.put("first", linkFor(0, limit, body, format));
         long lastOffset = (total <= 0) ? 0 : Math.max(0, ((total - 1) / (long) limit) * (long) limit);
-        links.put("last", linkFor(lastOffset, limit, body));
+        links.put("last", linkFor(lastOffset, limit, body, format));
         long prevOffset = Math.max(0, offset - (long) limit);
-        if (offset > 0) links.put("prev", linkFor(prevOffset, limit, body));
+        if (offset > 0) links.put("prev", linkFor(prevOffset, limit, body, format));
         long nextOffset = offset + (long) limit;
         // Be robust if total is unknown (0): include next when page is full
         if (total > 0) {
-            if (offset + count < total) links.put("next", linkFor(nextOffset, limit, body));
+            if (offset + count < total) links.put("next", linkFor(nextOffset, limit, body, format));
         } else if (count >= limit) {
-            links.put("next", linkFor(nextOffset, limit, body));
+            links.put("next", linkFor(nextOffset, limit, body, format));
         }
         return links;
     }
 
-    private Map<String, Object> linkFor(long off, int lim, SearchBody body) {
+    private Map<String, Object> linkFor(long off, int lim, SearchBody body, ResponseFormat format) {
         Map<String, Object> link = new LinkedHashMap<>();
         link.put("href", "/api/search/events");
         link.put("method", "POST");
@@ -318,6 +325,9 @@ public class SearchController {
         Map<String, Object> b = mapper.convertValue(body, new TypeReference<Map<String, Object>>() {});
         b.put("offset", off);
         b.put("limit", lim);
+        if (format != null) {
+            b.put("format", format.wireValue());
+        }
         link.put("body", b);
         return link;
     }

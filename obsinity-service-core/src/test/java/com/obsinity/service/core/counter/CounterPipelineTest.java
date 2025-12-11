@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.obsinity.service.core.api.ResponseFormat;
 import com.obsinity.service.core.config.ConfigLookup;
 import com.obsinity.service.core.config.CounterConfig;
 import com.obsinity.service.core.config.EventTypeConfig;
@@ -124,7 +125,8 @@ class CounterPipelineTest {
                 "5s",
                 s5Start.toString(),
                 s5Start.plusSeconds(5).toString(),
-                new CounterQueryRequest.Limits(0, 10));
+                new CounterQueryRequest.Limits(0, 10),
+                ResponseFormat.ROW);
 
         CounterQueryResult s5Result = queryService.runQuery(s5Request);
         assertThat(s5Result.windows()).isNotEmpty();
@@ -143,7 +145,8 @@ class CounterPipelineTest {
                 "1m",
                 m1Start.toString(),
                 m1Start.plus(Duration.ofMinutes(1)).toString(),
-                new CounterQueryRequest.Limits(0, 10));
+                new CounterQueryRequest.Limits(0, 10),
+                ResponseFormat.ROW);
 
         CounterQueryResult m1Result = queryService.runQuery(m1Request);
         assertThat(m1Result.windows()).isNotEmpty();
@@ -162,7 +165,8 @@ class CounterPipelineTest {
                 "5m",
                 m5Start.toString(),
                 m5Start.plus(Duration.ofMinutes(5)).toString(),
-                new CounterQueryRequest.Limits(0, 10));
+                new CounterQueryRequest.Limits(0, 10),
+                ResponseFormat.ROW);
 
         CounterQueryResult m5Result = queryService.runQuery(m5Request);
         assertThat(m5Result.windows()).isNotEmpty();
@@ -180,7 +184,8 @@ class CounterPipelineTest {
                 "5s",
                 m1Start.toString(),
                 m1Start.plus(Duration.ofMinutes(1)).toString(),
-                null);
+                null,
+                ResponseFormat.ROW);
         assertThrows(IllegalArgumentException.class, () -> queryService.runQuery(invalid));
     }
 

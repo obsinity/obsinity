@@ -1,5 +1,8 @@
 package com.obsinity.controller.rest;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.obsinity.service.core.api.FrictionlessData;
+import com.obsinity.service.core.api.ResponseFormat;
 import com.obsinity.service.core.state.query.StateCountTimeseriesQueryRequest;
 import com.obsinity.service.core.state.query.StateCountTimeseriesQueryResult;
 import com.obsinity.service.core.state.query.StateCountTimeseriesQueryResult.StateCountTimeseriesWindow;
@@ -19,32 +22,43 @@ public class StateCountTimeseriesQueryController {
     private static final String QUERY_PATH = "/api/query/state-count-timeseries";
 
     private final StateCountTimeseriesQueryService queryService;
+    private final ObjectMapper mapper;
 
-    public StateCountTimeseriesQueryController(StateCountTimeseriesQueryService queryService) {
+    public StateCountTimeseriesQueryController(StateCountTimeseriesQueryService queryService, ObjectMapper mapper) {
         this.queryService = queryService;
+        this.mapper = mapper;
     }
 
     @PostMapping(path = "/state-count-timeseries", consumes = MediaType.APPLICATION_JSON_VALUE)
     public StateCountTimeseriesHalResponse query(@RequestBody StateCountTimeseriesQueryRequest request) {
         StateCountTimeseriesQueryResult result = queryService.runQuery(request);
-        return StateCountTimeseriesHalResponse.from(QUERY_PATH, request, result);
+        ResponseFormat format = ResponseFormat.defaulted(request.format());
+        return StateCountTimeseriesHalResponse.from(QUERY_PATH, request, result, format, mapper);
     }
 
     public record StateCountTimeseriesHalResponse(
-            int count, int total, int limit, int offset, Data data, Map<String, HalLink> links) {
+            int count, int total, int limit, int offset, Object data, Map<String, HalLink> links, String format) {
 
         record Data(java.util.List<StateCountTimeseriesWindow> intervals) {}
 
         record HalLink(String href, String method, Object body) {}
 
         static StateCountTimeseriesHalResponse from(
-                String href, StateCountTimeseriesQueryRequest request, StateCountTimeseriesQueryResult result) {
+                String href,
+                StateCountTimeseriesQueryRequest request,
+                StateCountTimeseriesQueryResult result,
+                ResponseFormat responseFormat,
+                ObjectMapper mapper) {
             int count = result.windows().size();
             int total = result.totalIntervals();
             int offset = result.offset();
             int limit = result.limit();
+            ResponseFormat format = ResponseFormat.defaulted(responseFormat);
             Map<String, HalLink> links = buildLinks(href, request, offset, limit, count, total);
-            return new StateCountTimeseriesHalResponse(count, total, limit, offset, new Data(result.windows()), links);
+            Object data = format == ResponseFormat.COLUMNAR
+                    ? FrictionlessData.columnar(result.windows(), mapper)
+                    : new Data(result.windows());
+            return new StateCountTimeseriesHalResponse(count, total, limit, offset, data, links, format.wireValue());
         }
 
         private static Map<String, HalLink> buildLinks(
@@ -73,7 +87,8 @@ public class StateCountTimeseriesQueryController {
                     base.interval(),
                     base.start(),
                     base.end(),
-                    limits);
+                    limits,
+                    base.format());
         }
     }
 }

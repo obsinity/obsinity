@@ -1,5 +1,8 @@
 package com.obsinity.controller.rest;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.obsinity.service.core.api.FrictionlessData;
+import com.obsinity.service.core.api.ResponseFormat;
 import com.obsinity.service.core.state.query.StateCountQueryRequest;
 import com.obsinity.service.core.state.query.StateCountQueryResult;
 import com.obsinity.service.core.state.query.StateCountQueryService;
@@ -18,32 +21,43 @@ public class StateCountQueryController {
     private static final String QUERY_PATH = "/api/query/state-counts";
 
     private final StateCountQueryService queryService;
+    private final ObjectMapper mapper;
 
-    public StateCountQueryController(StateCountQueryService queryService) {
+    public StateCountQueryController(StateCountQueryService queryService, ObjectMapper mapper) {
         this.queryService = queryService;
+        this.mapper = mapper;
     }
 
     @PostMapping(path = "/state-counts", consumes = MediaType.APPLICATION_JSON_VALUE)
     public StateCountQueryHalResponse query(@RequestBody StateCountQueryRequest request) {
         StateCountQueryResult result = queryService.runQuery(request);
-        return StateCountQueryHalResponse.from(QUERY_PATH, request, result);
+        ResponseFormat format = ResponseFormat.defaulted(request.format());
+        return StateCountQueryHalResponse.from(QUERY_PATH, request, result, format, mapper);
     }
 
     public record StateCountQueryHalResponse(
-            int count, long total, int limit, int offset, Data data, Map<String, HalLink> links) {
+            int count, long total, int limit, int offset, Object data, Map<String, HalLink> links, String format) {
 
         record Data(java.util.List<StateCountQueryResult.StateCountEntry> states) {}
 
         record HalLink(String href, String method, Object body) {}
 
         static StateCountQueryHalResponse from(
-                String href, StateCountQueryRequest request, StateCountQueryResult result) {
+                String href,
+                StateCountQueryRequest request,
+                StateCountQueryResult result,
+                ResponseFormat responseFormat,
+                ObjectMapper mapper) {
             int count = result.states().size();
             long total = result.total();
             int offset = result.offset();
             int limit = result.limit();
+            ResponseFormat format = ResponseFormat.defaulted(responseFormat);
             Map<String, HalLink> links = buildLinks(href, request, offset, limit, count, total);
-            return new StateCountQueryHalResponse(count, total, limit, offset, new Data(result.states()), links);
+            Object data = format == ResponseFormat.COLUMNAR
+                    ? FrictionlessData.columnar(result.states(), mapper)
+                    : new Data(result.states());
+            return new StateCountQueryHalResponse(count, total, limit, offset, data, links, format.wireValue());
         }
 
         private static Map<String, HalLink> buildLinks(
@@ -64,7 +78,7 @@ public class StateCountQueryController {
         private static StateCountQueryRequest withLimits(StateCountQueryRequest base, int offset, int limit) {
             StateCountQueryRequest.Limits limits = new StateCountQueryRequest.Limits(offset, limit);
             return new StateCountQueryRequest(
-                    base.serviceKey(), base.objectType(), base.attribute(), base.states(), limits);
+                    base.serviceKey(), base.objectType(), base.attribute(), base.states(), limits, base.format());
         }
     }
 }

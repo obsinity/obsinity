@@ -101,10 +101,15 @@ public class PartitionMaintenanceService {
                 JOIN pg_namespace n ON n.oid = c.relnamespace
                 WHERE n.nspname = 'public' AND c.relname = %s
               ) THEN
-                EXECUTE format(
-                  'CREATE TABLE %%I PARTITION OF %%I FOR VALUES IN (%%L) PARTITION BY RANGE (started_at)',
-                  %s, %s, %s
-                );
+                BEGIN
+                  EXECUTE format(
+                    'CREATE TABLE %%I PARTITION OF %%I FOR VALUES IN (%%L) PARTITION BY RANGE (started_at)',
+                    %s, %s, %s
+                  );
+                EXCEPTION
+                  WHEN duplicate_table THEN NULL;
+                  WHEN duplicate_object THEN NULL;
+                END;
               END IF;
             END
             $$;
@@ -135,10 +140,15 @@ public class PartitionMaintenanceService {
                 JOIN pg_namespace n ON n.oid = c.relnamespace
                 WHERE n.nspname = 'public' AND c.relname = %s
               ) THEN
-                EXECUTE format(
-                  'CREATE TABLE %%I PARTITION OF %%I FOR VALUES FROM (%%L) TO (%%L)',
-                  %s, %s, %s, %s
-                );
+                BEGIN
+                  EXECUTE format(
+                    'CREATE TABLE %%I PARTITION OF %%I FOR VALUES FROM (%%L) TO (%%L)',
+                    %s, %s, %s, %s
+                  );
+                EXCEPTION
+                  WHEN duplicate_table THEN NULL;
+                  WHEN duplicate_object THEN NULL;
+                END;
               END IF;
             END
             $$;
@@ -165,7 +175,12 @@ public class PartitionMaintenanceService {
                 JOIN pg_namespace n ON n.oid = c.relnamespace
                 WHERE n.nspname = 'public' AND c.relname = %s
               ) THEN
-                EXECUTE format('CREATE INDEX %%I ON %%I(attr_name, attr_value)', %s, %s);
+                BEGIN
+                  EXECUTE format('CREATE INDEX %%I ON %%I(attr_name, attr_value)', %s, %s);
+                EXCEPTION
+                  WHEN duplicate_table THEN NULL;
+                  WHEN duplicate_object THEN NULL;
+                END;
               END IF;
             END
             $$;
@@ -185,7 +200,12 @@ public class PartitionMaintenanceService {
                 JOIN pg_namespace n ON n.oid = c.relnamespace
                 WHERE n.nspname = 'public' AND c.relname = %s
               ) THEN
-                EXECUTE format('CREATE INDEX %%I ON %%I(started_at DESC)', %s, %s);
+                BEGIN
+                  EXECUTE format('CREATE INDEX %%I ON %%I(started_at DESC)', %s, %s);
+                EXCEPTION
+                  WHEN duplicate_table THEN NULL;
+                  WHEN duplicate_object THEN NULL;
+                END;
               END IF;
             END
             $$;
@@ -205,7 +225,12 @@ public class PartitionMaintenanceService {
                 JOIN pg_namespace n ON n.oid = c.relnamespace
                 WHERE n.nspname = 'public' AND c.relname = %s
               ) THEN
-                EXECUTE format('CREATE INDEX %%I ON %%I(service_id, event_type_id)', %s, %s);
+                BEGIN
+                  EXECUTE format('CREATE INDEX %%I ON %%I(service_id, event_type_id)', %s, %s);
+                EXCEPTION
+                  WHEN duplicate_table THEN NULL;
+                  WHEN duplicate_object THEN NULL;
+                END;
               END IF;
             END
             $$;

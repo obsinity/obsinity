@@ -1,5 +1,6 @@
 package com.obsinity.service.core.histogram;
 
+import com.obsinity.service.core.api.ResponseFormat;
 import java.util.List;
 import java.util.Map;
 
@@ -13,7 +14,8 @@ public record HistogramQueryRequest(
         String start,
         String end,
         List<Double> percentiles,
-        Limits limits) {
+        Limits limits,
+        ResponseFormat format) {
 
     public record Limits(Integer offset, Integer limit) {}
 }
