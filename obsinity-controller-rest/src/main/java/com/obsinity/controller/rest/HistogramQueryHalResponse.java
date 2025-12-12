@@ -53,7 +53,9 @@ public record HistogramQueryHalResponse(
     private static List<Map<String, Object>> flattenWindows(HistogramQueryResult result) {
         List<Double> percentiles = result.defaultPercentiles();
         return result.windows().stream()
-                .flatMap(w -> w.series().stream().map(series -> toRow(w, series, percentiles)))
+                .flatMap(w -> w.series().stream()
+                        .filter(series -> series.samples() > 0)
+                        .map(series -> toRow(w, series, percentiles)))
                 .toList();
     }
 
