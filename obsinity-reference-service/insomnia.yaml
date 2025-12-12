@@ -1456,7 +1456,7 @@ resources:
     created: 1766500000001
     modified: 1766500000001
     name: Counters - HTTP requests by API (columnar)
-    description: Columnar output for requests by API (matches demo data: api.name=checkout, GET).
+    description: Columnar output for requests by API (matches demo data).
     method: POST
     url: "{{ base_url }}/api/query/counters"
     body:
