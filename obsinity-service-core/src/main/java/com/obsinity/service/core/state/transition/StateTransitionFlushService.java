@@ -35,8 +35,10 @@ public class StateTransitionFlushService {
     }
 
     @Scheduled(fixedRateString = "${obsinity.stateTransitions.flush.rate.s5:5000}")
-    public void flushFiveSecond() {
-        flushGranularity(CounterGranularity.S5);
+    public void flushScheduled() {
+        for (CounterGranularity granularity : CounterGranularity.values()) {
+            flushGranularity(granularity);
+        }
     }
 
     public void flushAndWait(CounterGranularity granularity) {
