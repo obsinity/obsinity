@@ -30,10 +30,16 @@ By default the Spring starter scans attributes/context for Hibernate/JPA entitie
 # application.yml
 obsinity:
   collection:
+    # Master switch to enable/disable all flow telemetry collection
+    enabled: true
+
     validation:
       hibernate-entity-check:
-        enabled: true    # default true; set false to skip the check entirely
-        log-level: ERROR # ERROR (throws), WARN (log + continue), INFO (log + continue)
+        # Enable validation of Hibernate entities in flow context/attributes
+        enabled: true
+
+        # Controls how detections are reported: ERROR (throws exception), WARN, or INFO
+        log-level: ERROR
 ```
 
 Quick Start (Spring)
