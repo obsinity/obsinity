@@ -41,8 +41,6 @@ resources:
       event_name: http_request
       api_name_checkout: checkout
       api_name_payments: payments
-      xstart_1h: "{% now 'iso-8601', 'utc', -60 %}"
-      xend_now: "{% now 'iso-8601', 'utc' %}"
 
       # Config defaults
       config_snapshot_id: local-snapshot
@@ -265,8 +263,8 @@ resources:
           "fromStates": ["(none)"],
           "toStates": ["NEW", "ACTIVE", "SUSPENDED", "BLOCKED", "ARCHIVED", "UPGRADED"],
           "interval": "5s",
-          "xstart": "{% now 'iso-8601', 'utc', -60 %}",
-          "xend": "{% now 'iso-8601', 'utc' %}",
+          "start": "{% now 'iso-8601', 'utc', -60 %}",
+          "end": "{% now 'iso-8601', 'utc' %}",
           "limits": { "offset": 0, "limit": 20 }
         }
     headers:
@@ -292,8 +290,8 @@ resources:
           "fromStates": ["(none)"],
           "toStates": ["NEW", "ACTIVE", "SUSPENDED", "BLOCKED", "ARCHIVED", "UPGRADED"],
           "interval": "5s",
-          "xstart": "{% now 'iso-8601', 'utc', -60 %}",
-          "xend": "{% now 'iso-8601', 'utc' %}",
+          "start": "{% now 'iso-8601', 'utc', -60 %}",
+          "end": "{% now 'iso-8601', 'utc' %}",
           "limits": { "offset": 0, "limit": 20 },
           "format": "columnar"
         }
@@ -1376,8 +1374,6 @@ resources:
           "eventType": "{{ event_name }}",
           "counterName": "http_requests_by_status",
           "interval": "5m",
-          "start": "{{ xstart_1h }}",
-          "end": "{{ xend_now }}",
           "key": {
             "http.method": ["GET"],
             "http.status": ["200", "500"]
@@ -1386,35 +1382,6 @@ resources:
             "offset": 0,
             "limit": 12
           }
-        }
-    headers:
-      - name: Content-Type
-        value: application/json
-    _type: request
-
-  - _id: req_counter_query_api_rollup
-    parentId: fld_counters
-    created: 1766500000000
-    modified: 1766500000000
-    name: Counters - HTTP requests by API (1m)
-    description: Matches demo data (payments/http_request, api.name=checkout, GET).
-    method: POST
-    url: "{{ base_url }}/api/query/counters"
-    body:
-      mimeType: application/json
-      text: |
-        {
-          "serviceKey": "{{ service_id }}",
-          "eventType": "{{ event_name }}",
-          "counterName": "http_requests_by_api",
-          "interval": "1m",
-          "start": "{{ xstart_1h }}",
-          "end": "{{ xend_now }}",
-          "key": {
-            "api.name": ["{{ api_name_checkout }}"],
-            "http.method": ["GET"]
-          },
-          "limits": { "offset": 0, "limit": 60 }
         }
     headers:
       - name: Content-Type
@@ -1437,43 +1404,11 @@ resources:
           "eventType": "{{ event_name }}",
           "counterName": "http_requests_by_status",
           "interval": "5m",
-          "start": "{{ xstart_1h }}",
-          "end": "{{ xend_now }}",
           "key": {
             "http.method": ["GET"],
             "http.status": ["200", "500"]
           },
           "limits": { "offset": 0, "limit": 12 },
-          "format": "columnar"
-        }
-    headers:
-      - name: Content-Type
-        value: application/json
-    _type: request
-
-  - _id: req_counter_query_api_rollup_columnar
-    parentId: fld_counters
-    created: 1766500000001
-    modified: 1766500000001
-    name: Counters - HTTP requests by API (columnar)
-    description: Columnar output for requests by API (matches demo data).
-    method: POST
-    url: "{{ base_url }}/api/query/counters"
-    body:
-      mimeType: application/json
-      text: |
-        {
-          "serviceKey": "{{ service_id }}",
-          "eventType": "{{ event_name }}",
-          "counterName": "http_requests_by_api",
-          "interval": "1m",
-          "start": "{{ xstart_1h }}",
-          "end": "{{ xend_now }}",
-          "key": {
-            "api.name": ["{{ api_name_checkout }}"],
-            "http.method": ["GET"]
-          },
-          "limits": { "offset": 0, "limit": 60 },
           "format": "columnar"
         }
     headers:
@@ -1498,11 +1433,11 @@ resources:
           "eventType": "{{ event_name }}",
           "histogramName": "http_request_latency_ms",
           "interval": "1m",
-          "start": "{{ xstart_1h }}",
-          "end": "{{ xend_now }}",
+          "start": "{% now 'iso-8601', 'utc', -60 %}",
+          "end": "{% now 'iso-8601', 'utc' %}",
           "key": {
             "http.method": ["GET"],
-            "http.route": ["/api/checkout"]
+            "http.route": ["/api/checkout", "/api/payments", "/api/profile"]
           },
           "percentiles": [0.5, 0.9, 0.95, 0.99],
           "limits": {
@@ -1531,11 +1466,11 @@ resources:
           "eventType": "{{ event_name }}",
           "histogramName": "http_request_latency_ms",
           "interval": "1m",
-          "start": "{{ xstart_1h }}",
-          "end": "{{ xend_now }}",
+          "start": "{% now 'iso-8601', 'utc', -60 %}",
+          "end": "{% now 'iso-8601', 'utc' %}",
           "key": {
             "http.method": ["GET"],
-            "http.route": ["/api/checkout"]
+            "http.route": ["/api/checkout", "/api/payments", "/api/profile"]
           },
           "percentiles": [0.5, 0.9, 0.95, 0.99],
           "limits": { "offset": 0, "limit": 60 },
