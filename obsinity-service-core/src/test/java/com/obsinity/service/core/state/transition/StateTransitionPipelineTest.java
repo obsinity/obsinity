@@ -81,7 +81,9 @@ class StateTransitionPipelineTest {
         private final List<BatchItem> captured = new ArrayList<>();
 
         RecordingPersistService() {
-            super(Mockito.mock(JdbcTemplate.class));
+            super(
+                    Mockito.mock(JdbcTemplate.class),
+                    Mockito.mock(org.springframework.transaction.support.TransactionTemplate.class));
         }
 
         @Override

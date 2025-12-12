@@ -200,7 +200,9 @@ class CounterPipelineTest {
                 new EnumMap<>(CounterBucket.class);
 
         InMemoryPersistService() {
-            super(Mockito.mock(JdbcTemplate.class));
+            super(
+                    Mockito.mock(JdbcTemplate.class),
+                    Mockito.mock(org.springframework.transaction.support.TransactionTemplate.class));
         }
 
         @Override

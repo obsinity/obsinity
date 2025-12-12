@@ -9,6 +9,7 @@ import com.obsinity.service.core.counter.CounterGranularity;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -69,9 +70,17 @@ public class HistogramPersistService {
             return;
         }
 
-        for (CounterBucket bucket : granularity.materialisedBuckets()) {
+        List<CounterBucket> orderedBuckets = granularity.materialisedBuckets().stream()
+                .sorted(Comparator.comparing(CounterBucket::duration))
+                .toList();
+        for (CounterBucket bucket : orderedBuckets) {
             Instant timestamp = bucket.align(baseInstant);
-            persistBucket(bucket, timestamp, entries);
+            try {
+                persistBucket(bucket, timestamp, entries);
+            } catch (Exception ex) {
+                log.error("Failed to persist histogram rollup bucket {}", bucket.label(), ex);
+                throw ex;
+            }
         }
     }
 

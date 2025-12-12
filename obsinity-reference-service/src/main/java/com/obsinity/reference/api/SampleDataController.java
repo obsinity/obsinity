@@ -82,10 +82,12 @@ public class SampleDataController {
         long strideSeconds = Math.max(1L, windowSeconds / Math.max(1, unifiedEventCount));
         Instant cursor = windowStart;
         int profiles = Math.max(1, req.profilePool());
+        String runPrefix = "run-" + UUID.randomUUID().toString().substring(0, 8);
+        SampleRequest httpSample = SampleRequest.defaults(null);
 
         // Seed random initial state per profile
         for (int profileIndex = 0; profileIndex < profiles; profileIndex++) {
-            String profileId = String.format("profile-%04d", profileIndex + 1);
+            String profileId = String.format("%s-profile-%04d", runPrefix, profileIndex + 1);
             String seedStatus = pickRandomStatus(statuses);
             lastStatusByProfile.put(profileId, seedStatus);
             Instant seedStart = cursor.plusSeconds(profileIndex);
@@ -100,6 +102,7 @@ public class SampleDataController {
                     seedStart,
                     seedStart.plusMillis(50),
                     50));
+            ingestService.ingestOne(buildEvent(httpSample, seedStart, seedStart.plusMillis(50), "200"));
         }
 
         long remaining = Math.max(0, unifiedEventCount - profiles);
@@ -110,7 +113,8 @@ public class SampleDataController {
             long emitted = 0;
             while (cursor.isBefore(now) && emitted < remaining) {
                 for (long i = 0; i < eventsPerInterval && emitted < remaining; i++) {
-                    String profileId = String.format("profile-%04d", (int) ((emitted + i) % profiles) + 1);
+                    String profileId =
+                            String.format("%s-profile-%04d", runPrefix, (int) ((emitted + i) % profiles) + 1);
                     String status = pickRandomStateDifferent(lastStatusByProfile.get(profileId), statuses);
                     lastStatusByProfile.put(profileId, status);
                     String channel = pickRandomValue(channels, "web");
@@ -132,6 +136,7 @@ public class SampleDataController {
                             end,
                             durationMs));
                     emitted++;
+                    ingestService.ingestOne(buildEvent(httpSample, start, end, "200"));
                 }
                 cursor = cursor.plusSeconds(strideSeconds);
             }

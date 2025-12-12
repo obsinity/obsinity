@@ -263,8 +263,8 @@ resources:
           "fromStates": ["(none)"],
           "toStates": ["NEW", "ACTIVE", "SUSPENDED", "BLOCKED", "ARCHIVED", "UPGRADED"],
           "interval": "5s",
-          "start": "{% now 'iso-8601', 'utc', -60 %}",
-          "end": "{% now 'iso-8601', 'utc' %}",
+          "x-start": "",
+          "x-end": "",
           "limits": { "offset": 0, "limit": 20 }
         }
     headers:
@@ -290,8 +290,8 @@ resources:
           "fromStates": ["(none)"],
           "toStates": ["NEW", "ACTIVE", "SUSPENDED", "BLOCKED", "ARCHIVED", "UPGRADED"],
           "interval": "5s",
-          "start": "{% now 'iso-8601', 'utc', -60 %}",
-          "end": "{% now 'iso-8601', 'utc' %}",
+          "x-start": "",
+          "x-end": "",
           "limits": { "offset": 0, "limit": 20 },
           "format": "columnar"
         }
@@ -363,8 +363,8 @@ resources:
           "attribute": "user.status",
           "states": ["ACTIVE", "SUSPENDED", "ARCHIVED"],
           "interval": "1m",
-          "start": "{% now 'iso-8601', 'utc', -60 %}",
-          "end": "{% now 'iso-8601', 'utc' %}",
+          "x-start": "",
+          "x-end": "",
           "limits": { "offset": 0, "limit": 30 }
         }
     headers:
@@ -389,8 +389,8 @@ resources:
           "attribute": "user.status",
           "states": ["ACTIVE", "SUSPENDED", "ARCHIVED"],
           "interval": "1m",
-          "start": "{% now 'iso-8601', 'utc', -60 %}",
-          "end": "{% now 'iso-8601', 'utc' %}",
+          "x-start": "",
+          "x-end": "",
           "limits": { "offset": 0, "limit": 30 },
           "format": "columnar"
         }
@@ -1416,6 +1416,35 @@ resources:
         value: application/json
     _type: request
 
+  - _id: req_counter_profile_updates_by_status
+    parentId: fld_counters
+    created: 1766800000001
+    modified: 1766800000001
+    name: Counters - Profile updates by status/channel (1m)
+    description: Counter rollup for user_profile.updated grouped by status and channel.
+    method: POST
+    url: "{{ base_url }}/api/query/counters"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "serviceKey": "payments",
+          "eventType": "user_profile.updated",
+          "counterName": "user_profile_updates_by_status",
+          "interval": "1m",
+          "x-start": "",
+          "x-end": "",
+          "key": {
+            "user.status": ["NEW", "ACTIVE", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED"],
+            "dimensions.channel": ["web", "mobile", "partner"]
+          },
+          "limits": { "offset": 0, "limit": 120 }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
   # ===================== Histograms =====================
   - _id: req_histogram_query_latency
     parentId: fld_histograms
@@ -1433,8 +1462,8 @@ resources:
           "eventType": "{{ event_name }}",
           "histogramName": "http_request_latency_ms",
           "interval": "1m",
-          "start": "{% now 'iso-8601', 'utc', -60 %}",
-          "end": "{% now 'iso-8601', 'utc' %}",
+          "x-start": "",
+          "x-end": "",
           "key": {
             "http.method": ["GET"],
             "http.route": ["/api/checkout", "/api/payments", "/api/profile"]
@@ -1444,6 +1473,36 @@ resources:
             "offset": 0,
             "limit": 60
           }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_histogram_profile_update_duration
+    parentId: fld_histograms
+    created: 1766800000002
+    modified: 1766800000002
+    name: Histograms - Profile update duration (1m percentiles)
+    description: Latency percentiles for user_profile.updated by channel/region.
+    method: POST
+    url: "{{ base_url }}/api/histograms/query"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "serviceKey": "payments",
+          "eventType": "user_profile.updated",
+          "histogramName": "profile_update_duration_ms",
+          "interval": "1m",
+          "x-start": "",
+          "x-end": "",
+          "key": {
+            "dimensions.channel": ["web", "mobile", "partner"],
+            "dimensions.region": ["us-east", "us-west", "eu-central"]
+          },
+          "percentiles": [0.5, 0.9, 0.95, 0.99],
+          "limits": { "offset": 0, "limit": 60 }
         }
     headers:
       - name: Content-Type
@@ -1466,8 +1525,8 @@ resources:
           "eventType": "{{ event_name }}",
           "histogramName": "http_request_latency_ms",
           "interval": "1m",
-          "start": "{% now 'iso-8601', 'utc', -60 %}",
-          "end": "{% now 'iso-8601', 'utc' %}",
+          "x-start": "",
+          "x-end": "",
           "key": {
             "http.method": ["GET"],
             "http.route": ["/api/checkout", "/api/payments", "/api/profile"]
@@ -1496,8 +1555,8 @@ resources:
           "eventType": "user_profile.updated",
           "histogramName": "user_profile_update_duration_ms",
           "interval": "1m",
-          "start": "{% now 'iso-8601', 'utc', -60 %}",
-          "end": "{% now 'iso-8601', 'utc' %}",
+          "x-start": "",
+          "x-end": "",
           "key": {
             "dimensions.channel": ["web", "mobile", "partner"],
             "dimensions.region": ["us-east", "us-west", "eu-central"]
@@ -1722,8 +1781,8 @@ resources:
           "eventType": "{{ event_name }}",
           "counterName": "http_requests_by_api",
           "interval": "1m",
-          "start": "{% now 'iso-8601', 'utc', -3600 %}",
-          "end": "{% now 'iso-8601', 'utc' %}",
+          "x-start": "",
+          "x-end": "",
           "key": {
             "api.name": ["{{ api_name_checkout }}", "{{ api_name_payments }}"],
             "http.method": ["GET"]
