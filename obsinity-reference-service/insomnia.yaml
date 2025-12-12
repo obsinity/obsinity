@@ -265,8 +265,8 @@ resources:
           "fromStates": ["(none)"],
           "toStates": ["NEW", "ACTIVE", "SUSPENDED", "BLOCKED", "ARCHIVED", "UPGRADED"],
           "interval": "5s",
-          "start": "{% now 'iso-8601', 'utc', -60 %}",
-          "end": "{% now 'iso-8601', 'utc' %}",
+          "xstart": "{% now 'iso-8601', 'utc', -60 %}",
+          "xend": "{% now 'iso-8601', 'utc' %}",
           "limits": { "offset": 0, "limit": 20 }
         }
     headers:
@@ -292,8 +292,8 @@ resources:
           "fromStates": ["(none)"],
           "toStates": ["NEW", "ACTIVE", "SUSPENDED", "BLOCKED", "ARCHIVED", "UPGRADED"],
           "interval": "5s",
-          "start": "{% now 'iso-8601', 'utc', -60 %}",
-          "end": "{% now 'iso-8601', 'utc' %}",
+          "xstart": "{% now 'iso-8601', 'utc', -60 %}",
+          "xend": "{% now 'iso-8601', 'utc' %}",
           "limits": { "offset": 0, "limit": 20 },
           "format": "columnar"
         }
