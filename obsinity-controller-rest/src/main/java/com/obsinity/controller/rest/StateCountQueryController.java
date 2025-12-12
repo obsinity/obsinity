@@ -7,6 +7,7 @@ import com.obsinity.service.core.state.query.StateCountQueryRequest;
 import com.obsinity.service.core.state.query.StateCountQueryResult;
 import com.obsinity.service.core.state.query.StateCountQueryService;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;

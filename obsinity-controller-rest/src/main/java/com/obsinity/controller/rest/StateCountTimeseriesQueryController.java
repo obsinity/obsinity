@@ -8,6 +8,7 @@ import com.obsinity.service.core.state.query.StateCountTimeseriesQueryResult;
 import com.obsinity.service.core.state.query.StateCountTimeseriesQueryResult.StateCountTimeseriesWindow;
 import com.obsinity.service.core.state.query.StateCountTimeseriesQueryService;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -63,9 +64,7 @@ public class StateCountTimeseriesQueryController {
 
         private static List<Map<String, Object>> flattenWindows(StateCountTimeseriesQueryResult result) {
             return result.windows().stream()
-                    .flatMap(w -> w.states().stream()
-                            .filter(e -> e.count() > 0)
-                            .map(e -> toRow(w, e)))
+                    .flatMap(w -> w.states().stream().filter(e -> e.count() > 0).map(e -> toRow(w, e)))
                     .toList();
         }
 
