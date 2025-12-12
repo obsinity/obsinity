@@ -44,9 +44,7 @@ public record CounterQueryHalResponse(
 
     private static List<Map<String, Object>> flattenWindows(CounterQueryResult result) {
         return result.windows().stream()
-                .flatMap(w -> w.counts().stream()
-                        .filter(c -> c.count() > 0)
-                        .map(c -> toRow(w, c)))
+                .flatMap(w -> w.counts().stream().filter(c -> c.count() > 0).map(c -> toRow(w, c)))
                 .toList();
     }
 

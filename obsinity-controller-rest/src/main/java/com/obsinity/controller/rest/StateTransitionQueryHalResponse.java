@@ -47,13 +47,13 @@ public record StateTransitionQueryHalResponse(
 
     private static List<Map<String, Object>> flattenWindows(StateTransitionQueryResult result) {
         return result.windows().stream()
-                .flatMap(w -> w.transitions().stream()
-                        .filter(e -> e.count() > 0)
-                        .map(e -> toRow(w, e)))
+                .flatMap(
+                        w -> w.transitions().stream().filter(e -> e.count() > 0).map(e -> toRow(w, e)))
                 .toList();
     }
 
-    private static Map<String, Object> toRow(StateTransitionQueryWindow window, StateTransitionQueryWindow.Entry entry) {
+    private static Map<String, Object> toRow(
+            StateTransitionQueryWindow window, StateTransitionQueryWindow.Entry entry) {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("from", window.start());
         row.put("to", window.end());
