@@ -79,7 +79,7 @@ public class SampleDataController {
         int unifiedEventCount = Math.max(1, req.events());
         long windowSeconds = Math.max(1, req.recentWindowSeconds());
         Instant windowStart = now.minusSeconds(windowSeconds);
-        double strideSeconds = windowSeconds / Math.max(1.0, unifiedEventCount);
+        long strideSeconds = Math.max(1L, windowSeconds / Math.max(1, unifiedEventCount));
         Instant cursor = windowStart;
         int profiles = Math.max(1, req.profilePool());
 
@@ -102,28 +102,39 @@ public class SampleDataController {
                     50));
         }
 
-        for (int i = 0; i < unifiedEventCount; i++) {
-            String profileId = String.format("profile-%04d", (i % profiles) + 1);
-            String status = pickRandomStateDifferent(lastStatusByProfile.get(profileId), statuses);
-            lastStatusByProfile.put(profileId, status);
-            String channel = pickRandomValue(channels, "web");
-            String region = pickRandomValue(regions, "us-east");
-            String tier = pickRandomValue(tiers, "FREE");
-            long durationMs = 25L + random.nextInt(Math.max(1, req.maxDurationMillis()));
-            Instant start = cursor;
-            Instant end = start.plusMillis(durationMs);
-            ingestService.ingestOne(buildUnifiedEvent(
-                    req.serviceKey(),
-                    req.eventType(),
-                    profileId,
-                    status,
-                    tier,
-                    channel,
-                    region,
-                    start,
-                    end,
-                    durationMs));
-            cursor = cursor.plusSeconds(Math.max(1L, Math.round(strideSeconds)));
+        long remaining = Math.max(0, unifiedEventCount - profiles);
+        if (remaining > 0) {
+            long intervals = Math.max(1, windowSeconds / strideSeconds);
+            long eventsPerInterval = Math.max(1, remaining / intervals);
+            cursor = windowStart;
+            long emitted = 0;
+            while (cursor.isBefore(now) && emitted < remaining) {
+                for (long i = 0; i < eventsPerInterval && emitted < remaining; i++) {
+                    String profileId = String.format("profile-%04d", (int) ((emitted + i) % profiles) + 1);
+                    String status = pickRandomStateDifferent(lastStatusByProfile.get(profileId), statuses);
+                    lastStatusByProfile.put(profileId, status);
+                    String channel = pickRandomValue(channels, "web");
+                    String region = pickRandomValue(regions, "us-east");
+                    String tier = pickRandomValue(tiers, "FREE");
+                    long durationMs = 25L + random.nextInt(Math.max(1, req.maxDurationMillis()));
+                    long jitterMillis = random.nextLong(Math.max(1, strideSeconds * 1000));
+                    Instant start = cursor.plusMillis(jitterMillis);
+                    Instant end = start.plusMillis(durationMs);
+                    ingestService.ingestOne(buildUnifiedEvent(
+                            req.serviceKey(),
+                            req.eventType(),
+                            profileId,
+                            status,
+                            tier,
+                            channel,
+                            region,
+                            start,
+                            end,
+                            durationMs));
+                    emitted++;
+                }
+                cursor = cursor.plusSeconds(strideSeconds);
+            }
         }
 
         ingestHistogramEvents(req, windowStart, now, windowSeconds, unifiedEventCount);
