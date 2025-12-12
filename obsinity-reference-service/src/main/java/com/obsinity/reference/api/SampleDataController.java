@@ -31,8 +31,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class SampleDataController {
 
     private static final int ERROR_FREQUENCY = 20;
-    private static final long DEMO_WINDOW_SECONDS = Duration.ofDays(14).getSeconds();
-
     private final EventIngestService ingestService;
     private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "demo-state-generator");
@@ -79,7 +77,7 @@ public class SampleDataController {
         Map<String, String> lastStatusByProfile = new HashMap<>();
 
         int unifiedEventCount = Math.max(1, req.events());
-        long windowSeconds = Math.max(1, DEMO_WINDOW_SECONDS);
+        long windowSeconds = Math.max(1, req.recentWindowSeconds());
         Instant windowStart = now.minusSeconds(windowSeconds);
         double strideSeconds = windowSeconds / Math.max(1.0, unifiedEventCount);
         Instant cursor = windowStart;
@@ -128,7 +126,7 @@ public class SampleDataController {
             cursor = cursor.plusSeconds(Math.max(1L, Math.round(strideSeconds)));
         }
 
-        ingestHistogramEvents(req, windowStart, Instant.now(), unifiedEventCount);
+        ingestHistogramEvents(req, windowStart, now, windowSeconds, unifiedEventCount);
 
         return Map.of(
                 "generated", unifiedEventCount + profiles,
@@ -386,9 +384,9 @@ public class SampleDataController {
                 .build();
     }
 
-    private int ingestHistogramEvents(UnifiedEventRequest req, Instant windowStart, Instant now, int sampleCount) {
+    private int ingestHistogramEvents(
+            UnifiedEventRequest req, Instant windowStart, Instant now, long windowSeconds, int sampleCount) {
         double[] latencyProfile = {50, 65, 90, 120, 160, 210, 280, 360, 450, 560, 700, 900, 1150, 1400};
-        long windowSeconds = Math.max(1, DEMO_WINDOW_SECONDS);
         double spacingSeconds = (double) windowSeconds / Math.max(1, sampleCount);
         List<String> statusCodes = List.of("200", "500");
         int stored = 0;
