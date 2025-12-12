@@ -37,9 +37,28 @@ public record CounterQueryHalResponse(
         Map<String, HalLink> links =
                 buildLinks(href, request, offset, limit, count, total, effectiveStart, effectiveEnd);
         Object data = format == ResponseFormat.COLUMNAR
-                ? FrictionlessData.columnar(result.windows(), mapper)
+                ? FrictionlessData.columnar(flattenWindows(result), mapper)
                 : new Data(result.windows());
         return new CounterQueryHalResponse(count, total, limit, offset, data, links, format.wireValue());
+    }
+
+    private static List<Map<String, Object>> flattenWindows(CounterQueryResult result) {
+        return result.windows().stream()
+                .flatMap(w -> w.counts().stream()
+                        .filter(c -> c.count() > 0)
+                        .map(c -> toRow(w, c)))
+                .toList();
+    }
+
+    private static Map<String, Object> toRow(CounterQueryWindow window, CounterQueryWindow.CountEntry entry) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("from", window.from());
+        row.put("to", window.to());
+        if (entry.key() != null) {
+            row.putAll(entry.key());
+        }
+        row.put("count", entry.count());
+        return row;
     }
 
     private static int determineLimit(CounterQueryRequest request, CounterQueryResult result, int count, int total) {

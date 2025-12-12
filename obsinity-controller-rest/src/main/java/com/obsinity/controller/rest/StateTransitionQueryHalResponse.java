@@ -39,10 +39,28 @@ public record StateTransitionQueryHalResponse(
                 buildLinks(href, request, offset, limit, count, total, effectiveStart, effectiveEnd);
 
         Object data = format == ResponseFormat.COLUMNAR
-                ? FrictionlessData.columnar(result.windows(), mapper)
+                ? FrictionlessData.columnar(flattenWindows(result), mapper)
                 : new Data(result.windows());
 
         return new StateTransitionQueryHalResponse(count, total, limit, offset, data, links, format.wireValue());
+    }
+
+    private static List<Map<String, Object>> flattenWindows(StateTransitionQueryResult result) {
+        return result.windows().stream()
+                .flatMap(w -> w.transitions().stream()
+                        .filter(e -> e.count() > 0)
+                        .map(e -> toRow(w, e)))
+                .toList();
+    }
+
+    private static Map<String, Object> toRow(StateTransitionQueryWindow window, StateTransitionQueryWindow.Entry entry) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("from", window.start());
+        row.put("to", window.end());
+        row.put("fromState", entry.fromState());
+        row.put("toState", entry.toState());
+        row.put("count", entry.count());
+        return row;
     }
 
     private static Map<String, HalLink> buildLinks(

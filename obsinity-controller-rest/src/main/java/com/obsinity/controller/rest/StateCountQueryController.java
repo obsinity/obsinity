@@ -55,9 +55,13 @@ public class StateCountQueryController {
             ResponseFormat format = ResponseFormat.defaulted(responseFormat);
             Map<String, HalLink> links = buildLinks(href, request, offset, limit, count, total);
             Object data = format == ResponseFormat.COLUMNAR
-                    ? FrictionlessData.columnar(result.states(), mapper)
+                    ? FrictionlessData.columnar(filterStates(result), mapper)
                     : new Data(result.states());
             return new StateCountQueryHalResponse(count, total, limit, offset, data, links, format.wireValue());
+        }
+
+        private static List<StateCountQueryResult.StateCountEntry> filterStates(StateCountQueryResult result) {
+            return result.states().stream().filter(s -> s.count() > 0).toList();
         }
 
         private static Map<String, HalLink> buildLinks(
