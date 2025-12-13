@@ -64,8 +64,12 @@ public class HistogramPersistService {
         }
 
         Instant baseInstant = Instant.ofEpochSecond(epochSeconds);
-        List<HistogramBuffer.BufferedHistogramEntry> entries =
-                batch.stream().filter(entry -> entry.getSamples() > 0).toList();
+        List<HistogramBuffer.BufferedHistogramEntry> entries = batch.stream()
+                .filter(entry -> entry.getSamples() > 0)
+                .sorted(Comparator.comparing(HistogramBuffer.BufferedHistogramEntry::getHistogramConfigId)
+                        .thenComparing(HistogramBuffer.BufferedHistogramEntry::getKeyHash)
+                        .thenComparing(HistogramBuffer.BufferedHistogramEntry::getEventTypeId))
+                .toList();
         if (entries.isEmpty()) {
             return;
         }
