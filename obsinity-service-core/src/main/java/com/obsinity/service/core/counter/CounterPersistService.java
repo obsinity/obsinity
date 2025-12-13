@@ -98,15 +98,6 @@ public class CounterPersistService {
                         ps.setString(5, item.keyHash());
                         ps.setString(6, item.keyDataJson());
                         ps.setLong(7, item.delta());
-                        log.info(
-                                "Persist counter bucket={} ts={} counterConfigId={} eventTypeId={} keyHash={} keyData={} delta={}",
-                                bucket.label(),
-                                item.timestamp(),
-                                item.counterConfigId(),
-                                item.eventTypeId(),
-                                item.keyHash(),
-                                item.keyDataJson(),
-                                item.delta());
                     }
 
                     @Override
