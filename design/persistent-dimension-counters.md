@@ -8,7 +8,7 @@ Standard time-series counters are derived from retained events and represent **w
 
 - **Source of truth**: time-series counters are recomputable from events; PDCs are authoritative state.
 - **Retention impact**: time-series counters lose historical totals after deletion; PDCs do not.
-- **Idempotency**: PDCs require strict dedupe by `(counterKey, eventId)` to prevent inflation; time-series aggregates can tolerate duplicates if recomputed.
+- **Idempotency boundary**: events are globally unique by `eventId`; duplicates are logged, stored in an audit table, and dropped at ingestion, so PDCs rely on upstream dedupe rather than per-counter dedupe.
 - **Rebuildability**: time-series counters can be rebuilt from retained data; PDCs cannot be fully rebuilt once retention has dropped events unless archival/rollups exist.
 
 ## Problem Statement
@@ -27,8 +27,9 @@ Time-series retention (e.g., 2 years) makes it impossible to compute true all-ti
   - **INCREMENT** (+1)
   - **DECREMENT** (-1)
 - Updates are applied via event projections only.
-- Exactly-once *per eventId per Counter Key* via dedupe store:
-  - If an `(eventId, counterKey)` has been processed, the update is skipped.
+- Exactly-once is enforced **upstream** at ingestion:
+  - `eventId` is globally unique.
+  - Duplicate events are logged, stored in an audit table, and dropped before projection.
 - Optional safety rule (per counter): **floor at 0** (never negative).
 
 ## Architecture
@@ -37,8 +38,9 @@ Time-series retention (e.g., 2 years) makes it impossible to compute true all-ti
 1) **Event Store** (retention-limited time series)
 2) **Persistent Counter Store** (retained forever)
 3) **Projection Processor** (consumes events, applies INC/DEC)
-4) **Dedupe/Idempotency Store** (records processed `(counterKey, eventId)`)
-5) **Optional Per-Entity State Store** (only for transition-safe mode)
+4) **Event Registry** (global `eventId` uniqueness)
+5) **Duplicate Event Audit Store** (records duplicate `eventId`s)
+6) **Optional Per-Entity State Store** (only for transition-safe mode)
 
 ### Component Diagram (PlantUML)
 ```plantuml
@@ -47,12 +49,14 @@ skinparam componentStyle rectangle
 
 component "Event Store\n(retention-limited)" as ES
 component "Projection Processor" as PP
-component "Dedupe Store\n(counterKey, eventId)" as DS
+component "Event Registry\n(global eventId)" as ER
+component "Duplicate Event Audit Store\n(duplicate eventId)" as DS
 component "Persistent Counter Store\n(retained forever)" as CS
 component "Optional State Store\n(transition-safe)" as SS
 
 ES --> PP : consume events
-PP --> DS : idempotency check/record
+PP --> ER : register eventId
+PP --> DS : audit duplicate events (ingest)
 PP --> CS : update counter
 PP --> SS : optional state lookup/update
 @enduml
@@ -64,18 +68,19 @@ PP --> SS : optional state lookup/update
 actor Producer
 participant "Event Store" as ES
 participant "Projection Processor" as PP
-participant "Dedupe Store" as DS
+participant "Event Registry" as ER
+participant "Duplicate Event Audit Store" as DS
 participant "Counter Store" as CS
 
 Producer -> ES : append event
 ES -> PP : deliver event
-PP -> DS : insert (counterKey, eventId)
-alt dedupe insert succeeds
+PP -> ER : insert eventId
+alt eventId is new
   PP -> CS : apply INC/DEC
   CS --> PP : ok
-  PP -> DS : commit record
-else dedupe exists
-  PP --> ES : skip update
+else duplicate eventId
+  PP -> DS : record duplicate
+  PP --> ES : drop event
 end
 @enduml
 ```
@@ -94,28 +99,38 @@ end
 
 **Unique constraint:** `(counter_name, dimension_key)`
 
-### Dedupe Table (Persistent or Long-Lived)
+### Event Registry (Global EventId Uniqueness)
 | Field | Type | Notes |
 | --- | --- | --- |
-| counter_name | text | name of the counter |
-| dimension_key | text/bytea | canonical hash of dimensions |
 | event_id | uuid/text | client-provided id |
-| processed_at | timestamptz | when processed |
+| first_seen_at | timestamptz | when first observed |
 
-**Unique constraint:** `(counter_name, dimension_key, event_id)`
+**Unique constraint:** `(event_id)`
 
 **Retention policy:** default retain forever for correctness. If a TTL is used, correctness is compromised because old eventIds can reapply and inflate totals.
+
+### Duplicate Event Audit Table
+| Field | Type | Notes |
+| --- | --- | --- |
+| event_id | uuid/text | client-provided id |
+| first_seen_at | timestamptz | when first observed |
+| duplicate_seen_at | timestamptz | when duplicate observed |
+| event_type | text | optional for audit |
+| dimensions_json | json/jsonb | optional for audit |
+| payload_json | json/jsonb | optional for audit |
+
+**Unique constraint (recommended):** `(event_id, duplicate_seen_at)` or a separate table keyed by `event_id` with a duplicates array, depending on audit needs.
 
 ## Atomicity and Concurrency
 - Updates must be atomic under concurrent writers for the same Counter Key.
 - Prefer DB-level atomic upserts over optimistic locking retry loops for hot counters.
-- Dedupe insert and counter update must be in **one transaction**.
+- Event uniqueness check and counter update must be in **one transaction**.
 
 ### Postgres Example (Single Transaction)
 ```sql
--- 1) Attempt dedupe insert
-INSERT INTO counter_dedupe (counter_name, dimension_key, event_id, processed_at)
-VALUES (:counter_name, :dimension_key, :event_id, now())
+-- 1) Attempt to register the eventId (unique)
+INSERT INTO event_registry (event_id, first_seen_at)
+VALUES (:event_id, now())
 ON CONFLICT DO NOTHING;
 
 -- 2) Only if row was inserted, apply update
@@ -146,9 +161,9 @@ Ordering generally does not matter for pure totals. For gauges (active counts), 
 ### Failure Modes
 | Scenario | Raw Mode Outcome | Transition-Safe Outcome |
 | --- | --- | --- |
-| Duplicate eventId | dedupe skips | dedupe skips |
+| Duplicate eventId | dropped at ingestion | dropped at ingestion |
 | Out-of-order disconnect before connect | may go negative (or floor at 0) | no decrement unless state is connected |
-| Replayed old events after dedupe TTL | double-count | double-count (if TTL applied) |
+| Replayed old events after registry TTL | double-count | double-count (if TTL applied) |
 
 ## Configuration Model (YAML/CRD Style)
 
@@ -161,7 +176,7 @@ Ordering generally does not matter for pure totals. For gauges (active counts), 
 | floorAtZero | boolean | clamp at 0 if true |
 | rules | list | event type to action mapping |
 | idempotency.requireEventId | boolean | must be true |
-| idempotency.scope | string | `perCounterKey` |
+| idempotency.scope | string | `globalEventId` |
 
 ### Example
 ```yaml
@@ -177,7 +192,7 @@ counters:
         op: decrement
     idempotency:
       requireEventId: true
-      scope: perCounterKey
+      scope: globalEventId
 
   - counterName: connects_total
     mode: persistent
@@ -188,7 +203,7 @@ counters:
         op: increment
     idempotency:
       requireEventId: true
-      scope: perCounterKey
+      scope: globalEventId
 ```
 
 ## Example Flows
@@ -204,8 +219,8 @@ counters:
 
 ### Duplicate Delivery
 - Event `E1` delivered again.
-- Dedupe detects `(counterKey, E1)` already processed.
-- Update skipped; no double-count.
+- Ingestion detects duplicate `eventId`, logs it, stores it in the duplicate audit table, and drops it.
+- Projection does not apply any update; no double-count.
 
 ### Concurrent Connects
 - Events `E3` and `E4` for same master arrive concurrently.
@@ -227,9 +242,9 @@ counters:
 ## Observability and Safety
 **Metrics**
 - `counter_update_success_total`
-- `counter_dedupe_hit_total`
+- `duplicate_event_dropped_total`
 - `counter_update_conflict_retries`
 - `projection_lag_seconds`
 
 **Logging fields**
-- `counterName`, `dimensionKey`, `eventId`, `op` (INC/DEC), `result` (APPLIED/DEDUPED)
+- `counterName`, `dimensionKey`, `eventId`, `op` (INC/DEC), `result` (APPLIED/DROPPED_DUPLICATE)
