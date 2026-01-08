@@ -43,7 +43,7 @@ Time-series retention (e.g., 2 years) makes it impossible to compute true all-ti
 6) **Optional Per-Entity State Store** (only for transition-safe mode)
 
 ### Component Diagram (Mermaid)
-```mermaid
+~~~mermaid
 flowchart LR
   ES[Event Store<br/>(retention-limited)]
   PP[Projection Processor]
@@ -57,10 +57,10 @@ flowchart LR
   PP -->|audit duplicate events (ingest)| DS
   PP -->|update counter| CS
   PP -->|optional state lookup/update| SS
-```
+~~~
 
 ### Sequence Diagram (Mermaid)
-```mermaid
+~~~mermaid
 sequenceDiagram
   actor Producer
   participant ES as Event Store
@@ -79,7 +79,7 @@ sequenceDiagram
     PP->>DS: record duplicate
     PP-->>ES: drop event
   end
-```
+~~~
 
 ## Data Model
 
@@ -123,7 +123,7 @@ sequenceDiagram
 - Event uniqueness check and counter update must be in **one transaction**.
 
 ### Postgres Example (Single Transaction)
-```sql
+~~~sql
 -- 1) Attempt to register the eventId (unique)
 INSERT INTO event_registry (event_id, first_seen_at)
 VALUES (:event_id, now())
@@ -137,7 +137,7 @@ ON CONFLICT (counter_name, dimension_key)
 DO UPDATE SET
   value = counters.value + EXCLUDED.value,
   updated_at = now();
-```
+~~~
 
 **Contention guidance:**
 - Hot keys will contend; rely on DB atomic updates and keep transactions short.
@@ -175,7 +175,7 @@ Ordering generally does not matter for pure totals. For gauges (active counts), 
 | idempotency.scope | string | `globalEventId` |
 
 ### Example
-```yaml
+~~~yaml
 counters:
   - counterName: active_connections
     mode: persistent
@@ -200,7 +200,7 @@ counters:
     idempotency:
       requireEventId: true
       scope: globalEventId
-```
+~~~
 
 ## Example Flows
 
