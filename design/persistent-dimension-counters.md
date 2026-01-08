@@ -1,0 +1,227 @@
+# Generic Persistent Dimension Counters
+
+## Overview
+Persistent Dimension Counters (PDCs) provide durable, all-time totals per dimensioned key that survive time-series retention deletions. PDCs are updated only through event projections and use strict idempotency (eventId + counter key) to guarantee each logical event applies at most once.
+
+## Problem Statement
+Time-series retention (e.g., 2 years) makes it impossible to compute true all-time totals after older events are deleted. PDCs persist aggregated counts forever while the time-series stream remains available for windowed analytics.
+
+## Definitions
+- **Event**: immutable record with `eventId` (client-provided), `type`, `occurredAt`, `dimensions`, `payload`.
+- **Dimension Set**: key-value map attached to an event.
+- **Dimension Key**: deterministic canonical representation + hash of the dimension set used for indexing.
+- **Counter Key**: `(counterName, dimensionKey)`.
+- **Persistent Dimension Counter (PDC)**: permanent materialized counter value per Counter Key.
+
+## Counter Semantics
+- PDC value is a signed 64-bit integer.
+- Only two operations exist:
+  - **INCREMENT** (+1)
+  - **DECREMENT** (-1)
+- Updates are applied via event projections only.
+- Exactly-once *per eventId per Counter Key* via dedupe store:
+  - If an `(eventId, counterKey)` has been processed, the update is skipped.
+- Optional safety rule (per counter): **floor at 0** (never negative).
+
+## Architecture
+
+### High-Level Components
+1) **Event Store** (retention-limited time series)
+2) **Persistent Counter Store** (retained forever)
+3) **Projection Processor** (consumes events, applies INC/DEC)
+4) **Dedupe/Idempotency Store** (records processed `(counterKey, eventId)`)
+5) **Optional Per-Entity State Store** (only for transition-safe mode)
+
+### Component Diagram (PlantUML)
+```plantuml
+@startuml
+skinparam componentStyle rectangle
+
+component "Event Store\n(retention-limited)" as ES
+component "Projection Processor" as PP
+component "Dedupe Store\n(counterKey, eventId)" as DS
+component "Persistent Counter Store\n(retained forever)" as CS
+component "Optional State Store\n(transition-safe)" as SS
+
+ES --> PP : consume events
+PP --> DS : idempotency check/record
+PP --> CS : update counter
+PP --> SS : optional state lookup/update
+@enduml
+```
+
+### Sequence Diagram (PlantUML)
+```plantuml
+@startuml
+actor Producer
+participant "Event Store" as ES
+participant "Projection Processor" as PP
+participant "Dedupe Store" as DS
+participant "Counter Store" as CS
+
+Producer -> ES : append event
+ES -> PP : deliver event
+PP -> DS : insert (counterKey, eventId)
+alt dedupe insert succeeds
+  PP -> CS : apply INC/DEC
+  CS --> PP : ok
+  PP -> DS : commit record
+else dedupe exists
+  PP --> ES : skip update
+end
+@enduml
+```
+
+## Data Model
+
+### Counter Table (Persistent)
+| Field | Type | Notes |
+| --- | --- | --- |
+| counter_name | text | name of the counter |
+| dimension_key | text/bytea | canonical hash of dimensions |
+| dimensions_json | json/jsonb | optional; for inspection |
+| value | bigint | current count |
+| updated_at | timestamptz | last update time |
+| floor_at_zero | boolean | optional; or stored in config |
+
+**Unique constraint:** `(counter_name, dimension_key)`
+
+### Dedupe Table (Persistent or Long-Lived)
+| Field | Type | Notes |
+| --- | --- | --- |
+| counter_name | text | name of the counter |
+| dimension_key | text/bytea | canonical hash of dimensions |
+| event_id | uuid/text | client-provided id |
+| processed_at | timestamptz | when processed |
+
+**Unique constraint:** `(counter_name, dimension_key, event_id)`
+
+**Retention policy:** default retain forever for correctness. If a TTL is used, correctness is compromised because old eventIds can reapply and inflate totals.
+
+## Atomicity and Concurrency
+- Updates must be atomic under concurrent writers for the same Counter Key.
+- Prefer DB-level atomic upserts over optimistic locking retry loops for hot counters.
+- Dedupe insert and counter update must be in **one transaction**.
+
+### Postgres Example (Single Transaction)
+```sql
+-- 1) Attempt dedupe insert
+INSERT INTO counter_dedupe (counter_name, dimension_key, event_id, processed_at)
+VALUES (:counter_name, :dimension_key, :event_id, now())
+ON CONFLICT DO NOTHING;
+
+-- 2) Only if row was inserted, apply update
+-- (Use application check on affected rows)
+INSERT INTO counters (counter_name, dimension_key, dimensions_json, value, updated_at)
+VALUES (:counter_name, :dimension_key, :dimensions_json, :delta, now())
+ON CONFLICT (counter_name, dimension_key)
+DO UPDATE SET
+  value = counters.value + EXCLUDED.value,
+  updated_at = now();
+```
+
+**Contention guidance:**
+- Hot keys will contend; rely on DB atomic updates and keep transactions short.
+- If conflict retries occur, record metrics and consider sharding by dimension or spreading producers.
+
+## Ordering and Out-of-Order Events
+Ordering generally does not matter for pure totals. For gauges (active counts), ordering and duplicates can cause drift unless events represent true transitions.
+
+### Modes
+1) **Transition-safe mode (recommended)**
+   - Events represent actual state transitions (connect/disconnect).
+   - Optional state store ensures only valid transitions emit INC/DEC.
+2) **Raw mode**
+   - Apply +/-1 as-is.
+   - Drift possible with noisy/duplicate/out-of-order events.
+
+### Failure Modes
+| Scenario | Raw Mode Outcome | Transition-Safe Outcome |
+| --- | --- | --- |
+| Duplicate eventId | dedupe skips | dedupe skips |
+| Out-of-order disconnect before connect | may go negative (or floor at 0) | no decrement unless state is connected |
+| Replayed old events after dedupe TTL | double-count | double-count (if TTL applied) |
+
+## Configuration Model (YAML/CRD Style)
+
+### Fields
+| Field | Type | Description |
+| --- | --- | --- |
+| counterName | string | name of the counter |
+| mode | string | `persistent` |
+| dimensions | list | dimension keys to extract |
+| floorAtZero | boolean | clamp at 0 if true |
+| rules | list | event type to action mapping |
+| idempotency.requireEventId | boolean | must be true |
+| idempotency.scope | string | `perCounterKey` |
+
+### Example
+```yaml
+counters:
+  - counterName: active_connections
+    mode: persistent
+    dimensions: [masterAccountId]
+    floorAtZero: true
+    rules:
+      - on: account.connected
+        op: increment
+      - on: account.disconnected
+        op: decrement
+    idempotency:
+      requireEventId: true
+      scope: perCounterKey
+
+  - counterName: connects_total
+    mode: persistent
+    dimensions: [masterAccountId]
+    floorAtZero: false
+    rules:
+      - on: account.connected
+        op: increment
+    idempotency:
+      requireEventId: true
+      scope: perCounterKey
+```
+
+## Example Flows
+
+### Single Connect Event
+- Event: `account.connected` with `eventId=E1`.
+- `active_connections` increments by +1.
+- `connects_total` increments by +1.
+
+### Disconnect Event
+- Event: `account.disconnected` with `eventId=E2`.
+- `active_connections` decrements by -1.
+
+### Duplicate Delivery
+- Event `E1` delivered again.
+- Dedupe detects `(counterKey, E1)` already processed.
+- Update skipped; no double-count.
+
+### Concurrent Connects
+- Events `E3` and `E4` for same master arrive concurrently.
+- Both dedupe inserts succeed for their eventIds.
+- Counter updates apply twice; final value reflects both.
+
+### Out-of-Order Disconnect Before Connect
+- Event `account.disconnected` arrives before `account.connected`.
+- **Raw mode:** decrement applies; value may go negative unless `floorAtZero` is true.
+- **Transition-safe mode:** disconnect ignored if state is not connected; no negative drift. (Probably a bad idea)
+
+## Retention and Rebuild
+- Persistent counters are authoritative beyond the event retention boundary.
+- Full rebuild from deleted events is impossible without archival/rollups.
+- Operational recommendation:
+  - Periodic export/checkpoint of counter tables for disaster recovery.
+  - Optional immutable audit log of counter updates (not required for core design).
+
+## Observability and Safety
+**Metrics**
+- `counter_update_success_total`
+- `counter_dedupe_hit_total`
+- `counter_update_conflict_retries`
+- `projection_lag_seconds`
+
+**Logging fields**
+- `counterName`, `dimensionKey`, `eventId`, `op` (INC/DEC), `result` (APPLIED/DEDUPED)
