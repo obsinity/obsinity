@@ -42,47 +42,43 @@ Time-series retention (e.g., 2 years) makes it impossible to compute true all-ti
 5) **Duplicate Event Audit Store** (records duplicate `eventId`s)
 6) **Optional Per-Entity State Store** (only for transition-safe mode)
 
-### Component Diagram (PlantUML)
-```plantuml
-@startuml
-skinparam componentStyle rectangle
+### Component Diagram (Mermaid)
+```mermaid
+flowchart LR
+  ES[Event Store<br/>(retention-limited)]
+  PP[Projection Processor]
+  ER[Event Registry<br/>(global eventId)]
+  DS[Duplicate Event Audit Store<br/>(duplicate eventId)]
+  CS[Persistent Counter Store<br/>(retained forever)]
+  SS[Optional State Store<br/>(transition-safe)]
 
-component "Event Store\n(retention-limited)" as ES
-component "Projection Processor" as PP
-component "Event Registry\n(global eventId)" as ER
-component "Duplicate Event Audit Store\n(duplicate eventId)" as DS
-component "Persistent Counter Store\n(retained forever)" as CS
-component "Optional State Store\n(transition-safe)" as SS
-
-ES --> PP : consume events
-PP --> ER : register eventId
-PP --> DS : audit duplicate events (ingest)
-PP --> CS : update counter
-PP --> SS : optional state lookup/update
-@enduml
+  ES -->|consume events| PP
+  PP -->|register eventId| ER
+  PP -->|audit duplicate events (ingest)| DS
+  PP -->|update counter| CS
+  PP -->|optional state lookup/update| SS
 ```
 
-### Sequence Diagram (PlantUML)
-```plantuml
-@startuml
-actor Producer
-participant "Event Store" as ES
-participant "Projection Processor" as PP
-participant "Event Registry" as ER
-participant "Duplicate Event Audit Store" as DS
-participant "Counter Store" as CS
+### Sequence Diagram (Mermaid)
+```mermaid
+sequenceDiagram
+  actor Producer
+  participant ES as Event Store
+  participant PP as Projection Processor
+  participant ER as Event Registry
+  participant DS as Duplicate Event Audit Store
+  participant CS as Counter Store
 
-Producer -> ES : append event
-ES -> PP : deliver event
-PP -> ER : insert eventId
-alt eventId is new
-  PP -> CS : apply INC/DEC
-  CS --> PP : ok
-else duplicate eventId
-  PP -> DS : record duplicate
-  PP --> ES : drop event
-end
-@enduml
+  Producer->>ES: append event
+  ES->>PP: deliver event
+  PP->>ER: insert eventId
+  alt eventId is new
+    PP->>CS: apply INC/DEC
+    CS-->>PP: ok
+  else duplicate eventId
+    PP->>DS: record duplicate
+    PP-->>ES: drop event
+  end
 ```
 
 ## Data Model
