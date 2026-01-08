@@ -45,12 +45,12 @@ Time-series retention (e.g., 2 years) makes it impossible to compute true all-ti
 ### Component Diagram (Mermaid)
 ~~~mermaid
 flowchart LR
-  ES[Event Store<br/>(retention-limited)]
+  ES[Event Store (retention-limited)]
   PP[Projection Processor]
-  ER[Event Registry<br/>(global eventId)]
-  DS[Duplicate Event Audit Store<br/>(duplicate eventId)]
-  CS[Persistent Counter Store<br/>(retained forever)]
-  SS[Optional State Store<br/>(transition-safe)]
+  ER[Event Registry (global eventId)]
+  DS[Duplicate Event Audit Store (duplicate eventId)]
+  CS[Persistent Counter Store (retained forever)]
+  SS[Optional State Store (transition-safe)]
 
   ES -->|consume events| PP
   PP -->|register eventId| ER
