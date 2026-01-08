@@ -54,9 +54,9 @@ flowchart LR
 
   ES -->|consume events| PP
   PP -->|register eventId| ER
-  PP -->|audit duplicate events (ingest)| DS
+  PP -->|audit duplicate events| DS
   PP -->|update counter| CS
-  PP -->|optional state lookup/update| SS
+  PP -->|optional state lookup and update| SS
 ~~~
 
 ### Sequence Diagram (Mermaid)
