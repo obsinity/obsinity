@@ -3,6 +3,14 @@
 ## Overview
 Persistent Dimension Counters (PDCs) provide durable, all-time totals per dimensioned key that survive time-series retention deletions. PDCs are updated only through event projections and use strict idempotency (eventId + counter key) to guarantee each logical event applies at most once.
 
+## Why These Counters Are Different
+Standard time-series counters are derived from retained events and represent **windowed** analytics; once events expire, historical totals can no longer be recomputed. PDCs are **materialized forever** per counter key, so they remain authoritative beyond retention limits. This difference changes expectations:
+
+- **Source of truth**: time-series counters are recomputable from events; PDCs are authoritative state.
+- **Retention impact**: time-series counters lose historical totals after deletion; PDCs do not.
+- **Idempotency**: PDCs require strict dedupe by `(counterKey, eventId)` to prevent inflation; time-series aggregates can tolerate duplicates if recomputed.
+- **Rebuildability**: time-series counters can be rebuilt from retained data; PDCs cannot be fully rebuilt once retention has dropped events unless archival/rollups exist.
+
 ## Problem Statement
 Time-series retention (e.g., 2 years) makes it impossible to compute true all-time totals after older events are deleted. PDCs persist aggregated counts forever while the time-series stream remains available for windowed analytics.
 
