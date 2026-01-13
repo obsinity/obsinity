@@ -72,6 +72,10 @@ public class CounterHashService {
         return hash;
     }
 
+    public String canonicalizeKeyData(Map<String, String> keyData) {
+        return buildCanonicalKeyString(keyData);
+    }
+
     public Map<String, String> getKeyDataForHash(String hash) {
         String canonical = hashToKey.getIfPresent(hash);
         if (canonical == null) {

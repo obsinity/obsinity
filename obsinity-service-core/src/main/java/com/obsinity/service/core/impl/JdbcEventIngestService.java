@@ -3,6 +3,7 @@ package com.obsinity.service.core.impl;
 import com.obsinity.service.core.config.ConfigLookup;
 import com.obsinity.service.core.config.EventTypeConfig;
 import com.obsinity.service.core.counter.CounterIngestService;
+import com.obsinity.service.core.counter.PersistentCounterIngestService;
 import com.obsinity.service.core.histogram.HistogramIngestService;
 import com.obsinity.service.core.index.AttributeIndexingService;
 import com.obsinity.service.core.model.EventEnvelope;
@@ -51,11 +52,15 @@ public class JdbcEventIngestService implements EventIngestService {
     private final ConfigLookup configLookup;
     private final UnconfiguredEventQueue unconfiguredEventQueue;
     private final CounterIngestService counterIngestService;
+    private final PersistentCounterIngestService persistentCounterIngestService;
     private final HistogramIngestService histogramIngestService;
     private final StateDetectionService stateDetectionService;
 
     @Value("${obsinity.counters.enabled:true}")
     private boolean countersEnabled;
+
+    @Value("${obsinity.counters.persistent.enabled:true}")
+    private boolean persistentCountersEnabled;
 
     @Value("${obsinity.histograms.enabled:true}")
     private boolean histogramsEnabled;
@@ -72,6 +77,7 @@ public class JdbcEventIngestService implements EventIngestService {
             ConfigLookup configLookup,
             UnconfiguredEventQueue unconfiguredEventQueue,
             CounterIngestService counterIngestService,
+            PersistentCounterIngestService persistentCounterIngestService,
             HistogramIngestService histogramIngestService,
             StateDetectionService stateDetectionService) {
         this.jdbc = jdbc;
@@ -79,6 +85,7 @@ public class JdbcEventIngestService implements EventIngestService {
         this.configLookup = configLookup;
         this.unconfiguredEventQueue = unconfiguredEventQueue;
         this.counterIngestService = counterIngestService;
+        this.persistentCounterIngestService = persistentCounterIngestService;
         this.histogramIngestService = histogramIngestService;
         this.stateDetectionService = stateDetectionService;
     }
@@ -218,6 +225,16 @@ public class JdbcEventIngestService implements EventIngestService {
                 counterIngestService.process(e, eventConfig);
             } catch (Exception counterEx) {
                 log.error("Failed to buffer counters for event {}:{}", serviceKey, eventType, counterEx);
+            }
+        }
+
+        if (persistentCountersEnabled
+                && eventConfig.persistentCounters() != null
+                && !eventConfig.persistentCounters().isEmpty()) {
+            try {
+                persistentCounterIngestService.process(e, eventConfig);
+            } catch (Exception persistentEx) {
+                log.error("Failed to update persistent counters for event {}:{}", serviceKey, eventType, persistentEx);
             }
         }
 

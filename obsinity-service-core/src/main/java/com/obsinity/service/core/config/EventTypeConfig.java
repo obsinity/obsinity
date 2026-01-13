@@ -16,4 +16,5 @@ public record EventTypeConfig(
         Instant updatedAt,
         List<IndexConfig> indexes,
         List<CounterConfig> counters,
+        List<PersistentCounterConfig> persistentCounters,
         List<HistogramConfig> histograms) {}

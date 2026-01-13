@@ -1,0 +1,25 @@
+apiVersion: obsinity/v1
+kind: MetricPersistentCounter
+metadata:
+  service: payments
+  event: http_request
+  name: http_requests_all_time
+  displayName: HTTP Requests All Time
+  labels:
+    category: http
+spec:
+  sourceEvent:
+    service: payments
+    name: http_request
+  key:
+    dimensions:
+      - http.method
+      - http.route
+      - http.status
+  mode: persistent
+  operation: increment
+  floorAtZero: false
+  attributeMapping:
+    method: http.method
+    route: http.route
+    status: http.status

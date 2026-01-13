@@ -46,6 +46,9 @@ resources:
       config_snapshot_id: local-snapshot
       config_metric_name: request_latency
       config_metric_unit: milliseconds
+      persistent_counter_name: http_requests_all_time
+      persistent_counter_op: increment
+      persistent_counter_floor_at_zero: false
 
       # Dynamic helpers
       nowIso: "{% now 'iso-8601', 'utc' %}"
@@ -411,6 +414,38 @@ resources:
       mimeType: application/json
       text: |
         {
+          "resource": {
+            "service": { "name": "payments" },
+            "attributes": { "environment": "demo" }
+          },
+          "event": { "name": "http_request" },
+          "time": {
+            "startedAt": "{% now 'iso-8601', 'utc', -5 %}",
+            "endedAt": "{% now 'iso-8601', 'utc' %}"
+          },
+          "attributes": {
+            "api": { "name": "checkout", "version": "v1" },
+            "http": { "method": "GET", "status": 200, "route": "/api/checkout" }
+          }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_publish_payments_http_persistent
+    parentId: fld_publish
+    created: 1769000000002
+    modified: 1769000000002
+    name: publish_event payments/http_request (persistent counter sample)
+    description: Publish a payments http_request event with explicit eventId for persistent counters.
+    method: POST
+    url: "{{ base_url }}/events/publish"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "eventId": "{{ event_id }}",
           "resource": {
             "service": { "name": "payments" },
             "attributes": { "environment": "demo" }
@@ -1697,6 +1732,46 @@ resources:
                   "indexed": ["api.name", "http.status_code"]
                 }
               }
+            }
+          ]
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_admin_config_persistent_counter
+    parentId: fld_admin
+    created: 1769000000001
+    modified: 1769000000001
+    name: Admin - Ingest service config (JSON) with persistent counter
+    description: Configure a persistent counter for all-time totals on http_request.
+    method: POST
+    url: "{{ base_url }}/api/admin/config/service"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "service": "{{ service_id }}",
+          "snapshotId": "{{ config_snapshot_id }}-persistent",
+          "createdAt": "{{ nowIso }}",
+          "events": [
+            {
+              "uuid": "{{ event_id }}",
+              "eventName": "{{ event_name }}",
+              "metrics": [
+                {
+                  "uuid": "{{ event_id_1 }}",
+                  "name": "{{ persistent_counter_name }}",
+                  "type": "PERSISTENT_COUNTER",
+                  "keyedKeys": ["http.method", "http.route", "http.status"],
+                  "specJson": {
+                    "mode": "persistent",
+                    "op": "{{ persistent_counter_op }}",
+                    "floorAtZero": {{ persistent_counter_floor_at_zero }}
+                  }
+                }
+              ]
             }
           ]
         }

@@ -9,7 +9,7 @@ import java.util.UUID;
 public record MetricConfig(
         UUID uuid, // optional; server still computes deterministic metric_key
         String name,
-        String type, // COUNTER | HISTOGRAM | GAUGE | STATE_COUNTER
+        String type, // COUNTER | HISTOGRAM | GAUGE | STATE_COUNTER | PERSISTENT_COUNTER
         Map<String, Object> specJson,
         String specHash,
         List<String> keyedKeys,

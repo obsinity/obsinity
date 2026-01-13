@@ -10,6 +10,7 @@ public final class CrdKeys {
 
     public static final String KIND_EVENT = "event";
     public static final String KIND_METRIC_COUNTER = "metriccounter";
+    public static final String KIND_METRIC_PERSISTENT_COUNTER = "metricpersistentcounter";
     public static final String KIND_METRIC_HISTOGRAM = "metrichistogram";
 
     public static final String METADATA = "metadata";
@@ -36,6 +37,9 @@ public final class CrdKeys {
     public static final String STATE = "state";
     public static final String CUTOVER_AT = "cutover_at";
     public static final String GRACE_UNTIL = "grace_until";
+    public static final String MODE = "mode";
+    public static final String OPERATION = "operation";
+    public static final String FLOOR_AT_ZERO = "floorAtZero";
 
     public static final String RETENTION = "retention";
     public static final String TTL = "ttl";

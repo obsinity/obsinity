@@ -87,6 +87,7 @@ class CounterPipelineTest {
                 Instant.now(),
                 List.of(),
                 List.of(s5Counter, m1Counter, m5Counter),
+                List.of(),
                 List.of());
 
         Instant occurredAt = Instant.now().minus(Duration.ofMinutes(1));

@@ -126,7 +126,9 @@ public class ResourceConfigSource {
                 ServiceConfig sc = fromEventCrd(root);
                 return (sc == null) ? List.of() : List.of(sc);
             }
-            if (CrdKeys.KIND_METRIC_COUNTER.equals(kindStr) || CrdKeys.KIND_METRIC_HISTOGRAM.equals(kindStr)) {
+            if (CrdKeys.KIND_METRIC_COUNTER.equals(kindStr)
+                    || CrdKeys.KIND_METRIC_PERSISTENT_COUNTER.equals(kindStr)
+                    || CrdKeys.KIND_METRIC_HISTOGRAM.equals(kindStr)) {
                 ServiceConfig sc = fromMetricCrd(root, kindStr);
                 return (sc == null) ? List.of() : List.of(sc);
             }
@@ -452,7 +454,13 @@ public class ResourceConfigSource {
 
     @SuppressWarnings("unchecked")
     private static String metricTypeFromKind(String kindLower) {
-        return "metriccounter".equals(kindLower) ? "COUNTER" : "HISTOGRAM";
+        if (CrdKeys.KIND_METRIC_COUNTER.equals(kindLower)) {
+            return "COUNTER";
+        }
+        if (CrdKeys.KIND_METRIC_PERSISTENT_COUNTER.equals(kindLower)) {
+            return "PERSISTENT_COUNTER";
+        }
+        return "HISTOGRAM";
     }
 
     @SuppressWarnings("unchecked")
@@ -492,6 +500,9 @@ public class ResourceConfigSource {
         if (spec.containsKey(CrdKeys.VALUE)) out.put(CrdKeys.VALUE, spec.get(CrdKeys.VALUE));
         if (spec.containsKey(CrdKeys.BUCKETS)) out.put(CrdKeys.BUCKETS, spec.get(CrdKeys.BUCKETS));
         if (spec.containsKey(CrdKeys.FOLD)) out.put(CrdKeys.FOLD, spec.get(CrdKeys.FOLD));
+        if (spec.containsKey(CrdKeys.MODE)) out.put(CrdKeys.MODE, spec.get(CrdKeys.MODE));
+        if (spec.containsKey(CrdKeys.OPERATION)) out.put(CrdKeys.OPERATION, spec.get(CrdKeys.OPERATION));
+        if (spec.containsKey(CrdKeys.FLOOR_AT_ZERO)) out.put(CrdKeys.FLOOR_AT_ZERO, spec.get(CrdKeys.FLOOR_AT_ZERO));
         if (!rollup.isEmpty()) out.put(CrdKeys.ROLLUP, rollup);
         if (key.containsKey(CrdKeys.DIMENSIONS)) out.put(CrdKeys.KEY, Map.of(CrdKeys.DIMENSIONS, dimensions));
         if (spec.containsKey(CrdKeys.ATTRIBUTE_MAPPING))

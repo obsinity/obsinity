@@ -60,6 +60,7 @@ public class ConfigMaterializer {
         }
 
         List<CounterConfig> counters = new ArrayList<>();
+        List<PersistentCounterConfig> persistentCounters = new ArrayList<>();
         List<HistogramConfig> histograms = new ArrayList<>();
         if (cfg.metrics() != null) {
             for (MetricConfig metric : cfg.metrics()) {
@@ -70,6 +71,13 @@ public class ConfigMaterializer {
                 if ("HISTOGRAM".equals(type)) {
                     HistogramSpec spec = buildHistogramSpec(metric);
                     histograms.add(new HistogramConfig(metricId, metric.name(), spec));
+                } else if (isPersistentCounter(metric, definition, type)) {
+                    List<String> keyedKeys = metric.keyedKeys() != null ? List.copyOf(metric.keyedKeys()) : List.of();
+                    JsonNode filters = toJson(metric.filtersJson());
+                    PersistentCounterOperation operation = resolvePersistentOperation(definition);
+                    boolean floorAtZero = resolveFloorAtZero(definition);
+                    persistentCounters.add(new PersistentCounterConfig(
+                            metricId, metric.name(), keyedKeys, operation, floorAtZero, definition, filters));
                 } else {
                     CounterGranularity granularity = resolveGranularity(metric);
                     List<String> keyedKeys = metric.keyedKeys() != null ? List.copyOf(metric.keyedKeys()) : List.of();
@@ -89,7 +97,39 @@ public class ConfigMaterializer {
                 updatedAt != null ? updatedAt : Instant.now(),
                 List.copyOf(indexes),
                 List.copyOf(counters),
+                List.copyOf(persistentCounters),
                 List.copyOf(histograms));
+    }
+
+    private boolean isPersistentCounter(MetricConfig metric, JsonNode definition, String type) {
+        if ("PERSISTENT_COUNTER".equals(type) || "PERSISTENT".equals(type)) {
+            return true;
+        }
+        JsonNode mode = definition != null ? definition.get("mode") : null;
+        if (mode == null || mode.isNull()) {
+            return false;
+        }
+        String value = mode.asText("");
+        return "persistent".equalsIgnoreCase(value);
+    }
+
+    private PersistentCounterOperation resolvePersistentOperation(JsonNode definition) {
+        if (definition == null) {
+            return PersistentCounterOperation.INCREMENT;
+        }
+        JsonNode opNode = definition.hasNonNull("op") ? definition.get("op") : definition.get("operation");
+        return PersistentCounterOperation.fromValue(opNode != null ? opNode.asText(null) : null);
+    }
+
+    private boolean resolveFloorAtZero(JsonNode definition) {
+        if (definition == null) {
+            return false;
+        }
+        JsonNode node = definition.get("floorAtZero");
+        if (node == null || node.isNull()) {
+            node = definition.get("floor_at_zero");
+        }
+        return node != null && node.asBoolean(false);
     }
 
     private JsonNode toJson(Map<String, Object> map) {
