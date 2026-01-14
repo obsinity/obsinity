@@ -3,31 +3,40 @@ package com.obsinity.collection.spring.autoconfigure;
 import com.obsinity.collection.core.sinks.FlowHandlerRegistry;
 import com.obsinity.collection.core.sinks.FlowSinkHandler;
 import com.obsinity.collection.spring.scanner.FlowSinkScanner;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Role;
 
 @AutoConfiguration
 public class HandlerAutoConfiguration {
 
+    @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
     @Bean
     public FlowHandlerRegistry flowHandlerRegistry() {
         return new FlowHandlerRegistry();
     }
 
     @Bean
-    public org.springframework.beans.factory.config.BeanPostProcessor flowSinkHandlerRegistrar(
-            FlowHandlerRegistry registry) {
-        return new org.springframework.beans.factory.config.BeanPostProcessor() {
+    public static BeanPostProcessor flowSinkHandlerRegistrar(ObjectProvider<FlowHandlerRegistry> registryProvider) {
+        return new BeanPostProcessor() {
             @Override
             public Object postProcessAfterInitialization(Object bean, String beanName) {
-                if (bean instanceof FlowSinkHandler sink) registry.register(sink);
+                if (bean instanceof FlowSinkHandler sink) {
+                    FlowHandlerRegistry registry = registryProvider.getIfAvailable();
+                    if (registry != null) {
+                        registry.register(sink);
+                    }
+                }
                 return bean;
             }
         };
     }
 
     @Bean
-    public FlowSinkScanner flowSinkScanner(FlowHandlerRegistry registry) {
-        return new FlowSinkScanner(registry);
+    public static FlowSinkScanner flowSinkScanner(ObjectProvider<FlowHandlerRegistry> registryProvider) {
+        return new FlowSinkScanner(registryProvider);
     }
 }

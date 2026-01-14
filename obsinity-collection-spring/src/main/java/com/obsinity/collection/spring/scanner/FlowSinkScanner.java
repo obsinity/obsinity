@@ -8,9 +8,11 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.*;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -19,11 +21,17 @@ import org.springframework.util.ReflectionUtils;
 public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAware {
     private static final Logger log = LoggerFactory.getLogger(FlowSinkScanner.class);
 
-    private final FlowHandlerRegistry registry;
+    private final Supplier<FlowHandlerRegistry> registrySupplier;
     private ApplicationContext applicationContext;
 
     public FlowSinkScanner(FlowHandlerRegistry registry) {
-        this.registry = Objects.requireNonNull(registry, "registry");
+        Objects.requireNonNull(registry, "registry");
+        this.registrySupplier = () -> registry;
+    }
+
+    public FlowSinkScanner(ObjectProvider<FlowHandlerRegistry> registryProvider) {
+        Objects.requireNonNull(registryProvider, "registryProvider");
+        this.registrySupplier = registryProvider::getIfAvailable;
     }
 
     @Override
@@ -39,7 +47,10 @@ public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAwa
         CompiledSink compiled = compileSink(bean);
         if (compiled.handlers.isEmpty() && compiled.fallbacks.isEmpty()) return bean;
 
-        registry.register(holder -> compiled.dispatch(holder));
+        FlowHandlerRegistry registry = registrySupplier.get();
+        if (registry != null) {
+            registry.register(holder -> compiled.dispatch(holder));
+        }
         log.info(
                 "Registered FlowSink: {} (handlers={}, fallbacks={})",
                 type.getSimpleName(),
