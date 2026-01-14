@@ -4,7 +4,7 @@
   <parent>
     <groupId>com.obsinity</groupId>
     <artifactId>obsinity-parent</artifactId>
-    <version>0.1.2</version>
+    <version>0.1.3-SNAPSHOT</version>
   </parent>
   <artifactId>obsinity-client-transport-okhttp</artifactId>
   <name>Obsinity :: Client Transport :: OkHttp</name>

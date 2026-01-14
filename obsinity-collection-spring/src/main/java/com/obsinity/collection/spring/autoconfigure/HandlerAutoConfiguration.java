@@ -25,10 +25,8 @@ public class HandlerAutoConfiguration {
             @Override
             public Object postProcessAfterInitialization(Object bean, String beanName) {
                 if (bean instanceof FlowSinkHandler sink) {
-                    FlowHandlerRegistry registry = registryProvider.getIfAvailable();
-                    if (registry != null) {
-                        registry.register(sink);
-                    }
+                    FlowHandlerRegistry registry = registryProvider.getObject();
+                    registry.register(sink);
                 }
                 return bean;
             }

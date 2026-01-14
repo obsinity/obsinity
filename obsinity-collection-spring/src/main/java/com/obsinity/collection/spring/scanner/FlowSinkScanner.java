@@ -31,7 +31,7 @@ public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAwa
 
     public FlowSinkScanner(ObjectProvider<FlowHandlerRegistry> registryProvider) {
         Objects.requireNonNull(registryProvider, "registryProvider");
-        this.registrySupplier = registryProvider::getIfAvailable;
+        this.registrySupplier = registryProvider::getObject;
     }
 
     @Override
@@ -48,9 +48,7 @@ public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAwa
         if (compiled.handlers.isEmpty() && compiled.fallbacks.isEmpty()) return bean;
 
         FlowHandlerRegistry registry = registrySupplier.get();
-        if (registry != null) {
-            registry.register(holder -> compiled.dispatch(holder));
-        }
+        registry.register(holder -> compiled.dispatch(holder));
         log.info(
                 "Registered FlowSink: {} (handlers={}, fallbacks={})",
                 type.getSimpleName(),
