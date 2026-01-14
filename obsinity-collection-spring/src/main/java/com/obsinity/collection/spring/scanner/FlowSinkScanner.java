@@ -14,8 +14,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.aop.support.AopUtils;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
+import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.core.BridgeMethodResolver;
 import org.springframework.util.ReflectionUtils;
 
 public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAware {
@@ -41,10 +44,13 @@ public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAwa
 
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
-        Class<?> type = bean.getClass();
-        if (!type.isAnnotationPresent(FlowSink.class)) return bean;
+        Class<?> targetType = AopUtils.getTargetClass(bean);
+        if (targetType == null) {
+            targetType = bean.getClass();
+        }
+        if (!AnnotatedElementUtils.hasAnnotation(targetType, FlowSink.class)) return bean;
 
-        CompiledSink compiled = compileSink(bean);
+        CompiledSink compiled = compileSink(bean, targetType);
         if (compiled.handlers.isEmpty() && compiled.fallbacks.isEmpty()) return bean;
 
         FlowHandlerRegistry registry = registrySupplier.get();
@@ -59,8 +65,7 @@ public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAwa
 
     /* ----------------- compile model ----------------- */
 
-    private CompiledSink compileSink(Object bean) {
-        Class<?> type = bean.getClass();
+    private CompiledSink compileSink(Object bean, Class<?> type) {
 
         // Class-level scopes
         List<String> classScopes = extractScopes(type.getAnnotations());
@@ -106,6 +111,16 @@ public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAwa
 
     private CompiledHandler compileHandler(
             Object bean, Method m, List<String> classScopes, Set<OnFlowLifecycle.Lifecycle> classLifecycles) {
+        Method bridged = BridgeMethodResolver.findBridgedMethod(m);
+        Method invocable;
+        try {
+            invocable = AopUtils.selectInvocableMethod(bridged, bean.getClass());
+        } catch (IllegalStateException ex) {
+            if (log.isDebugEnabled()) {
+                log.debug("Skipping FlowSink method {} due to proxy mismatch: {}", m, ex.getMessage());
+            }
+            return null;
+        }
         boolean isStarted = m.isAnnotationPresent(OnFlowStarted.class);
         boolean isCompleted = m.isAnnotationPresent(OnFlowCompleted.class);
         boolean isFailure = m.isAnnotationPresent(OnFlowFailure.class);
@@ -141,9 +156,9 @@ public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAwa
         RequiredEventContext reqCtx = m.getAnnotation(RequiredEventContext.class);
 
         // Parameter bindings
-        ReflectionUtils.makeAccessible(m);
-        Parameter[] params = m.getParameters();
-        java.lang.annotation.Annotation[][] pann = m.getParameterAnnotations();
+        ReflectionUtils.makeAccessible(invocable);
+        Parameter[] params = invocable.getParameters();
+        java.lang.annotation.Annotation[][] pann = invocable.getParameterAnnotations();
         List<Function<FlowEvent, Object>> bindings = new ArrayList<>(params.length);
 
         boolean allowThrowable = isFailure
@@ -159,7 +174,7 @@ public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAwa
 
         return new CompiledHandler(
                 bean,
-                m,
+                invocable,
                 classScopes,
                 methodScopes,
                 lifecycles,
