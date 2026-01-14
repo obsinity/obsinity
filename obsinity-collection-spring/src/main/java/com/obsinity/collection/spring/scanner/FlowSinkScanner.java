@@ -11,14 +11,14 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanPostProcessor;
-import org.springframework.aop.support.AopUtils;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
-import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.core.BridgeMethodResolver;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.util.ReflectionUtils;
 
 public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAware {
@@ -57,7 +57,7 @@ public class FlowSinkScanner implements BeanPostProcessor, ApplicationContextAwa
         registry.register(holder -> compiled.dispatch(holder));
         log.info(
                 "Registered FlowSink: {} (handlers={}, fallbacks={})",
-                type.getSimpleName(),
+                targetType.getSimpleName(),
                 compiled.handlers.size(),
                 compiled.fallbacks.size());
         return bean;
