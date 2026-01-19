@@ -20,6 +20,8 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 
 /**
  * Spring AOP aspect that intercepts {@link Flow @Flow} and {@link Step @Step} annotations
@@ -45,6 +47,7 @@ import org.aspectj.lang.reflect.MethodSignature;
  * @see org.aspectj.lang.annotation.Aspect
  */
 @Aspect
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class FlowAspect {
     public static final String ERROR = "error";
     private final FlowProcessor processor;
