@@ -47,7 +47,6 @@ Example:
 
 ```
 ~/.m2/acme-corp-deploy.xml
-~/.m2/acme-deploy.xml
 ```
 
 Each file typically defines two profiles:
