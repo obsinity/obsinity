@@ -7,6 +7,9 @@ import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.repo.ObjectStateCountRepository;
 import com.obsinity.service.core.repo.StateSnapshotRepository;
 import com.obsinity.service.core.state.transition.StateTransitionBuffer;
+import com.obsinity.service.core.state.transition.counter.TransitionCounterEvaluator;
+import com.obsinity.service.core.state.transition.inference.TransitionSyntheticSupersedeService;
+import com.obsinity.service.core.state.transition.outcome.TransitionOutcomeService;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -28,11 +31,24 @@ public class StateDetectionService {
     private final StateSnapshotRepository snapshotRepository;
     private final ObjectStateCountRepository stateCountRepository;
     private final StateTransitionBuffer transitionBuffer;
+    private final TransitionCounterEvaluator transitionCounterEvaluator;
+    private final TransitionSyntheticSupersedeService supersedeService;
+    private final TransitionOutcomeService outcomeService;
 
     @org.springframework.beans.factory.annotation.Value("${obsinity.stateExtractors.loggingEnabled:true}")
     private boolean loggingEnabled;
 
     public void process(UUID serviceId, EventEnvelope envelope) {
+        processInternal(serviceId, envelope, null);
+    }
+
+    public void processSynthetic(
+            UUID serviceId, EventEnvelope envelope, TransitionCounterEvaluator.SyntheticContext syntheticContext) {
+        processInternal(serviceId, envelope, syntheticContext);
+    }
+
+    private void processInternal(
+            UUID serviceId, EventEnvelope envelope, TransitionCounterEvaluator.SyntheticContext syntheticContext) {
         if (serviceId == null || envelope == null) {
             return;
         }
@@ -50,8 +66,53 @@ public class StateDetectionService {
                 .getEpochSecond();
         for (StateMatch match : matches) {
             match.stateValues().forEach((attr, value) -> {
+                if (outcomeService != null && !"obsinity".equals(envelope.getServiceId())) {
+                    outcomeService.recordFirstSeen(
+                            serviceId,
+                            match.extractor().objectType(),
+                            match.objectId(),
+                            attr,
+                            value,
+                            envelope.getTimestamp());
+                }
                 String previous = snapshotRepository.findLatest(
                         serviceId, match.extractor().objectType(), match.objectId(), attr);
+                if (syntheticContext != null) {
+                    transitionCounterEvaluator.evaluate(
+                            serviceId,
+                            envelope.getEventId(),
+                            envelope.getTimestamp(),
+                            match.extractor().objectType(),
+                            match.objectId(),
+                            attr,
+                            value,
+                            syntheticContext);
+                } else {
+                    boolean handled = supersedeService != null
+                            && supersedeService.handleIfSuperseding(
+                                    serviceId, envelope, match.extractor().objectType(), match.objectId(), attr, value);
+                    if (!handled) {
+                        transitionCounterEvaluator.evaluate(
+                                serviceId,
+                                envelope.getEventId(),
+                                envelope.getTimestamp(),
+                                match.extractor().objectType(),
+                                match.objectId(),
+                                attr,
+                                value);
+                        if (outcomeService != null) {
+                            outcomeService.recordObservedTerminalIfTerminal(
+                                    serviceId,
+                                    envelope.getServiceId(),
+                                    match.extractor().objectType(),
+                                    match.objectId(),
+                                    attr,
+                                    value,
+                                    envelope.getTimestamp(),
+                                    envelope.getEventId());
+                        }
+                    }
+                }
                 if (previous != null && previous.equals(value)) {
                     return;
                 }

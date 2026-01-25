@@ -12,4 +12,6 @@ public record ServiceConfig(
         String serviceKey,
         Instant updatedAt,
         Map<String, EventTypeConfig> eventTypes,
-        java.util.List<StateExtractorDefinition> stateExtractors) {}
+        java.util.List<StateExtractorDefinition> stateExtractors,
+        java.util.List<TransitionCounterDefinition> transitionCounters,
+        java.util.List<InferenceRuleDefinition> inferenceRules) {}

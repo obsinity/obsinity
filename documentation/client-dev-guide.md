@@ -490,6 +490,37 @@ Attributes saved; context is ephemeral
 
 ---
 
+## Transition Rollups and Resolved Rates
+
+- State names are not fixed; they come from your configured object-type states.
+- The first observed state is treated as a transition from `null` (stored internally as `(init)`).
+- Resolved-only rates (completion/failure) are computed from rollup series of `fromState -> terminalState` in the query window.
+- These rates are event-based (terminal events in a window), not cohort-based funnels.
+
+Example terminal rollup counters:
+```
+transitionCounters:
+  - name: entry_to_success
+    objectType: Payment
+    from: [ENTRY_STATE]
+    to: SUCCESS_STATE
+  - name: entry_to_failure
+    objectType: Payment
+    from: [ENTRY_STATE]
+    to: FAILURE_STATE
+  - name: initial_to_failure
+    objectType: Payment
+    from: [null]
+    to: FAILURE_STATE
+```
+
+For rollup-based rates, sum the `from -> success` and `from -> failure` series over the window and compute:
+```
+success / (success + failure)
+```
+
+---
+
 ## OTEL SpanKind Reference
 
 | SpanKind   | Use when…                               | Examples                                       |

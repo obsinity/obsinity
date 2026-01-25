@@ -8,6 +8,7 @@ import com.obsinity.service.core.model.config.EventIndexConfig;
 import com.obsinity.service.core.model.config.MetricConfig;
 import com.obsinity.service.core.model.config.ServiceConfig;
 import com.obsinity.service.core.model.config.StateExtractorConfig;
+import com.obsinity.service.core.model.config.TransitionCounterConfig;
 import com.obsinity.service.core.support.CrdKeys;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -332,7 +333,17 @@ public class ResourceConfigSource {
         }
 
         List<StateExtractorConfig> mergedExtractors = mergeStateExtractors(a.stateExtractors(), b.stateExtractors());
-        return ServiceConfig.of(a.service(), a.snapshotId(), new ArrayList<>(byKey.values()), mergedExtractors);
+        List<TransitionCounterConfig> mergedCounters =
+                mergeTransitionCounters(a.transitionCounters(), b.transitionCounters());
+        List<com.obsinity.service.core.model.config.InferenceRuleConfig> mergedInference =
+                mergeInferenceRules(a.inferenceRules(), b.inferenceRules());
+        return ServiceConfig.of(
+                a.service(),
+                a.snapshotId(),
+                new ArrayList<>(byKey.values()),
+                mergedExtractors,
+                mergedCounters,
+                mergedInference);
     }
 
     private static String eventKey(com.obsinity.service.core.model.config.EventConfig e) {
@@ -400,6 +411,75 @@ public class ResourceConfigSource {
             return "";
         }
         return rawType + "|" + objectType + "|" + objectId;
+    }
+
+    private static List<TransitionCounterConfig> mergeTransitionCounters(
+            List<TransitionCounterConfig> first, List<TransitionCounterConfig> second) {
+        Map<String, TransitionCounterConfig> byKey = new LinkedHashMap<>();
+        if (first != null) {
+            for (TransitionCounterConfig cfg : first) {
+                String key = transitionCounterKey(cfg);
+                if (!key.isEmpty()) {
+                    byKey.put(key, cfg);
+                }
+            }
+        }
+        if (second != null) {
+            for (TransitionCounterConfig cfg : second) {
+                String key = transitionCounterKey(cfg);
+                if (!key.isEmpty()) {
+                    byKey.put(key, cfg);
+                }
+            }
+        }
+        return byKey.isEmpty() ? List.of() : new ArrayList<>(byKey.values());
+    }
+
+    private static List<com.obsinity.service.core.model.config.InferenceRuleConfig> mergeInferenceRules(
+            List<com.obsinity.service.core.model.config.InferenceRuleConfig> first,
+            List<com.obsinity.service.core.model.config.InferenceRuleConfig> second) {
+        Map<String, com.obsinity.service.core.model.config.InferenceRuleConfig> byKey = new LinkedHashMap<>();
+        if (first != null) {
+            for (com.obsinity.service.core.model.config.InferenceRuleConfig cfg : first) {
+                String key = inferenceRuleKey(cfg);
+                if (!key.isEmpty()) {
+                    byKey.put(key, cfg);
+                }
+            }
+        }
+        if (second != null) {
+            for (com.obsinity.service.core.model.config.InferenceRuleConfig cfg : second) {
+                String key = inferenceRuleKey(cfg);
+                if (!key.isEmpty()) {
+                    byKey.put(key, cfg);
+                }
+            }
+        }
+        return byKey.isEmpty() ? List.of() : new ArrayList<>(byKey.values());
+    }
+
+    private static String inferenceRuleKey(com.obsinity.service.core.model.config.InferenceRuleConfig cfg) {
+        if (cfg == null) {
+            return "";
+        }
+        String id = cfg.id() != null ? cfg.id().trim().toLowerCase(Locale.ROOT) : "";
+        String objectType = cfg.objectType() != null ? cfg.objectType().trim().toLowerCase(Locale.ROOT) : "";
+        if (id.isEmpty() || objectType.isEmpty()) {
+            return "";
+        }
+        return objectType + "|" + id;
+    }
+
+    private static String transitionCounterKey(TransitionCounterConfig cfg) {
+        if (cfg == null) {
+            return "";
+        }
+        String name = cfg.name() != null ? cfg.name().trim().toLowerCase(Locale.ROOT) : "";
+        String objectType = cfg.objectType() != null ? cfg.objectType().trim().toLowerCase(Locale.ROOT) : "";
+        if (name.isEmpty() || objectType.isEmpty()) {
+            return "";
+        }
+        return objectType + "|" + name;
     }
 
     private static String firstNonBlank(String first, String fallback) {

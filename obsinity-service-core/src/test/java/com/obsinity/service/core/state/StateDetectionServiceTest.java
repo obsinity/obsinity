@@ -13,6 +13,9 @@ import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.repo.ObjectStateCountRepository;
 import com.obsinity.service.core.repo.StateSnapshotRepository;
 import com.obsinity.service.core.state.transition.StateTransitionBuffer;
+import com.obsinity.service.core.state.transition.counter.TransitionCounterEvaluator;
+import com.obsinity.service.core.state.transition.inference.TransitionSyntheticSupersedeService;
+import com.obsinity.service.core.state.transition.outcome.TransitionOutcomeService;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -23,13 +26,13 @@ class StateDetectionServiceTest {
 
     @Test
     void detectMatchesResolvesNestedAttributes() {
-        StateDetectionService service = new StateDetectionService(null, null, null, null);
+        StateDetectionService service = new StateDetectionService(null, null, null, null, null, null, null);
         Map<String, Object> attributes = Map.of(
                 "api", Map.of("name", "checkout"),
                 "http", Map.of("status", "500", "phase", "retry"));
 
         StateExtractorDefinition extractor = new StateExtractorDefinition(
-                "http_request", "ApiRoute", "api.name", List.of("http.status", "http.phase", "missing"));
+                "http_request", "ApiRoute", "api.name", List.of("http.status", "http.phase", "missing"), List.of());
 
         var matches = service.detectMatches(List.of(extractor), attributes, "event-1");
 
@@ -41,11 +44,11 @@ class StateDetectionServiceTest {
 
     @Test
     void detectMatchesSkipsWhenObjectIdMissing() {
-        StateDetectionService service = new StateDetectionService(null, null, null, null);
+        StateDetectionService service = new StateDetectionService(null, null, null, null, null, null, null);
         Map<String, Object> attributes = Map.of("http", Map.of("status", "200"));
 
         StateExtractorDefinition extractor =
-                new StateExtractorDefinition("http_request", "ApiRoute", "api.name", List.of("http.status"));
+                new StateExtractorDefinition("http_request", "ApiRoute", "api.name", List.of("http.status"), List.of());
 
         assertThat(service.detectMatches(List.of(extractor), attributes, "event-1"))
                 .isEmpty();
@@ -57,11 +60,20 @@ class StateDetectionServiceTest {
         StateSnapshotRepository snapshotRepository = mock(StateSnapshotRepository.class);
         ObjectStateCountRepository countRepository = mock(ObjectStateCountRepository.class);
         StateTransitionBuffer transitionBuffer = mock(StateTransitionBuffer.class);
-        StateDetectionService service =
-                new StateDetectionService(lookup, snapshotRepository, countRepository, transitionBuffer);
+        TransitionCounterEvaluator transitionCounterEvaluator = mock(TransitionCounterEvaluator.class);
+        TransitionSyntheticSupersedeService supersedeService = mock(TransitionSyntheticSupersedeService.class);
+        TransitionOutcomeService outcomeService = mock(TransitionOutcomeService.class);
+        StateDetectionService service = new StateDetectionService(
+                lookup,
+                snapshotRepository,
+                countRepository,
+                transitionBuffer,
+                transitionCounterEvaluator,
+                supersedeService,
+                outcomeService);
 
         StateExtractorDefinition extractor = new StateExtractorDefinition(
-                "user_profile.updated", "UserProfile", "user.profile_id", List.of("user.status"));
+                "user_profile.updated", "UserProfile", "user.profile_id", List.of("user.status"), List.of());
         UUID serviceId = UUID.randomUUID();
 
         when(lookup.stateExtractors(serviceId, "user_profile.updated")).thenReturn(List.of(extractor));
@@ -102,11 +114,20 @@ class StateDetectionServiceTest {
         StateSnapshotRepository snapshotRepository = mock(StateSnapshotRepository.class);
         ObjectStateCountRepository countRepository = mock(ObjectStateCountRepository.class);
         StateTransitionBuffer transitionBuffer = mock(StateTransitionBuffer.class);
-        StateDetectionService service =
-                new StateDetectionService(lookup, snapshotRepository, countRepository, transitionBuffer);
+        TransitionCounterEvaluator transitionCounterEvaluator = mock(TransitionCounterEvaluator.class);
+        TransitionSyntheticSupersedeService supersedeService = mock(TransitionSyntheticSupersedeService.class);
+        TransitionOutcomeService outcomeService = mock(TransitionOutcomeService.class);
+        StateDetectionService service = new StateDetectionService(
+                lookup,
+                snapshotRepository,
+                countRepository,
+                transitionBuffer,
+                transitionCounterEvaluator,
+                supersedeService,
+                outcomeService);
 
         StateExtractorDefinition extractor = new StateExtractorDefinition(
-                "user_profile.updated", "UserProfile", "user.profile_id", List.of("user.status"));
+                "user_profile.updated", "UserProfile", "user.profile_id", List.of("user.status"), List.of());
         UUID serviceId = UUID.randomUUID();
 
         when(lookup.stateExtractors(serviceId, "user_profile.updated")).thenReturn(List.of(extractor));
@@ -147,11 +168,20 @@ class StateDetectionServiceTest {
         StateSnapshotRepository snapshotRepository = mock(StateSnapshotRepository.class);
         ObjectStateCountRepository countRepository = mock(ObjectStateCountRepository.class);
         StateTransitionBuffer transitionBuffer = mock(StateTransitionBuffer.class);
-        StateDetectionService service =
-                new StateDetectionService(lookup, snapshotRepository, countRepository, transitionBuffer);
+        TransitionCounterEvaluator transitionCounterEvaluator = mock(TransitionCounterEvaluator.class);
+        TransitionSyntheticSupersedeService supersedeService = mock(TransitionSyntheticSupersedeService.class);
+        TransitionOutcomeService outcomeService = mock(TransitionOutcomeService.class);
+        StateDetectionService service = new StateDetectionService(
+                lookup,
+                snapshotRepository,
+                countRepository,
+                transitionBuffer,
+                transitionCounterEvaluator,
+                supersedeService,
+                outcomeService);
 
         StateExtractorDefinition extractor = new StateExtractorDefinition(
-                "user_profile.updated", "UserProfile", "user.profile_id", List.of("user.status"));
+                "user_profile.updated", "UserProfile", "user.profile_id", List.of("user.status"), List.of());
         UUID serviceId = UUID.randomUUID();
         when(lookup.stateExtractors(serviceId, "user_profile.updated")).thenReturn(List.of(extractor));
         when(snapshotRepository.findLatest(serviceId, "UserProfile", "profile-123", "user.status"))

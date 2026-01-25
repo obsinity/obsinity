@@ -24,8 +24,14 @@ class ConfigMaterializerStateExtractorsTest {
                 List.of(),
                 List.of(
                         new StateExtractorConfig(
-                                " account.updated ", "Account", " account_id ", List.of(" status ", "phase", "  ")),
-                        new StateExtractorConfig(null, "Missing", "id", List.of("state"))));
+                                " account.updated ",
+                                "Account",
+                                " account_id ",
+                                List.of(" status ", "phase", "  "),
+                                List.of(" CLOSED ", "  ")),
+                        new StateExtractorConfig(null, "Missing", "id", List.of("state"), null)),
+                List.of(),
+                List.of());
 
         ConfigMaterializer.ServiceConfigView view =
                 materializer.materializeService(service, UUID.randomUUID(), "payments", Instant.now());
@@ -36,5 +42,6 @@ class ConfigMaterializerStateExtractorsTest {
         assertThat(extractor.objectType()).isEqualTo("Account");
         assertThat(extractor.objectIdField()).isEqualTo("account_id");
         assertThat(extractor.stateAttributes()).containsExactly("status", "phase");
+        assertThat(extractor.terminalStates()).containsExactly("CLOSED");
     }
 }

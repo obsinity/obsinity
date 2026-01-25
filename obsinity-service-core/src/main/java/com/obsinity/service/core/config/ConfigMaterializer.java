@@ -5,9 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.obsinity.service.core.counter.CounterGranularity;
 import com.obsinity.service.core.model.config.EventConfig;
 import com.obsinity.service.core.model.config.EventIndexConfig;
+import com.obsinity.service.core.model.config.InferenceRuleConfig;
 import com.obsinity.service.core.model.config.MetricConfig;
 import com.obsinity.service.core.model.config.ServiceConfig;
 import com.obsinity.service.core.model.config.StateExtractorConfig;
+import com.obsinity.service.core.model.config.TransitionCounterConfig;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -36,12 +38,17 @@ public class ConfigMaterializer {
             }
         }
         List<StateExtractorDefinition> extractors = materializeStateExtractors(model.stateExtractors());
+        List<TransitionCounterDefinition> transitionCounters =
+                materializeTransitionCounters(model.transitionCounters(), extractors);
+        List<InferenceRuleDefinition> inferenceRules = materializeInferenceRules(model.inferenceRules(), extractors);
         return new ServiceConfigView(
                 serviceId,
                 serviceKey,
                 updatedAt != null ? updatedAt : Instant.now(),
                 Map.copyOf(eventTypes),
-                extractors);
+                extractors,
+                transitionCounters,
+                inferenceRules);
     }
 
     private EventTypeConfig materializeEvent(EventConfig cfg, String serviceKey, Instant updatedAt) {
@@ -285,10 +292,11 @@ public class ConfigMaterializer {
             String objectType = safeTrim(cfg.objectType());
             String objectIdField = safeTrim(cfg.objectIdField());
             List<String> attributes = normalizeStateAttributes(cfg.stateAttributes());
+            List<String> terminalStates = normalizeTerminalStates(cfg.terminalStates());
             if (rawType == null || objectType == null || objectIdField == null || attributes.isEmpty()) {
                 continue;
             }
-            out.add(new StateExtractorDefinition(rawType, objectType, objectIdField, attributes));
+            out.add(new StateExtractorDefinition(rawType, objectType, objectIdField, attributes, terminalStates));
         }
         return out.isEmpty() ? List.of() : List.copyOf(out);
     }
@@ -307,11 +315,174 @@ public class ConfigMaterializer {
         return cleaned.isEmpty() ? List.of() : List.copyOf(cleaned);
     }
 
+    private List<String> normalizeTerminalStates(List<String> terminalStates) {
+        if (terminalStates == null || terminalStates.isEmpty()) {
+            return List.of();
+        }
+        java.util.LinkedHashSet<String> deduped = new java.util.LinkedHashSet<>();
+        for (String state : terminalStates) {
+            String trimmed = safeTrim(state);
+            if (trimmed != null) {
+                deduped.add(trimmed);
+            }
+        }
+        return deduped.isEmpty() ? List.of() : List.copyOf(deduped);
+    }
+
+    private List<TransitionCounterDefinition> materializeTransitionCounters(
+            List<TransitionCounterConfig> configs, List<StateExtractorDefinition> extractors) {
+        if (configs == null || configs.isEmpty()) {
+            return List.of();
+        }
+        java.util.Set<String> objectTypes = new java.util.HashSet<>();
+        if (extractors != null) {
+            for (StateExtractorDefinition extractor : extractors) {
+                if (extractor == null || extractor.objectType() == null) continue;
+                objectTypes.add(extractor.objectType());
+            }
+        }
+        List<TransitionCounterDefinition> out = new ArrayList<>();
+        for (TransitionCounterConfig cfg : configs) {
+            if (cfg == null) {
+                continue;
+            }
+            String name = safeTrim(cfg.name());
+            if (name == null) {
+                throw new IllegalArgumentException("Transition counter name is required");
+            }
+            String objectType = safeTrim(cfg.objectType());
+            if (objectType == null) {
+                throw new IllegalArgumentException("Transition counter objectType is required");
+            }
+            if (!objectTypes.isEmpty() && !objectTypes.contains(objectType)) {
+                throw new IllegalArgumentException("Unknown objectType for transition counter: " + objectType);
+            }
+            boolean untilTerminal = Boolean.TRUE.equals(cfg.untilTerminal());
+            String toState = safeTrim(cfg.to());
+            if (untilTerminal) {
+                if (toState != null) {
+                    throw new IllegalArgumentException("untilTerminal counters must not define a to-state: " + name);
+                }
+            } else {
+                if (toState == null) {
+                    throw new IllegalArgumentException("Transition counter to-state is required: " + name);
+                }
+                validateStateName(objectType, toState);
+            }
+
+            FromMode fromMode = FromMode.DEFAULT_LAST;
+            List<String> fromStates = List.of();
+            Object from = cfg.from();
+            if (from != null) {
+                if (from instanceof String raw) {
+                    String token = safeTrim(raw);
+                    if (token == null) {
+                        throw new IllegalArgumentException("Transition counter from must be '*' or a list: " + name);
+                    }
+                    if ("*".equals(token)) {
+                        fromMode = FromMode.ANY_SEEN;
+                    } else {
+                        throw new IllegalArgumentException("Transition counter from must be '*' or a list: " + name);
+                    }
+                } else if (from instanceof List<?> list) {
+                    java.util.LinkedHashSet<String> deduped = new java.util.LinkedHashSet<>();
+                    for (Object entry : list) {
+                        if (entry == null) {
+                            deduped.add(null);
+                            continue;
+                        }
+                        String state = safeTrim(entry.toString());
+                        if (state == null) {
+                            throw new IllegalArgumentException(
+                                    "Transition counter from list contains blank state: " + name);
+                        }
+                        if ("*".equals(state)) {
+                            throw new IllegalArgumentException(
+                                    "Transition counter from list cannot include '*': " + name);
+                        }
+                        deduped.add(state);
+                    }
+                    if (deduped.isEmpty()) {
+                        throw new IllegalArgumentException("Transition counter from list must include states: " + name);
+                    }
+                    for (String state : deduped) {
+                        if (state != null) {
+                            validateStateName(objectType, state);
+                        }
+                    }
+                    fromMode = FromMode.SUBSET;
+                    fromStates = java.util.Collections.unmodifiableList(new java.util.ArrayList<>(deduped));
+                } else {
+                    throw new IllegalArgumentException("Transition counter from must be '*' or a list: " + name);
+                }
+            }
+            out.add(new TransitionCounterDefinition(name, objectType, toState, fromMode, fromStates, untilTerminal));
+        }
+        return out.isEmpty() ? List.of() : List.copyOf(out);
+    }
+
+    private List<InferenceRuleDefinition> materializeInferenceRules(
+            List<InferenceRuleConfig> configs, List<StateExtractorDefinition> extractors) {
+        if (configs == null || configs.isEmpty()) {
+            return List.of();
+        }
+        java.util.Set<String> objectTypes = new java.util.HashSet<>();
+        if (extractors != null) {
+            for (StateExtractorDefinition extractor : extractors) {
+                if (extractor == null || extractor.objectType() == null) continue;
+                objectTypes.add(extractor.objectType());
+            }
+        }
+        List<InferenceRuleDefinition> out = new ArrayList<>();
+        for (InferenceRuleConfig cfg : configs) {
+            if (cfg == null) continue;
+            String id = safeTrim(cfg.id());
+            if (id == null) {
+                throw new IllegalArgumentException("Inference rule id is required");
+            }
+            String objectType = safeTrim(cfg.objectType());
+            if (objectType == null) {
+                throw new IllegalArgumentException("Inference rule objectType is required: " + id);
+            }
+            if (!objectTypes.isEmpty() && !objectTypes.contains(objectType)) {
+                throw new IllegalArgumentException("Unknown objectType for inference rule: " + objectType);
+            }
+            InferenceRuleConfig.When when = cfg.when();
+            String idleForRaw = when != null ? safeTrim(when.idleFor()) : null;
+            if (idleForRaw == null) {
+                throw new IllegalArgumentException("Inference rule idleFor is required: " + id);
+            }
+            java.time.Duration idleFor = com.obsinity.service.core.counter.DurationParser.parse(idleForRaw);
+            boolean nonTerminalOnly = when == null || when.nonTerminalOnly() == null || when.nonTerminalOnly();
+            InferenceRuleConfig.Emit emit = cfg.emit();
+            String emitState = emit != null ? safeTrim(emit.state()) : null;
+            if (emitState == null) {
+                throw new IllegalArgumentException("Inference rule emit.state is required: " + id);
+            }
+            String emitServiceId = emit != null ? safeTrim(emit.serviceId()) : null;
+            if (emitServiceId == null) {
+                emitServiceId = "obsinity";
+            }
+            String reason = emit != null ? safeTrim(emit.reason()) : null;
+            out.add(new InferenceRuleDefinition(
+                    id, objectType, nonTerminalOnly, idleFor, emitState, emitServiceId, reason));
+        }
+        return out.isEmpty() ? List.of() : List.copyOf(out);
+    }
+
+    private void validateStateName(String objectType, String state) {
+        if (state == null || state.isBlank()) {
+            throw new IllegalArgumentException("Invalid state name for objectType " + objectType);
+        }
+    }
+
     /** Immutable projection so callers do not depend on runtime record constructors. */
     public record ServiceConfigView(
             UUID serviceId,
             String serviceKey,
             Instant updatedAt,
             Map<String, EventTypeConfig> eventTypes,
-            List<StateExtractorDefinition> stateExtractors) {}
+            List<StateExtractorDefinition> stateExtractors,
+            List<TransitionCounterDefinition> transitionCounters,
+            List<InferenceRuleDefinition> inferenceRules) {}
 }

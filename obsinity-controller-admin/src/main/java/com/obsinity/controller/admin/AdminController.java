@@ -3,6 +3,7 @@ package com.obsinity.controller.admin;
 import com.obsinity.service.core.config.ConfigIngestService;
 import com.obsinity.service.core.model.config.ServiceConfig;
 import com.obsinity.service.core.model.config.ServiceConfigResponse;
+import com.obsinity.service.core.state.transition.health.TransitionHealthSummaryService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,10 +15,15 @@ public class AdminController {
 
     private final ConfigIngestService ingestService;
     private final ServiceConfigArchiveLoader archiveLoader;
+    private final TransitionHealthSummaryService healthSummaryService;
 
-    public AdminController(ConfigIngestService ingestService, ServiceConfigArchiveLoader archiveLoader) {
+    public AdminController(
+            ConfigIngestService ingestService,
+            ServiceConfigArchiveLoader archiveLoader,
+            TransitionHealthSummaryService healthSummaryService) {
         this.ingestService = ingestService;
         this.archiveLoader = archiveLoader;
+        this.healthSummaryService = healthSummaryService;
     }
 
     /**
@@ -26,6 +32,11 @@ public class AdminController {
     @GetMapping(path = "/config/ready", produces = MediaType.TEXT_PLAIN_VALUE)
     public ResponseEntity<String> ready() {
         return ResponseEntity.ok("OK");
+    }
+
+    @GetMapping(path = "/state/health", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<TransitionHealthSummaryService.TransitionHealthSummary> transitionHealth() {
+        return ResponseEntity.ok(healthSummaryService.summary());
     }
 
     /**
