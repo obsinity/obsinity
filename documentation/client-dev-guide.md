@@ -490,11 +490,11 @@ Attributes saved; context is ephemeral
 
 ---
 
-## Transition Rollups and Resolved Rates
+## Transition Rollups and Resolved Transition Ratios
 
 - State names are not fixed; they come from your configured object-type states.
 - The first observed state is treated as a transition from `null` (stored internally as `(init)`).
-- Resolved-only rates (completion/failure) are computed from rollup series of `fromState -> terminalState` in the query window.
+- Resolved-only ratios are computed from rollup series of `fromState -> terminalState` in the query window.
 - These rates are event-based (terminal events in a window), not cohort-based funnels.
 
 Example terminal rollup counters:
@@ -514,10 +514,13 @@ transitionCounters:
     to: FAILURE_STATE
 ```
 
-For rollup-based rates, sum the `from -> success` and `from -> failure` series over the window and compute:
+For rollup-based ratios, sum the `from -> success` and `from -> failure` series over the window and compute:
 ```
 success / (success + failure)
 ```
+
+If you need ratios per origin state, use the grouped query variant and compute ratios per `fromState`.
+If success/failure transitions use different counter names, use the `counterNamesByToState` variant of the query.
 
 ---
 

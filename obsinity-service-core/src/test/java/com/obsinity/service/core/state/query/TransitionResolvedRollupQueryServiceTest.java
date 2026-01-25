@@ -243,6 +243,93 @@ class TransitionResolvedRollupQueryServiceTest {
         assertThat(counts.startedFinished()).isEqualTo(1);
     }
 
+    @Test
+    void resolvedTransitionSummaryReturnsCountsAndRatios() {
+        TestHarness harness = new TestHarness();
+        Instant t0 = Instant.parse("2025-01-01T00:00:00Z");
+        Instant t1 = Instant.parse("2025-01-01T00:00:05Z");
+        Instant t2 = Instant.parse("2025-01-01T00:00:10Z");
+
+        harness.evaluator.evaluate(harness.serviceId, "evt-1", t0, "Order", "o-1", "status", "STARTED");
+        harness.evaluator.evaluate(harness.serviceId, "evt-2", t1, "Order", "o-1", "status", "FINISHED");
+        harness.evaluator.evaluate(harness.serviceId, "evt-3", t2, "Order", "o-2", "status", "STARTED");
+        harness.evaluator.evaluate(
+                harness.serviceId, "evt-4", t2.plusSeconds(5), "Order", "o-2", "status", "ABANDONED");
+
+        TransitionResolvedRollupQueryService.ResolvedTransitionSummary summary =
+                harness.queryService.getResolvedTransitionSummary(
+                        harness.serviceId,
+                        "Order",
+                        "status",
+                        Map.of("FINISHED", COUNTER_FINISHED, "ABANDONED", COUNTER_ABANDONED),
+                        List.of("STARTED"),
+                        List.of("FINISHED", "ABANDONED"),
+                        CounterBucket.S5,
+                        t0,
+                        t2.plusSeconds(10),
+                        false);
+
+        assertThat(summary.totalCount()).isEqualTo(2);
+        assertThat(summary.transitions()).hasSize(2);
+        assertThat(summary.transitions())
+                .anyMatch(entry -> entry.toState().equals("FINISHED") && entry.count() == 1 && entry.ratio() == 0.5);
+        assertThat(summary.transitions())
+                .anyMatch(entry -> entry.toState().equals("ABANDONED") && entry.count() == 1 && entry.ratio() == 0.5);
+    }
+
+    @Test
+    void resolvedTransitionSummaryGroupsByFromState() {
+        TestHarness harness = new TestHarness();
+        Instant windowStart = Instant.parse("2025-01-01T00:00:00Z");
+        Instant windowEnd = Instant.parse("2025-01-01T00:00:30Z");
+        String counterName = "resolved";
+
+        harness.rollups.add(
+                CounterBucket.S5,
+                windowStart,
+                harness.serviceId,
+                "Order",
+                "status",
+                counterName,
+                "STARTED",
+                "FINISHED",
+                2);
+        harness.rollups.add(
+                CounterBucket.S5,
+                windowStart,
+                harness.serviceId,
+                "Order",
+                "status",
+                counterName,
+                "IN_PROGRESS",
+                "ABANDONED",
+                1);
+
+        TransitionResolvedRollupQueryService.ResolvedTransitionSummary summary =
+                harness.queryService.getResolvedTransitionSummary(
+                        harness.serviceId,
+                        "Order",
+                        "status",
+                        counterName,
+                        List.of("STARTED", "IN_PROGRESS"),
+                        List.of("FINISHED", "ABANDONED"),
+                        CounterBucket.S5,
+                        windowStart,
+                        windowEnd,
+                        true);
+
+        assertThat(summary.transitions())
+                .anyMatch(entry -> entry.fromState().equals("STARTED")
+                        && entry.toState().equals("FINISHED")
+                        && entry.count() == 2
+                        && entry.ratio() == 1.0);
+        assertThat(summary.transitions())
+                .anyMatch(entry -> entry.fromState().equals("IN_PROGRESS")
+                        && entry.toState().equals("ABANDONED")
+                        && entry.count() == 1
+                        && entry.ratio() == 1.0);
+    }
+
     private static final class TestHarness {
         private final UUID serviceId = UUID.randomUUID();
         private final TestCodec codec = new TestCodec();
@@ -354,7 +441,16 @@ class TransitionResolvedRollupQueryServiceTest {
                 Instant windowStart,
                 Instant windowEnd) {
             return rollups.sum(
-                    bucket, serviceId, objectType, attribute, counterName, fromState, toState, windowStart, windowEnd);
+                    bucket,
+                    serviceId,
+                    objectType,
+                    attribute,
+                    counterName,
+                    com.obsinity.service.core.state.transition.counter.TransitionCounterMetricKey.storageFromState(
+                            fromState),
+                    toState,
+                    windowStart,
+                    windowEnd);
         }
     }
 
@@ -414,6 +510,22 @@ class TransitionResolvedRollupQueryServiceTest {
                 RollupKey key = new RollupKey(bucket.label(), row.timestamp(), row);
                 counts.merge(key, row.delta(), Long::sum);
             }
+        }
+
+        void add(
+                CounterBucket bucket,
+                Instant timestamp,
+                UUID serviceId,
+                String objectType,
+                String attribute,
+                String counterName,
+                String fromState,
+                String toState,
+                long delta) {
+            RollupRow row =
+                    new RollupRow(timestamp, serviceId, objectType, attribute, counterName, fromState, toState, delta);
+            RollupKey key = new RollupKey(bucket.label(), timestamp, row);
+            counts.merge(key, delta, Long::sum);
         }
 
         long sum(

@@ -3,7 +3,7 @@
 ## Executive Summary
 - The first observed state now counts as a transition from `null`, stored as `(init)` in rollups.
 - Transition counters can include `null` in `from:` to capture immediate terminal outcomes.
-- Resolved-only rates (completion/failure) are computed from `from -> terminal` rollup series in the time window; they are event-based, not cohort-based.
+- Resolved-only transition ratios are computed from `from -> terminal` rollup series in the time window; they are event-based, not cohort-based.
 - No state names are fixed; all state values come from per-object-type configuration.
 
 ## Scope
@@ -32,9 +32,9 @@ This document describes the changes on this branch related to state-transition r
    - The system does not assume `STARTED`, `FINISHED`, or `ABANDONED` are universal.
    - Transition counters and rollup queries are driven by the configured state names per object type.
 
-4) **Resolved-only rollup rates (event-based)**
-   - Completion/failure rates computed from rollups are **resolved-only** and **event-based**.
-   - These rates represent counts of `fromState -> toState` transitions in a time window; they do not represent per-object conversion funnels.
+4) **Resolved-only rollup ratios (event-based)**
+   - Resolved transition ratios computed from rollups are **resolved-only** and **event-based**.
+   - These ratios represent counts of `fromState -> toState` transitions in a time window; they do not represent per-object conversion funnels.
 
 ## Expectations and Semantics
 - **Transition rollups** count events, not objects. This is correct for resolved-only rates where only terminal events in a window matter.
@@ -43,11 +43,11 @@ This document describes the changes on this branch related to state-transition r
 - **Replacement**: If a synthetic terminal is superseded by a real terminal, the synthetic rollup increment is reversed at the synthetic timestamp, and the real terminal increment is applied at its timestamp.
 
 ## How to Use This for Rates
-### Completion / Failure Rates (Resolved-Only)
-Resolved-only rates are computed from terminal rollups within the query window:
+### Resolved Transition Ratios (Resolved-Only)
+Resolved-only ratios are computed from terminal rollups within the query window:
 
 ```
-completion_rate(window) =
+resolved_transition_ratio(window) =
   count(fromState -> successTerminal in window)
   -------------------------------------------------
   count(fromState -> successTerminal in window)
@@ -81,13 +81,14 @@ transitionCounters:
 
 ### Example Query Helper
 Use `TransitionResolvedRollupQueryService`:
-- `getResolvedCounts(serviceId, objectType, attribute, counterNameSuccess, counterNameFailure, fromState, successState, failureState, bucket, windowStart, windowEnd)`
-- `computeCompletionRate(counts)`
+- `getResolvedTransitionSummary(serviceId, objectType, attribute, counterName, fromStates, toStates, bucket, windowStart, windowEnd)`
+- `getResolvedTransitionSummary(serviceId, objectType, attribute, counterName, fromStates, toStates, bucket, windowStart, windowEnd, groupByFromState)`
+- `getResolvedTransitionSummary(serviceId, objectType, attribute, counterNamesByToState, fromStates, toStates, bucket, windowStart, windowEnd, groupByFromState)`
 
 `fromState` may be `null` to represent initial-state transitions.
 
 ## What This Feature Enables
-- **Resolved-only completion rates**: Success vs failure for terminal outcomes based purely on rollups.
+- **Resolved transition ratios**: Success vs failure for terminal outcomes based purely on rollups.
 - **Failure-rate reporting**: Count failures (explicit or inferred) within a window, optionally filtered by `fromState`.
 - **Immediate-failure visibility**: Track cases where objects terminate without a prior known state (null -> terminal).
 
