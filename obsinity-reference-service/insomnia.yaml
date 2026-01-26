@@ -300,6 +300,65 @@ resources:
         value: application/json
     _type: request
 
+  - _id: req_transition_ratios_query
+    parentId: fld_state_query
+    created: 1766000000006
+    modified: 1766000000006
+    name: query → transition ratios
+    description: Query resolved transition ratios over a window.
+    method: POST
+    url: "{{ base_url }}/api/query/transition-ratios"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "serviceKey": "{{ service_id }}",
+          "objectType": "UserProfile",
+          "attribute": "user.status",
+          "transitions": [
+            { "from": ["NEW", "ACTIVE"], "to": ["ARCHIVED"] },
+            { "from": ["ACTIVE"], "to": ["BLOCKED"] }
+          ],
+          "interval": "5m",
+          "start": "{% now 'iso-8601', 'utc', -3600 %}",
+          "end": "{% now 'iso-8601', 'utc' %}",
+          "groupByFromState": true
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_transition_ratios_query_columnar
+    parentId: fld_state_query
+    created: 1766000000007
+    modified: 1766000000007
+    name: query → transition ratios (columnar)
+    description: Columnar frictionless view of transition ratios.
+    method: POST
+    url: "{{ base_url }}/api/query/transition-ratios"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "serviceKey": "{{ service_id }}",
+          "objectType": "UserProfile",
+          "attribute": "user.status",
+          "transitions": [
+            { "from": ["NEW", "ACTIVE"], "to": ["ARCHIVED"] },
+            { "from": ["ACTIVE"], "to": ["BLOCKED"] }
+          ],
+          "interval": "5m",
+          "start": "{% now 'iso-8601', 'utc', -3600 %}",
+          "end": "{% now 'iso-8601', 'utc' %}",
+          "groupByFromState": true,
+          "format": "columnar"
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
   - _id: req_state_counts_query
     parentId: fld_state_query
     created: 1758900700200

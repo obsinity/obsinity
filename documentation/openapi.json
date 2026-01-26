@@ -37,6 +37,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "badRequest": {
+                    "$ref": "#/components/examples/BadRequestError"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "internalServerError": {
+                    "$ref": "#/components/examples/InternalServerError"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -70,6 +100,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "badRequest": {
+                    "$ref": "#/components/examples/BadRequestError"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "internalServerError": {
+                    "$ref": "#/components/examples/InternalServerError"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -97,6 +157,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "badRequest": {
+                    "$ref": "#/components/examples/BadRequestError"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "internalServerError": {
+                    "$ref": "#/components/examples/InternalServerError"
+                  }
                 }
               }
             }
@@ -133,6 +223,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "badRequest": {
+                    "$ref": "#/components/examples/BadRequestError"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "internalServerError": {
+                    "$ref": "#/components/examples/InternalServerError"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -163,6 +283,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "badRequest": {
+                    "$ref": "#/components/examples/BadRequestError"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "internalServerError": {
+                    "$ref": "#/components/examples/InternalServerError"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -182,6 +332,36 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/EventTypeSummary"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "badRequest": {
+                    "$ref": "#/components/examples/BadRequestError"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "internalServerError": {
+                    "$ref": "#/components/examples/InternalServerError"
                   }
                 }
               }
@@ -221,6 +401,51 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "badRequest": {
+                    "$ref": "#/components/examples/BadRequestError"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "conflict": {
+                    "$ref": "#/components/examples/ConflictError"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "internalServerError": {
+                    "$ref": "#/components/examples/InternalServerError"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -256,6 +481,51 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "badRequest": {
+                    "$ref": "#/components/examples/BadRequestError"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "conflict": {
+                    "$ref": "#/components/examples/ConflictError"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "internalServerError": {
+                    "$ref": "#/components/examples/InternalServerError"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -287,6 +557,51 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AttributeNamesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "badRequest": {
+                    "$ref": "#/components/examples/BadRequestError"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "notFound": {
+                    "$ref": "#/components/examples/NotFoundError"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "internalServerError": {
+                    "$ref": "#/components/examples/InternalServerError"
+                  }
                 }
               }
             }
@@ -327,12 +642,129 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "badRequest": {
+                    "$ref": "#/components/examples/BadRequestError"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "notFound": {
+                    "$ref": "#/components/examples/NotFoundError"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "internalServerError": {
+                    "$ref": "#/components/examples/InternalServerError"
+                  }
+                }
+              }
+            }
           }
         }
       }
     }
   },
   "components": {
+    "examples": {
+      "BadRequestError": {
+        "summary": "Bad Request",
+        "value": {
+          "timestamp": "2025-01-01T00:00:00Z",
+          "status": 400,
+          "error": "Bad Request",
+          "message": "Invalid request payload",
+          "path": "/api/request",
+          "details": {
+          }
+        }
+      },
+      "NotFoundError": {
+        "summary": "Not Found",
+        "value": {
+          "timestamp": "2025-01-01T00:00:00Z",
+          "status": 404,
+          "error": "Not Found",
+          "message": "Resource not found",
+          "path": "/api/request",
+          "details": {
+          }
+        }
+      },
+      "ConflictError": {
+        "summary": "Conflict",
+        "value": {
+          "timestamp": "2025-01-01T00:00:00Z",
+          "status": 409,
+          "error": "Conflict",
+          "message": "Resource conflict",
+          "path": "/api/request",
+          "details": {
+          }
+        }
+      },
+      "InternalServerError": {
+        "summary": "Internal Server Error",
+        "value": {
+          "timestamp": "2025-01-01T00:00:00Z",
+          "status": 500,
+          "error": "Internal Server Error",
+          "message": "Unexpected error",
+          "path": "/api/request",
+          "details": {
+          }
+        }
+      },
+      "TransitionRatioMissingCounters": {
+        "summary": "Missing transition counters",
+        "value": {
+          "timestamp": "2025-01-01T00:00:00Z",
+          "status": 400,
+          "error": "Bad Request",
+          "message": "Missing transition counters for requested from/to pairs",
+          "path": "/api/query/transition-ratios",
+          "details": {
+            "missingTransitions": [
+              {
+                "fromState": "NEW",
+                "toState": "ARCHIVED"
+              },
+              {
+                "fromState": "ACTIVE",
+                "toState": "BLOCKED"
+              }
+            ]
+          }
+        }
+      }
+    },
     "parameters": {
       "ServicePath": {
         "name": "service",
@@ -892,6 +1324,96 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "badRequest": {
+                    "$ref": "#/components/examples/BadRequestError"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "internalServerError": {
+                    "$ref": "#/components/examples/InternalServerError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/query/transition-ratios": {
+      "post": {
+        "tags": [
+          "State"
+        ],
+        "summary": "Query resolved transition ratios",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionRatioQueryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transition ratios",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionRatioQueryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "missingCounters": {
+                    "$ref": "#/components/examples/TransitionRatioMissingCounters"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "internalServerError": {
+                    "$ref": "#/components/examples/InternalServerError"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -919,6 +1441,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StateCountTimeseriesQueryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "badRequest": {
+                    "$ref": "#/components/examples/BadRequestError"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                },
+                "examples": {
+                  "internalServerError": {
+                    "$ref": "#/components/examples/InternalServerError"
+                  }
                 }
               }
             }
@@ -1028,6 +1580,131 @@
           "objectType",
           "attribute"
         ]
+      },
+      "TransitionRatioQueryRequest": {
+        "type": "object",
+        "properties": {
+          "serviceKey": {
+            "type": "string"
+          },
+          "objectType": {
+            "type": "string"
+          },
+          "attribute": {
+            "type": "string"
+          },
+          "transitions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "from": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                },
+                "to": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "from",
+                "to"
+              ]
+            }
+          },
+          "interval": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string"
+          },
+          "end": {
+            "type": "string"
+          },
+          "groupByFromState": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "serviceKey",
+          "objectType",
+          "attribute",
+          "transitions",
+          "interval",
+          "start",
+          "end"
+        ]
+      },
+      "TransitionRatioQueryResponse": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "totalCount": {
+            "type": "integer"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "transitions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "fromState": {
+                      "type": "string"
+                    },
+                    "toState": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "ratio": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "links": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/HalLink"
+            }
+          }
+        }
+      },
+      "ErrorPayload": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "error": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "details": {
+            "type": "object"
+          }
+        }
       },
       "StateCountTimeseriesQueryResponse": {
         "type": "object",

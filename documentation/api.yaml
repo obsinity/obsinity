@@ -41,6 +41,8 @@ tags:
     description: 'Query histogram rollups.'
   - name: 'StateTransitions'
     description: 'Query state transition counts.'
+  - name: 'TransitionRatios'
+    description: 'Query resolved transition ratios.'
   - name: 'StateCounts'
     description: 'Query current state distributions.'
 
@@ -87,6 +89,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Accepted'
+        '400':
+          description: 'Invalid request.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+              examples:
+                badRequest:
+                  $ref: '#/components/examples/BadRequestError'
+        '500':
+          description: 'Server error.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+              examples:
+                internalServerError:
+                  $ref: '#/components/examples/InternalServerError'
 
   /events/publish/batch:
     post:
@@ -118,6 +138,24 @@ paths:
                     type: integer
                     description: 'Number of events skipped because their IDs already existed with identical payloads.'
                 required: [stored, duplicates]
+        '400':
+          description: 'Invalid request.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+              examples:
+                badRequest:
+                  $ref: '#/components/examples/BadRequestError'
+        '500':
+          description: 'Server error.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+              examples:
+                internalServerError:
+                  $ref: '#/components/examples/InternalServerError'
 
   /api/search/events:
     post:
@@ -181,6 +219,24 @@ paths:
                     href: '/api/search/events'
                     method: 'POST'
                     body: { service: 'payments', event: 'http_request', period: { since: '-1h' } }
+        '400':
+          description: 'Invalid request.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+              examples:
+                badRequest:
+                  $ref: '#/components/examples/BadRequestError'
+        '500':
+          description: 'Server error.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+              examples:
+                internalServerError:
+                  $ref: '#/components/examples/InternalServerError'
 
   /api/query/counters:
     post:
@@ -255,6 +311,24 @@ paths:
                         region: ['us-east']
                         http.status_code_group: ['2xx', '5xx']
                       limits: { offset: 24, limit: 24 }
+        '400':
+          description: 'Invalid request.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+              examples:
+                badRequest:
+                  $ref: '#/components/examples/BadRequestError'
+        '500':
+          description: 'Server error.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+              examples:
+                internalServerError:
+                  $ref: '#/components/examples/InternalServerError'
 
   /api/histograms/query:
     post:
@@ -323,6 +397,24 @@ paths:
                         http.route: ['/payments']
                       percentiles: [0.5, 0.9, 0.99]
                       limits: { offset: 0, limit: 60 }
+        '400':
+          description: 'Invalid request.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+              examples:
+                badRequest:
+                  $ref: '#/components/examples/BadRequestError'
+        '500':
+          description: 'Server error.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+              examples:
+                internalServerError:
+                  $ref: '#/components/examples/InternalServerError'
 
   /api/query/state-transitions:
     post:
@@ -382,6 +474,100 @@ paths:
                     interval: '5m'
                     start: '2025-01-01T00:00:00Z'
                     end: '2025-01-01T01:00:00Z'
+        '400':
+          description: 'Invalid request.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+              examples:
+                badRequest:
+                  $ref: '#/components/examples/BadRequestError'
+        '500':
+          description: 'Server error.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+              examples:
+                internalServerError:
+                  $ref: '#/components/examples/InternalServerError'
+  /api/query/transition-ratios:
+    post:
+      tags: ['TransitionRatios']
+      summary: 'Query resolved transition ratios'
+      description: 'Compute resolved-only transition ratios over a time window, optionally grouped by from-state.'
+      operationId: 'queryTransitionRatios'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransitionRatioQueryRequestPayload'
+            example:
+              serviceKey: 'payments'
+              objectType: 'UserProfile'
+              attribute: 'user.status'
+              transitions:
+                - from: ['pending']
+                  to: ['approved', 'rejected']
+              interval: '5m'
+              start: '2025-01-01T00:00:00Z'
+              end: '2025-01-01T01:00:00Z'
+              groupByFromState: true
+      responses:
+        '200':
+          description: 'HAL-style response with resolved transition ratios.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransitionRatioQueryHalResponse'
+              example:
+                count: 2
+                totalCount: 120
+                data:
+                  transitions:
+                    - fromState: 'pending'
+                      toState: 'approved'
+                      count: 90
+                      ratio: 0.75
+                    - fromState: 'pending'
+                      toState: 'rejected'
+                      count: 30
+                      ratio: 0.25
+                links:
+                  self:
+                    href: '/api/query/transition-ratios'
+                    method: 'POST'
+                    body:
+                      serviceKey: 'payments'
+                      objectType: 'UserProfile'
+                      attribute: 'user.status'
+                      transitions:
+                        - from: ['pending']
+                          to: ['approved', 'rejected']
+                      interval: '5m'
+                      start: '2025-01-01T00:00:00Z'
+                      end: '2025-01-01T01:00:00Z'
+                      groupByFromState: true
+        '400':
+          description: 'Validation error (missing transition counters or invalid request).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+              examples:
+                missingCounters:
+                  $ref: '#/components/examples/TransitionRatioMissingCounters'
+        '500':
+          description: 'Server error.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+              examples:
+                internalServerError:
+                  $ref: '#/components/examples/InternalServerError'
   /api/query/state-counts:
     post:
       tags: ['StateCounts']
@@ -427,6 +613,24 @@ paths:
                     attribute: 'user.status'
                     states: ['ACTIVE', 'BLOCKED', 'ARCHIVED']
                     limits: { offset: 0, limit: 20 }
+        '400':
+          description: 'Invalid request.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+              examples:
+                badRequest:
+                  $ref: '#/components/examples/BadRequestError'
+        '500':
+          description: 'Server error.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+              examples:
+                internalServerError:
+                  $ref: '#/components/examples/InternalServerError'
   /api/query/state-count-timeseries:
     post:
       tags: ['StateCounts']
@@ -491,8 +695,77 @@ paths:
                       start: '2025-11-03T10:00:00Z'
                       end: '2025-11-03T14:00:00Z'
                       limits: { offset: 8, limit: 8 }
+        '400':
+          description: 'Invalid request.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+              examples:
+                badRequest:
+                  $ref: '#/components/examples/BadRequestError'
+        '500':
+          description: 'Server error.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+              examples:
+                internalServerError:
+                  $ref: '#/components/examples/InternalServerError'
 
 components:
+  examples:
+    BadRequestError:
+      summary: 'Bad Request'
+      value:
+        timestamp: '2025-01-01T00:00:00Z'
+        status: 400
+        error: 'Bad Request'
+        message: 'Invalid request payload'
+        path: '/api/request'
+        details: {}
+    NotFoundError:
+      summary: 'Not Found'
+      value:
+        timestamp: '2025-01-01T00:00:00Z'
+        status: 404
+        error: 'Not Found'
+        message: 'Resource not found'
+        path: '/api/request'
+        details: {}
+    ConflictError:
+      summary: 'Conflict'
+      value:
+        timestamp: '2025-01-01T00:00:00Z'
+        status: 409
+        error: 'Conflict'
+        message: 'Resource conflict'
+        path: '/api/request'
+        details: {}
+    InternalServerError:
+      summary: 'Internal Server Error'
+      value:
+        timestamp: '2025-01-01T00:00:00Z'
+        status: 500
+        error: 'Internal Server Error'
+        message: 'Unexpected error'
+        path: '/api/request'
+        details: {}
+    TransitionRatioMissingCounters:
+      summary: 'Missing transition counters'
+      value:
+        timestamp: '2025-01-01T00:00:00Z'
+        status: 400
+        error: 'Bad Request'
+        message: 'Missing transition counters for requested from/to pairs'
+        path: '/api/query/transition-ratios'
+        details:
+          missingTransitions:
+            - fromState: 'NEW'
+              toState: 'ARCHIVED'
+            - fromState: 'ACTIVE'
+              toState: 'BLOCKED'
   schemas:
 
     EventEnvelope:
@@ -821,6 +1094,101 @@ components:
                         count:
                           type: integer
         links:
+          type: object
+
+    TransitionRatioQueryRequestPayload:
+      type: object
+      description: 'Resolved transition ratio query payload.'
+      properties:
+        serviceKey:
+          type: string
+          description: 'Service slug.'
+          example: 'payments'
+        objectType:
+          type: string
+          description: 'Logical object being tracked (e.g., UserProfile, Job).'
+          example: 'UserProfile'
+        attribute:
+          type: string
+          description: 'Attribute path that represents the state (e.g., `user.status`).'
+          example: 'user.status'
+        transitions:
+          type: array
+          description: 'Explicit from/to groupings. Each entry expands to all from->to pairs within that entry.'
+          items:
+            type: object
+            properties:
+              from:
+                type: array
+                description: 'List of source states. Use null to represent initial-state transitions.'
+                items:
+                  type: string
+                  nullable: true
+              to:
+                type: array
+                description: 'List of destination states.'
+                items:
+                  type: string
+            required: [from, to]
+        interval:
+          type: string
+          description: 'Interval to aggregate (must align to supported buckets such as 5s, 1m, 5m, 1h, 1d, 7d).'
+          example: '5m'
+        start:
+          type: string
+          format: date-time
+          description: 'Inclusive start of the query window.'
+        end:
+          type: string
+          format: date-time
+          description: 'Exclusive end of the query window.'
+        groupByFromState:
+          type: boolean
+          description: 'When true, ratios are computed per from-state instead of globally.'
+      required: [serviceKey, objectType, attribute, transitions, interval, start, end]
+
+    TransitionRatioQueryHalResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        totalCount:
+          type: integer
+        data:
+          type: object
+          properties:
+            transitions:
+              type: array
+              items:
+                type: object
+                properties:
+                  fromState:
+                    type: string
+                  toState:
+                    type: string
+                  count:
+                    type: integer
+                  ratio:
+                    type: number
+                    format: double
+        links:
+          type: object
+
+    ErrorPayload:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+        details:
           type: object
 
     HistogramQueryHalResponse:
