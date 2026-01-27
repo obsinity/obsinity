@@ -79,6 +79,15 @@ Tests live in:
 - `e2e-groovy/src/test/java/com/obsinity/e2e/ApiE2EJUnitTest.java`
 - `e2e-groovy/src/test/java/com/obsinity/e2e/Junit4SmokeTest.java`
 
+Test descriptions (what each test proves and why it exists):
+- `Junit4SmokeTest.junit4DiscoveryWorks`: verifies Maven+Surefire are actually executing JUnit4 tests. This is a guardrail against “green build but zero tests run.”
+- `ApiE2EJUnitTest.immediateTransitionCounts_simple`: sends a single NEW -> ACTIVE transition and expects a count of 1. This confirms the basic ingest → state-extract → transition-count pipeline works end-to-end.
+- `ApiE2EJUnitTest.immediateTransitionCounts_backAndForth`: sends NEW -> ACTIVE -> NEW -> ACTIVE and expects NEW->ACTIVE=2 and ACTIVE->NEW=1. This ensures repeated transitions and reversals are counted correctly, not deduped away.
+- `ApiE2EJUnitTest.configuredTransition_countsWithIntermediates`: sends NEW -> ACTIVE -> ARCHIVED and expects the configured NEW->ARCHIVED counter to increment. This proves configured transitions count across intermediate states.
+- `ApiE2EJUnitTest.configuredTransition_countsDespiteBacktracking`: sends NEW -> ACTIVE -> NEW -> ARCHIVED and expects NEW->ARCHIVED to increment once. This confirms backtracking does not break configured transition counting.
+- `ApiE2EJUnitTest.ratio_finishedVsAbandoned_usesConfiguredTransitions`: sends one NEW->ARCHIVED and one NEW->BLOCKED and expects both counts and a 50/50 ratio. This validates ratio math and that ratios use configured counters (not raw immediate transitions).
+- `ApiE2EJUnitTest.ratio_zeroDenominator`: queries ratios with no matching data and expects zeros. This protects against divide-by-zero and makes “no data” behavior explicit.
+
 All tests are API-only (no DB access) and tolerate eventual consistency via polling.
 Each run uses a unique `runId` and isolates events by `obsinity.run_id`.
 
