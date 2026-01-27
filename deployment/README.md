@@ -46,8 +46,7 @@ Each deployment configuration must have a corresponding Maven settings file in `
 Example:
 
 ```
-~/.m2/finicity-deploy.xml
-~/.m2/acme-deploy.xml
+~/.m2/acme-corp-deploy.xml
 ```
 
 Each file typically defines two profiles:
@@ -61,13 +60,13 @@ Example:
 <settings>
   <profiles>
     <profile>
-      <id>finicity-release</id>
+      <id>acme-corp-release</id>
       <properties>
         <altDeploymentRepository>central::default::https://repo.example.com/libs-release-local</altDeploymentRepository>
       </properties>
     </profile>
     <profile>
-      <id>finicity-snapshot</id>
+      <id>acme-corp-snapshot</id>
       <properties>
         <altDeploymentRepository>snapshots::default::https://repo.example.com/libs-snapshot-local</altDeploymentRepository>
       </properties>
@@ -123,39 +122,39 @@ Each module will be translated into a Maven `-pl !:moduleName` exclusion.
 #### Basic deployment
 
 ```bash
-./deploy finicity
+./deploy acme-corp
 ```
 
-Automatically detects from `pom.xml` whether to use `finicity-snapshot` or `finicity-release`.
+Automatically detects from `pom.xml` whether to use `acme-corp-snapshot` or `acme-corp-release`.
 
 #### Verbose debug mode
 
 ```bash
-./deploy --debug finicity
+./deploy --debug acme-corp
 ```
 
 #### Full shell trace
 
 ```bash
-./deploy --trace finicity
+./deploy --trace acme-corp
 ```
 
 #### Exclude specific modules
 
 ```bash
-./deploy finicity --exclude :obsinity-reference-client,:obsinity-reference-service
+./deploy acme-corp --exclude :obsinity-reference-client,:obsinity-reference-service
 ```
 
 #### Use a custom excludes file
 
 ```bash
-./deploy finicity --exclude-file /path/to/deploy.excludes
+./deploy acme-corp --exclude-file /path/to/deploy.excludes
 ```
 
 #### Forward extra Maven arguments
 
 ```bash
-./deploy finicity -- -DskipTests=false -DperformRelease=true
+./deploy acme-corp -- -DskipTests=false -DperformRelease=true
 ```
 
 ---
@@ -227,15 +226,15 @@ project-root/
 ⚙️  Detecting project version from pom.xml...
 ⚙️  Determining deploy target...
 🚀 Deploy Summary
-🔧 Config:        finicity
-🧩 Settings:      ~/.m2/finicity-deploy.xml
+🔧 Config:        acme-corp
+🧩 Settings:      ~/.m2/acme-corp-deploy.xml
 📄 Project ver:   1.2.3-SNAPSHOT
 🎯 Target:        snapshot
-📦 Maven profile: finicity-snapshot
+📦 Maven profile: acme-corp-snapshot
 🚫 Excluding:     obsinity-reference-client,obsinity-reference-service
-▶ mvn -B -s ~/.m2/finicity-deploy.xml -DskipTests -P finicity-snapshot \
+▶ mvn -B -s ~/.m2/acme-corp-deploy.xml -DskipTests -P acme-corp-snapshot \
      -pl !:obsinity-reference-client,!:obsinity-reference-service -am clean deploy
-✅ Deployment complete for finicity (snapshot)
+✅ Deployment complete for acme-corp (snapshot)
 ```
 
 ---
@@ -244,11 +243,11 @@ project-root/
 
 | Command                                            | Purpose                      |
 | -------------------------------------------------- | ---------------------------- |
-| `./deploy finicity`                                | Auto snapshot/release deploy |
-| `./deploy --debug finicity`                        | Show internal debug steps    |
-| `./deploy --trace finicity`                        | Shell trace for CI logs      |
-| `./deploy --exclude :module1,:module2 finicity`    | Skip modules                 |
-| `./deploy --exclude-file custom.excludes finicity` | Load excludes file           |
-| `./deploy --debug --trace finicity`                | Full transparency            |
+| `./deploy acme-corp`                                | Auto snapshot/release deploy |
+| `./deploy --debug acme-corp`                        | Show internal debug steps    |
+| `./deploy --trace acme-corp`                        | Shell trace for CI logs      |
+| `./deploy --exclude :module1,:module2 acme-corp`    | Skip modules                 |
+| `./deploy --exclude-file custom.excludes acme-corp` | Load excludes file           |
+| `./deploy --debug --trace acme-corp`                | Full transparency            |
 
 ---
