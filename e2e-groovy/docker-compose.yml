@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: obsinity
+      POSTGRES_USER: obsinity
+      POSTGRES_PASSWORD: obsinity
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U obsinity -d obsinity"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 30s
+    volumes:
+      - obsinity_pg:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: obsinity-e2e-app
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8086
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/obsinity
+      SPRING_DATASOURCE_USERNAME: obsinity
+      SPRING_DATASOURCE_PASSWORD: obsinity
+      SPRING_FLYWAY_ENABLED: "true"
+      LOGGING_LEVEL_ROOT: INFO
+      OBSINITY_CONFIG_INIT_ENABLED: "true"
+      OBSINITY_CONFIG_INIT_LOCATION: "file:/opt/obsinity/config/"
+      OBSINITY_CONFIG_INIT_CRON: "0/10 * * * * *"
+    ports:
+      - "${OBSINITY_E2E_PORT:-8086}:8086"
+    volumes:
+      - ./reference-config:/opt/obsinity/config:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  obsinity_pg:
+    driver: local

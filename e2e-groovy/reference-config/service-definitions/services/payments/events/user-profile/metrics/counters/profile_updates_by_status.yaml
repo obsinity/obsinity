@@ -1,0 +1,20 @@
+apiVersion: obsinity/v1
+kind: MetricCounter
+metadata:
+  service: payments
+  event: user_profile.updated
+  name: user_profile_updates_by_status
+  displayName: User Profile Updates by Status
+  labels:
+    category: user
+spec:
+  sourceEvent: { service: payments, name: user_profile.updated }
+  key:
+    dimensions: [ user.status, dimensions.channel ]
+  rollup:
+    windowing:
+      granularities: [5s, 1m, 1h, 1d, 7d]
+    operation: count
+  attributeMapping:
+    status: user.status
+    channel: dimensions.channel

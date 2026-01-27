@@ -1,0 +1,70 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.obsinity</groupId>
+    <artifactId>obsinity-e2e-groovy</artifactId>
+    <version>0.1.0</version>
+    <name>Obsinity E2E Groovy</name>
+
+    <properties>
+        <maven.compiler.release>17</maven.compiler.release>
+        <groovy.version>4.0.22</groovy.version>
+        <spock.version>2.3-groovy-4.0</spock.version>
+        <okhttp.version>4.12.0</okhttp.version>
+        <jackson.version>2.17.2</jackson.version>
+        <surefire.version>3.2.5</surefire.version>
+        <gmavenplus.version>3.0.2</gmavenplus.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>${okhttp.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+            <version>${jackson.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${surefire.version}</version>
+                <configuration>
+                    <useModulePath>false</useModulePath>
+                    <failIfNoTests>true</failIfNoTests>
+                    <testClassesDirectory>${project.build.directory}/test-classes</testClassesDirectory>
+                    <includes>
+                        <include>**/*Test.class</include>
+                        <include>**/ApiE2EJUnitTest.class</include>
+                    </includes>
+                    <providers>
+                        <provider>
+                            <name>junit4</name>
+                        </provider>
+                    </providers>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
