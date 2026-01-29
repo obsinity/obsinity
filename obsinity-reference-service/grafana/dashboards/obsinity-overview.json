@@ -110,7 +110,8 @@
               "text": "Count",
               "type": "number"
             }
-          ]
+          ],
+          "httpMethod": "POST"
         }
       ],
       "title": "Current State Counts by Status",
@@ -179,7 +180,8 @@
               "text": "Count",
               "type": "number"
             }
-          ]
+          ],
+          "httpMethod": "POST"
         }
       ],
       "title": "State Counts - Key Statuses",
@@ -278,7 +280,8 @@
               "text": "Count",
               "type": "number"
             }
-          ]
+          ],
+          "httpMethod": "POST"
         }
       ],
       "title": "State Count Time Series (1m intervals)",
@@ -382,7 +385,8 @@
               "text": "Count",
               "type": "number"
             }
-          ]
+          ],
+          "httpMethod": "POST"
         }
       ],
       "title": "State Transitions Over Time (5s intervals)",
@@ -563,7 +567,8 @@
               "text": "p99",
               "type": "number"
             }
-          ]
+          ],
+          "httpMethod": "POST"
         }
       ],
       "title": "HTTP Request Latency - Checkout API (percentiles)",
@@ -688,7 +693,8 @@
               "text": "p99",
               "type": "number"
             }
-          ]
+          ],
+          "httpMethod": "POST"
         }
       ],
       "title": "Profile Update Latency by Channel (percentiles)",
@@ -789,7 +795,8 @@
               "text": "Count",
               "type": "number"
             }
-          ]
+          ],
+          "httpMethod": "POST"
         }
       ],
       "title": "HTTP Requests by Status Code (5m rollup)",
@@ -895,7 +902,8 @@
               "text": "Count",
               "type": "number"
             }
-          ]
+          ],
+          "httpMethod": "POST"
         }
       ],
       "title": "Profile Updates by Status and Channel (1m rollup)",
