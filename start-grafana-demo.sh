@@ -26,8 +26,9 @@ if docker ps -a --format "{{.Names}}" | grep -q -E "obsinity-reference-server|ob
 fi
 
 echo ""
-echo "Starting demo stack..."
-${COMPOSE_CMD} -f docker-compose.demo.yml up -d
+echo "Starting demo stack (fresh)..."
+${COMPOSE_CMD} -f docker-compose.demo.yml down -v --remove-orphans || true
+${COMPOSE_CMD} -f docker-compose.demo.yml up -d --force-recreate --renew-anon-volumes
 
 echo ""
 echo "Waiting for services to be ready..."
