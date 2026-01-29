@@ -97,8 +97,8 @@
           "url": "/api/query/state-counts",
           "method": "POST",
           "data": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"UPGRADED\",\"ARCHIVED\"],\"limits\":{\"offset\":0,\"limit\":20}}",
-          "parser": "backend",
-          "root_selector": "rows",
+          "parser": "jsonata",
+          "root_selector": "data.states",
           "columns": [
             {
               "selector": "state",
@@ -114,7 +114,7 @@
         }
       ],
       "title": "Current State Counts by Status",
-      "type": "timeseries"
+      "type": "bargauge"
     },
     {
       "datasource": "Obsinity API",
@@ -166,8 +166,8 @@
           "url": "/api/query/state-counts",
           "method": "POST",
           "data": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\"],\"limits\":{\"offset\":0,\"limit\":20}}",
-          "parser": "backend",
-          "root_selector": "rows",
+          "parser": "jsonata",
+          "root_selector": "data.states",
           "columns": [
             {
               "selector": "state",
@@ -260,8 +260,8 @@
           "url": "/api/query/state-count-timeseries",
           "method": "POST",
           "data": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"ARCHIVED\"],\"interval\":\"1m\",\"limits\":{\"offset\":0,\"limit\":60}}",
-          "parser": "backend",
-          "root_selector": "rows",
+          "parser": "jsonata",
+          "root_selector": "$flatten(data.intervals.$map(function($w){$w.states.$map(function($s){{\"timestamp\": $w.start, \"state\": $s.state, \"count\": $s.count}})}))",
           "columns": [
             {
               "selector": "timestamp",
@@ -359,8 +359,8 @@
           "url": "/api/query/state-transitions",
           "method": "POST",
           "data": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"fromStates\":[\"(none)\"],\"toStates\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"ARCHIVED\",\"UPGRADED\"],\"interval\":\"5s\",\"limits\":{\"offset\":0,\"limit\":100}}",
-          "parser": "backend",
-          "root_selector": "rows",
+          "parser": "jsonata",
+          "root_selector": "$flatten(data.intervals.$map(function($w){$w.transitions.$map(function($t){{\"timestamp\": $w.start, \"fromState\": $t.fromState, \"toState\": $t.toState, \"count\": $t.count}})}))",
           "columns": [
             {
               "selector": "timestamp",
@@ -535,8 +535,8 @@
           "url": "/api/histograms/query",
           "method": "POST",
           "data": "{\"serviceKey\":\"payments\",\"eventType\":\"http_request\",\"histogramName\":\"http_request_latency_ms\",\"interval\":\"1m\",\"key\":{\"http.method\":[\"GET\"],\"http.route\":[\"/api/checkout\"]},\"percentiles\":[0.5,0.9,0.95,0.99],\"limits\":{\"offset\":0,\"limit\":60}}",
-          "parser": "backend",
-          "root_selector": "rows",
+          "parser": "jsonata",
+          "root_selector": "$flatten(data.intervals.$map(function($w){$w.series.$map(function($s){{\"timestamp\": $w.from, \"p50\": $s.percentiles.\"0.5\", \"p90\": $s.percentiles.\"0.9\", \"p95\": $s.percentiles.\"0.95\", \"p99\": $s.percentiles.\"0.99\"}})}))",
           "columns": [
             {
               "selector": "timestamp",
@@ -655,8 +655,8 @@
           "url": "/api/histograms/query",
           "method": "POST",
           "data": "{\"serviceKey\":\"payments\",\"eventType\":\"user_profile.updated\",\"histogramName\":\"user_profile_update_duration_ms\",\"interval\":\"1m\",\"key\":{\"dimensions.channel\":[\"web\",\"mobile\",\"partner\"]},\"percentiles\":[0.5,0.9,0.95,0.99],\"limits\":{\"offset\":0,\"limit\":60}}",
-          "parser": "backend",
-          "root_selector": "rows",
+          "parser": "jsonata",
+          "root_selector": "$flatten(data.intervals.$map(function($w){$w.series.$map(function($s){{\"timestamp\": $w.from, \"dimensions.channel\": $s.key.\"dimensions.channel\", \"p50\": $s.percentiles.\"0.5\", \"p90\": $s.percentiles.\"0.9\", \"p95\": $s.percentiles.\"0.95\", \"p99\": $s.percentiles.\"0.99\"}})}))",
           "columns": [
             {
               "selector": "timestamp",
@@ -771,8 +771,8 @@
           "url": "/api/query/counters",
           "method": "POST",
           "data": "{\"serviceKey\":\"payments\",\"eventType\":\"http_request\",\"counterName\":\"http_requests_by_status\",\"interval\":\"5m\",\"key\":{\"http.method\":[\"GET\"],\"http.status\":[\"200\",\"500\"]},\"limits\":{\"offset\":0,\"limit\":60}}",
-          "parser": "backend",
-          "root_selector": "rows",
+          "parser": "jsonata",
+          "root_selector": "$flatten(data.intervals.$map(function($w){$w.counts.$map(function($c){{\"timestamp\": $w.from, \"http.status\": $c.key.\"http.status\", \"count\": $c.count}})}))",
           "columns": [
             {
               "selector": "timestamp",
@@ -872,8 +872,8 @@
           "url": "/api/query/counters",
           "method": "POST",
           "data": "{\"serviceKey\":\"payments\",\"eventType\":\"user_profile.updated\",\"counterName\":\"user_profile_updates_by_status\",\"interval\":\"1m\",\"key\":{\"user.status\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"UPGRADED\",\"ARCHIVED\"],\"dimensions.channel\":[\"web\",\"mobile\",\"partner\"]},\"limits\":{\"offset\":0,\"limit\":120}}",
-          "parser": "backend",
-          "root_selector": "rows",
+          "parser": "jsonata",
+          "root_selector": "$flatten(data.intervals.$map(function($w){$w.counts.$map(function($c){{\"timestamp\": $w.from, \"user.status\": $c.key.\"user.status\", \"dimensions.channel\": $c.key.\"dimensions.channel\", \"count\": $c.count}})}))",
           "columns": [
             {
               "selector": "timestamp",

@@ -21,12 +21,15 @@ services:
     container_name: obsinity-reference-server
     environment:
       SERVER_PORT: 8086
+      SERVER_TOMCAT_ACCESSLOG_ENABLED: "true"
+      SERVER_TOMCAT_ACCESSLOG_PATTERN: "%h %l %u %t \"%r\" %s %b %D"
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/obsinity
       SPRING_DATASOURCE_USERNAME: obsinity
       SPRING_DATASOURCE_PASSWORD: obsinity
       SPRING_PROFILES_ACTIVE: default
       SPRING_FLYWAY_ENABLED: "true"
       LOGGING_LEVEL_ROOT: INFO
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB: DEBUG
     depends_on:
       db:
         condition: service_healthy
@@ -55,6 +58,7 @@ services:
       - GF_INSTALL_PLUGINS=yesoreyeram-infinity-datasource
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_LOG_LEVEL=debug
     depends_on:
       - obsinity-reference-server
     ports:
