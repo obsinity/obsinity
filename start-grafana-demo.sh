@@ -7,9 +7,13 @@ echo "Obsinity Grafana Demo Stack"
 echo "=========================================="
 echo ""
 
-# Check if docker-compose is available
-if ! command -v docker-compose &> /dev/null; then
-    echo "ERROR: docker-compose is not installed"
+# Choose docker compose command (v2 preferred, v1 fallback)
+if command -v docker &> /dev/null && docker compose version &> /dev/null; then
+    COMPOSE_CMD="docker compose"
+elif command -v docker-compose &> /dev/null; then
+    COMPOSE_CMD="docker-compose"
+else
+    echo "ERROR: docker compose (v2) or docker-compose (v1) is required"
     exit 1
 fi
 
@@ -23,7 +27,7 @@ fi
 
 echo ""
 echo "Starting demo stack..."
-docker-compose -f docker-compose.demo.yml up -d
+${COMPOSE_CMD} -f docker-compose.demo.yml up -d
 
 echo ""
 echo "Waiting for services to be ready..."
@@ -94,5 +98,5 @@ echo "    -H 'Content-Type: application/json' \\"
 echo "    -d '{\"events\": 5000, \"recentWindowSeconds\": 7200}'"
 echo ""
 echo "To stop:"
-echo "  docker-compose -f docker-compose.demo.yml down"
+echo "  ${COMPOSE_CMD} -f docker-compose.demo.yml down"
 echo ""
