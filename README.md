@@ -19,6 +19,7 @@ Obsinity is a modular telemetry system with a PostgreSQL backend, REST controlle
 - **Multi-protocol ingest**: `obsinity-controller-rest` handles HTTP/HTTPS, `obsinity-ingest-rabbitmq` consumes AMQP queues, and `obsinity-ingest-kafka` consumes Kafka topics.
 - **Extensive Java annotation-based SDK**: `obsinity-collection-*` modules ship `@Flow`, `@Step`, `@FlowSink`, and pluggable transports (HTTP stacks + RabbitMQ) so services can emit events with minimal boilerplate.
 - **Reference service**: `obsinity-reference-service` bundles the controllers, ingest workers, config loader (`obsinity.config.init.*`), and TLS-ready Spring Boot settings.
+- **Grafana dashboards**: Pre-configured dashboards for visualizing state counters, transitions, latency histograms, and API counters via REST API queries (see [Demo Visualization](#demo-visualization) below).
 
 Read the full highlight reel in [`documentation/obsinity-highlights.md`](documentation/obsinity-highlights.md).
 
@@ -84,3 +85,78 @@ Include `obsinity-client-transport-rabbitmq` to publish flow payloads directly t
 | `obsinity.rmq.mandatory` | `OBSINITY_RMQ_MANDATORY` | `false` |
 
 Pair the emitter with `obsinity-ingest-rabbitmq` (or your own worker) to deliver the canonical payloads without going through the REST controller.
+
+## Demo Visualization
+
+The demo stack includes **Grafana dashboards** for real-time visualization of Obsinity metrics via the REST API.
+
+### Two Ways to Run
+
+**Option 1: Reference Service Only (Existing Scripts)**
+```bash
+cd obsinity-reference-service
+./build.sh && ./run.sh
+```
+Starts: PostgreSQL + Obsinity Server (port 8086)  
+**No Grafana** - Use this for API development and testing
+
+**Option 2: Full Demo Stack with Grafana**
+```bash
+# From repository root
+docker-compose -f docker-compose.demo.yml up -d
+
+# Or use the quick start script
+./start-grafana-demo.sh
+```
+Starts: PostgreSQL + Obsinity Server + Demo Client + **Grafana** (ports 8086, 8080, 3000)  
+**Includes Grafana** - Use this for demos and visualization
+
+### Quick Start with Grafana
+
+```bash
+# Start the demo stack (includes Grafana)
+docker-compose -f docker-compose.demo.yml up -d
+
+# Generate demo data
+curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "serviceKey": "payments",
+    "eventType": "user_profile.updated",
+    "events": 1000,
+    "profilePool": 100,
+    "statuses": ["NEW", "ACTIVE", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED"],
+    "channels": ["web", "mobile", "partner"],
+    "regions": ["us-east", "us-west", "eu-central"],
+    "tiers": ["FREE", "PLUS", "PRO"],
+    "maxDurationMillis": 1500,
+    "recentWindowSeconds": 3600
+  }'
+
+# Access Grafana at http://localhost:3000
+# Login: admin/admin
+```
+
+### Available Dashboards
+
+**Obsinity Demo - Overview** includes:
+
+- **State Counts**: Current distribution of user profiles by status
+- **State Count Time Series**: Historical state counts at 1-minute intervals
+- **State Transitions**: State change flow visualization (NEW→ACTIVE, ACTIVE→SUSPENDED, etc.)
+- **HTTP Request Latency**: Percentile-based latency histograms (p50, p90, p95, p99)
+- **Profile Update Latency**: Update duration metrics broken down by channel
+- **API Counters**: Request counts by status code, method, and dimensions
+- **Profile Updates by Status/Channel**: Multi-dimensional event counters
+
+All panels query the Obsinity REST API (not the database directly), demonstrating real-world API usage patterns.
+
+### Documentation
+
+See [`obsinity-reference-service/grafana/README.md`](obsinity-reference-service/grafana/README.md) for:
+- Complete dashboard documentation
+- API query examples
+- Customization guide
+- Troubleshooting tips
+
+

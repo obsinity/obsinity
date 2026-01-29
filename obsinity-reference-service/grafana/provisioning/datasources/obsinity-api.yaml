@@ -1,0 +1,15 @@
+apiVersion: 1
+
+datasources:
+  - name: Obsinity API
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    url: http://obsinity-reference-server:8086
+    isDefault: true
+    jsonData:
+      auth_method: none
+      custom_headers:
+        - name: Content-Type
+          value: application/json
+    version: 1
+    editable: true

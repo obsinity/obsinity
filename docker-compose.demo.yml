@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: obsinity
       POSTGRES_PASSWORD: obsinity
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U obsinity -d obsinity"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -46,6 +46,26 @@ services:
     ports:
       - "8080:8080"
 
+  grafana:
+    image: grafana/grafana:latest
+    container_name: obsinity-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=yesoreyeram-infinity-datasource
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    depends_on:
+      - obsinity-reference-server
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./obsinity-reference-service/grafana/provisioning:/etc/grafana/provisioning
+      - ./obsinity-reference-service/grafana/dashboards:/var/lib/grafana/dashboards
+
 volumes:
   obsinity_pg_demo:
+    driver: local
+  grafana_data:
     driver: local
