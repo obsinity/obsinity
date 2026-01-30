@@ -17,18 +17,15 @@ else
     exit 1
 fi
 
-# Stop any existing Obsinity containers to avoid conflicts
-echo "Checking for existing containers..."
-if docker ps -a --format "{{.Names}}" | grep -q -E "obsinity-reference-server|obsinity-db"; then
-    echo "⚠️  Found existing development containers. Stopping them..."
-    (cd obsinity-reference-service && docker compose down 2>/dev/null) || true
-    echo "✓ Existing containers stopped"
-fi
+# Stop any existing Obsinity containers and remove volumes to avoid conflicts
+echo "Stopping existing Obsinity containers and removing volumes..."
+(cd obsinity-reference-service && ${COMPOSE_CMD} down -v --remove-orphans 2>/dev/null) || true
+${COMPOSE_CMD} -f docker-compose.demo.yml down -v --remove-orphans || true
+echo "✓ Existing containers stopped and volumes removed"
 
 echo ""
 echo "Starting demo stack (fresh)..."
-${COMPOSE_CMD} -f docker-compose.demo.yml down -v --remove-orphans || true
-${COMPOSE_CMD} -f docker-compose.demo.yml up -d --force-recreate --renew-anon-volumes
+${COMPOSE_CMD} -f docker-compose.demo.yml up -d --force-recreate --renew-anon-volumes --build
 
 echo ""
 echo "Waiting for services to be ready..."
