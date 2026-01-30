@@ -33,8 +33,7 @@ public class StateCountTimeseriesQueryController {
     @PostMapping(path = "/state-count-timeseries", consumes = MediaType.APPLICATION_JSON_VALUE)
     public StateCountTimeseriesHalResponse query(@RequestBody StateCountTimeseriesQueryRequest request) {
         StateCountTimeseriesQueryResult result = queryService.runQuery(request);
-        ResponseFormat format = ResponseFormat.defaulted(request.format());
-        return StateCountTimeseriesHalResponse.from(QUERY_PATH, request, result, format, mapper);
+        return StateCountTimeseriesHalResponse.from(QUERY_PATH, request, result, request.format(), mapper);
     }
 
     public record StateCountTimeseriesHalResponse(

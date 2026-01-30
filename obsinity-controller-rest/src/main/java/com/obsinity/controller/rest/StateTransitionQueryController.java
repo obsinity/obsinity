@@ -1,7 +1,6 @@
 package com.obsinity.controller.rest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.obsinity.service.core.api.ResponseFormat;
 import com.obsinity.service.core.state.query.StateTransitionQueryRequest;
 import com.obsinity.service.core.state.query.StateTransitionQueryResult;
 import com.obsinity.service.core.state.query.StateTransitionQueryService;
@@ -27,7 +26,6 @@ public class StateTransitionQueryController {
     @PostMapping
     public StateTransitionQueryHalResponse query(@RequestBody StateTransitionQueryRequest request) {
         StateTransitionQueryResult result = queryService.runQuery(request);
-        ResponseFormat format = ResponseFormat.defaulted(request.format());
-        return StateTransitionQueryHalResponse.from(QUERY_PATH, request, result, format, mapper);
+        return StateTransitionQueryHalResponse.from(QUERY_PATH, request, result, request.format(), mapper);
     }
 }

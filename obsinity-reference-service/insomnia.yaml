@@ -60,6 +60,15 @@ resources:
       event_id_error: "{% uuid 'v4' %}"
     _type: environment
 
+  - _id: env_0b6a2e3d18c549c3b0fb8fda4f3b7c19
+    parentId: env_48ee75400dc54513958ace253d876e61
+    modified: 1769817600000
+    created: 1769817600000
+    name: obsinity.org
+    data:
+      base_url: https://data.obsinity.org
+    _type: environment
+
   # ===================== Cookie Jar =====================
   - _id: jar_a149c3669a9047f3aef00b245c81d669
     parentId: wrk_68f2907246df440f96e2f024b4a89fee

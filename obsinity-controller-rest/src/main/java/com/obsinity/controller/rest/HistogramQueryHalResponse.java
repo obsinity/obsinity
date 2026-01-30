@@ -23,7 +23,11 @@ public record HistogramQueryHalResponse(
         Map<String, HalLink> links,
         String format) {
 
-    record Data(List<HistogramQueryWindow> intervals) {}
+    record Data(List<RowWindow> intervals) {}
+
+    record RowWindow(String from, String to, List<RowSeries> series) {}
+
+    record RowSeries(Map<String, String> key, long samples, double sum, Double mean, Map<String, Double> percentiles) {}
 
     record HalLink(String href, String method, Object body) {}
 
@@ -45,9 +49,46 @@ public record HistogramQueryHalResponse(
                 buildLinks(href, request, offset, limit, count, total, effectiveStart, effectiveEnd);
         Object data = format == ResponseFormat.COLUMNAR
                 ? FrictionlessData.columnar(flattenWindows(result), mapper)
-                : new Data(result.windows());
+                : new Data(toRowWindows(result));
         return new HistogramQueryHalResponse(
                 count, total, limit, offset, result.defaultPercentiles(), data, links, format.wireValue());
+    }
+
+    private static List<RowWindow> toRowWindows(HistogramQueryResult result) {
+        List<Double> percentiles = result.defaultPercentiles();
+        return result.windows().stream()
+                .map(window -> new RowWindow(window.from(), window.to(), toRowSeries(window.series(), percentiles)))
+                .toList();
+    }
+
+    private static List<RowSeries> toRowSeries(List<HistogramQueryWindow.Series> series, List<Double> percentiles) {
+        return series.stream()
+                .map(s -> new RowSeries(
+                        s.key(), s.samples(), s.sum(), s.mean(), renamePercentileKeys(s.percentiles(), percentiles)))
+                .toList();
+    }
+
+    private static Map<String, Double> renamePercentileKeys(Map<Double, Double> source, List<Double> percentiles) {
+        if (source == null || source.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Double> renamed = new LinkedHashMap<>();
+        if (percentiles != null && !percentiles.isEmpty()) {
+            for (Double p : percentiles) {
+                if (p == null) continue;
+                Double val = source.get(p);
+                if (val == null) {
+                    val = source.get(Double.valueOf(p.toString()));
+                }
+                renamed.put("p" + percentileLabel(p), val);
+            }
+            return renamed;
+        }
+        for (Map.Entry<Double, Double> entry : source.entrySet()) {
+            Double key = entry.getKey();
+            renamed.put("p" + percentileLabel(key), entry.getValue());
+        }
+        return renamed;
     }
 
     private static List<Map<String, Object>> flattenWindows(HistogramQueryResult result) {

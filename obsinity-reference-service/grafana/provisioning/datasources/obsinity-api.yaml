@@ -8,8 +8,9 @@ datasources:
     isDefault: true
     jsonData:
       auth_method: none
-      custom_headers:
-        - name: Content-Type
-          value: application/json
-    version: 1
+      allowDangerousHTTPMethods: true
+      httpHeaderName1: Content-Type
+    secureJsonData:
+      httpHeaderValue1: application/json
+    version: 2
     editable: true

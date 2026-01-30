@@ -32,8 +32,7 @@ public class StateCountQueryController {
     @PostMapping(path = "/state-counts", consumes = MediaType.APPLICATION_JSON_VALUE)
     public StateCountQueryHalResponse query(@RequestBody StateCountQueryRequest request) {
         StateCountQueryResult result = queryService.runQuery(request);
-        ResponseFormat format = ResponseFormat.defaulted(request.format());
-        return StateCountQueryHalResponse.from(QUERY_PATH, request, result, format, mapper);
+        return StateCountQueryHalResponse.from(QUERY_PATH, request, result, request.format(), mapper);
     }
 
     public record StateCountQueryHalResponse(
