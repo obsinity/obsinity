@@ -39,6 +39,10 @@ Added Grafana service with:
    - API: `/api/query/state-counts`
    - Shows distribution across NEW, ACTIVE, SUSPENDED, BLOCKED, UPGRADED, ARCHIVED
 
+## Infinity JSONata parsing notes
+
+When using the `yesoreyeram-infinity-datasource` against JSON responses that are **objects** (not arrays), keep JSONata outputs in ISO time strings (e.g. `"time": $w.start`) and return a flat array of row objects. Frontend JSONata parsing can fail to materialize frames when time fields are emitted as epoch millis. If a panel shows `No data` while the API response contains values, switch the JSONata output to ISO time strings and keep the output flat (or pivot to wide columns for time series). If frames are still empty, try switching the query to backend mode.
+
 2. **State Counts - Key Statuses** (Gauge)
    - API: `/api/query/state-counts`
    - Focus on ACTIVE, SUSPENDED, BLOCKED

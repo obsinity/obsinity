@@ -303,9 +303,9 @@
           "type": "json",
           "url": "/api/query/state-count-timeseries",
           "method": "POST",
-          "data": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"ARCHIVED\"],\"interval\":\"1m\",\"limits\":{\"offset\":0,\"limit\":60}}",
-          "parser": "jq",
-          "root_selector": "[.data.intervals[] as $w | $w.states[] | {time: $w.start, state: .state, count: .count}]",
+          "data": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"ARCHIVED\"],\"interval\":\"1h\",\"limits\":{\"offset\":0,\"limit\":60}}",
+          "parser": "jsonata",
+          "root_selector": "data.intervals.$map(function($w){{\"time\":$w.start,\"ACTIVE\":$number($w.states[state=\"ACTIVE\"].count),\"SUSPENDED\":$number($w.states[state=\"SUSPENDED\"].count),\"BLOCKED\":$number($w.states[state=\"BLOCKED\"].count),\"ARCHIVED\":$number($w.states[state=\"ARCHIVED\"].count)}})",
           "columns": [
             {
               "selector": "time",
@@ -313,13 +313,23 @@
               "type": "time"
             },
             {
-              "selector": "state",
-              "text": "State",
-              "type": "string"
+              "selector": "ACTIVE",
+              "text": "ACTIVE",
+              "type": "number"
             },
             {
-              "selector": "count",
-              "text": "Count",
+              "selector": "SUSPENDED",
+              "text": "SUSPENDED",
+              "type": "number"
+            },
+            {
+              "selector": "BLOCKED",
+              "text": "BLOCKED",
+              "type": "number"
+            },
+            {
+              "selector": "ARCHIVED",
+              "text": "ARCHIVED",
               "type": "number"
             }
           ],
@@ -332,11 +342,15 @@
           ],
           "source": "url",
           "format": "table",
+          "json_options": {
+            "columnar": false,
+            "root_is_not_array": false
+          },
           "url_options": {
             "method": "POST",
             "body_type": "raw",
             "body_content_type": "application/json",
-            "data": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"ARCHIVED\"],\"interval\":\"1m\",\"limits\":{\"offset\":0,\"limit\":60}}",
+            "data": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"ARCHIVED\"],\"interval\":\"1h\",\"limits\":{\"offset\":0,\"limit\":60}}",
             "params": [],
             "headers": [
               {
@@ -344,10 +358,11 @@
                 "value": "application/json"
               }
             ]
-          }
+          },
+          "query_mode": "frontend"
         }
       ],
-      "title": "State Count Time Series (1m intervals)",
+      "title": "State Count Time Series (1h intervals)",
       "type": "timeseries"
     },
     {
@@ -625,44 +640,44 @@
           "data": "{\"serviceKey\":\"payments\",\"eventType\":\"http_request\",\"histogramName\":\"http_request_latency_ms\",\"key\":{\"http.method\":[\"GET\"],\"http.route\":[\"/api/checkout\"]},\"percentiles\":[0.5,0.9,0.95,0.99],\"limits\":{\"offset\":0,\"limit\":60}}",
           "parser": "jsonata",
           "query_mode": "frontend",
-          "root_selector": "data.intervals",
+          "root_selector": "data.intervals.$map(function($w){$w.series.$map(function($s){{\"time\":$w.from,\"httpRoute\":$s.key.\"http.route\",\"httpMethod\":$s.key.\"http.method\",\"p50\":$s.percentiles.p50,\"p90\":$s.percentiles.p90,\"p95\":$s.percentiles.p95,\"p99\":$s.percentiles.p99}})})~>$flatten()",
           "json_options": {
             "columnar": false,
             "root_is_not_array": false
           },
           "columns": [
             {
-              "selector": "from",
+              "selector": "time",
               "text": "Time",
               "type": "time"
             },
             {
-              "selector": "series[0].key.\"http.route\"",
+              "selector": "httpRoute",
               "text": "Route",
               "type": "string"
             },
             {
-              "selector": "series[0].key.\"http.method\"",
+              "selector": "httpMethod",
               "text": "Method",
               "type": "string"
             },
             {
-              "selector": "series[0].percentiles.p50",
+              "selector": "p50",
               "text": "p50",
               "type": "number"
             },
             {
-              "selector": "series[0].percentiles.p90",
+              "selector": "p90",
               "text": "p90",
               "type": "number"
             },
             {
-              "selector": "series[0].percentiles.p95",
+              "selector": "p95",
               "text": "p95",
               "type": "number"
             },
             {
-              "selector": "series[0].percentiles.p99",
+              "selector": "p99",
               "text": "p99",
               "type": "number"
             }
@@ -895,9 +910,9 @@
           "type": "json",
           "url": "/api/query/counters",
           "method": "POST",
-          "data": "{\"serviceKey\":\"payments\",\"eventType\":\"user_profile.updated\",\"counterName\":\"user_profile_updates_by_status\",\"interval\":\"1m\",\"key\":{\"user.status\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"UPGRADED\",\"ARCHIVED\"],\"dimensions.channel\":[\"web\",\"mobile\",\"partner\"]},\"limits\":{\"offset\":0,\"limit\":120}}",
+          "data": "{\"serviceKey\":\"payments\",\"eventType\":\"user_profile.updated\",\"counterName\":\"user_profile_updates_by_status\",\"interval\":\"1h\",\"key\":{\"user.status\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"UPGRADED\",\"ARCHIVED\"],\"dimensions.channel\":[\"web\",\"mobile\",\"partner\"]},\"limits\":{\"offset\":0,\"limit\":120}}",
           "parser": "jsonata",
-          "root_selector": "$exists(data.data.from) ? $map(data.data.from,function($v,$i){{\"timestamp\":$v,\"user.status\":data.data[\"user.status\"][$i],\"dimensions.channel\":data.data[\"dimensions.channel\"][$i],\"count\":data.data.count[$i]}}) : $reduce($map(data.intervals,function($w){$map($w.series,function($s){{\"timestamp\":$w.from,\"user.status\":$s.key[\"user.status\"],\"dimensions.channel\":$s.key[\"dimensions.channel\"],\"count\":$s.count}})}),function($acc,$v){$append($acc,$v)},[])",
+          "root_selector": "$exists(data.data.from) ? $map(data.data.from,function($v,$i){{\"timestamp\":$v,\"user.status\":data.data[\"user.status\"][$i],\"dimensions.channel\":data.data[\"dimensions.channel\"][$i],\"count\":data.data.count[$i]}}) : $flatten($map(data.data.intervals,function($w){$map($w.counts,function($c){{\"timestamp\":$w.from,\"user.status\":$c.key[\"user.status\"],\"dimensions.channel\":$c.key[\"dimensions.channel\"],\"count\":$c.count}})}))",
           "columns": [
             {
               "selector": "timestamp",
@@ -933,7 +948,7 @@
             "method": "POST",
             "body_type": "raw",
             "body_content_type": "application/json",
-            "data": "{\"serviceKey\":\"payments\",\"eventType\":\"user_profile.updated\",\"counterName\":\"user_profile_updates_by_status\",\"interval\":\"1m\",\"key\":{\"user.status\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"UPGRADED\",\"ARCHIVED\"],\"dimensions.channel\":[\"web\",\"mobile\",\"partner\"]},\"limits\":{\"offset\":0,\"limit\":120}}",
+            "data": "{\"serviceKey\":\"payments\",\"eventType\":\"user_profile.updated\",\"counterName\":\"user_profile_updates_by_status\",\"interval\":\"1h\",\"key\":{\"user.status\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"UPGRADED\",\"ARCHIVED\"],\"dimensions.channel\":[\"web\",\"mobile\",\"partner\"]},\"limits\":{\"offset\":0,\"limit\":120}}",
             "params": [],
             "headers": [
               {
@@ -945,7 +960,7 @@
           "query_mode": "frontend"
         }
       ],
-      "title": "Profile Updates by Status and Channel (1m rollup)",
+      "title": "Profile Updates by Status and Channel (1h rollup)",
       "type": "timeseries"
     },
     {
@@ -1097,44 +1112,44 @@
           "data": "{\"serviceKey\":\"payments\",\"eventType\":\"http_request\",\"histogramName\":\"http_request_latency_ms\",\"key\":{\"http.method\":[\"GET\"],\"http.route\":[\"/api/checkout\"]},\"percentiles\":[0.5,0.9,0.95,0.99],\"limits\":{\"offset\":0,\"limit\":60}}",
           "parser": "jsonata",
           "query_mode": "frontend",
-          "root_selector": "data.intervals",
+          "root_selector": "data.intervals.$map(function($w){$w.series.$map(function($s){{\"time\":$w.from,\"httpRoute\":$s.key.\"http.route\",\"httpMethod\":$s.key.\"http.method\",\"p50\":$s.percentiles.p50,\"p90\":$s.percentiles.p90,\"p95\":$s.percentiles.p95,\"p99\":$s.percentiles.p99}})})~>$flatten()",
           "json_options": {
             "columnar": false,
             "root_is_not_array": false
           },
           "columns": [
             {
-              "selector": "from",
+              "selector": "time",
               "text": "Time",
               "type": "time"
             },
             {
-              "selector": "series[0].key.\"http.route\"",
+              "selector": "httpRoute",
               "text": "Route",
               "type": "string"
             },
             {
-              "selector": "series[0].key.\"http.method\"",
+              "selector": "httpMethod",
               "text": "Method",
               "type": "string"
             },
             {
-              "selector": "series[0].percentiles.p50",
+              "selector": "p50",
               "text": "p50",
               "type": "number"
             },
             {
-              "selector": "series[0].percentiles.p90",
+              "selector": "p90",
               "text": "p90",
               "type": "number"
             },
             {
-              "selector": "series[0].percentiles.p95",
+              "selector": "p95",
               "text": "p95",
               "type": "number"
             },
             {
-              "selector": "series[0].percentiles.p99",
+              "selector": "p99",
               "text": "p99",
               "type": "number"
             }
