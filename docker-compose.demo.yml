@@ -62,7 +62,7 @@ services:
     depends_on:
       - obsinity-reference-server
     ports:
-      - "3000:3000"
+      - "3086:3000"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./obsinity-reference-service/grafana/provisioning:/etc/grafana/provisioning
