@@ -96,9 +96,9 @@
           "type": "json",
           "url": "/api/query/state-counts",
           "method": "POST",
-          "data": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"UPGRADED\",\"ARCHIVED\"],\"limits\":{\"offset\":0,\"limit\":20},\"format\":\"columnar\"}",
+          "data": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"UPGRADED\",\"ARCHIVED\"],\"limits\":{\"offset\":0,\"limit\":20}}",
           "parser": "jsonata",
-          "root_selector": "$map($range(0,$count(data.data.state)-1),function($i){{\"state\":data.data.state[$i],\"count\":data.data.count[$i]}})",
+          "root_selector": "data.states",
           "columns": [
             {
               "selector": "state",
@@ -111,11 +111,33 @@
               "type": "number"
             }
           ],
-          "httpMethod": "POST"
+          "httpMethod": "POST",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "source": "url",
+          "format": "table",
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"UPGRADED\",\"ARCHIVED\"],\"limits\":{\"offset\":0,\"limit\":20}}",
+            "params": [],
+            "headers": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "query_mode": "frontend"
         }
       ],
       "title": "Current State Counts by Status",
-      "type": "bargauge"
+      "type": "barchart"
     },
     {
       "datasource": "Obsinity API",
@@ -146,17 +168,15 @@
       },
       "id": 3,
       "options": {
-        "orientation": "auto",
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
+        "orientation": "horizontal",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
         },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "text": {}
+        "tooltip": {
+          "mode": "single"
+        }
       },
       "pluginVersion": "9.0.0",
       "targets": [
@@ -166,9 +186,9 @@
           "type": "json",
           "url": "/api/query/state-counts",
           "method": "POST",
-          "data": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\"],\"limits\":{\"offset\":0,\"limit\":20},\"format\":\"columnar\"}",
+          "data": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\"],\"limits\":{\"offset\":0,\"limit\":20}}",
           "parser": "jsonata",
-          "root_selector": "$map($range(0,$count(data.data.state)-1),function($i){{\"state\":data.data.state[$i],\"count\":data.data.count[$i]}})",
+          "root_selector": "data.states",
           "columns": [
             {
               "selector": "state",
@@ -181,11 +201,33 @@
               "type": "number"
             }
           ],
-          "httpMethod": "POST"
+          "httpMethod": "POST",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "source": "url",
+          "format": "table",
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\"],\"limits\":{\"offset\":0,\"limit\":20}}",
+            "params": [],
+            "headers": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "query_mode": "frontend"
         }
       ],
       "title": "State Counts - Key Statuses",
-      "type": "gauge"
+      "type": "barchart"
     },
     {
       "datasource": "Obsinity API",
@@ -261,14 +303,14 @@
           "type": "json",
           "url": "/api/query/state-count-timeseries",
           "method": "POST",
-          "data": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"ARCHIVED\"],\"interval\":\"1m\",\"limits\":{\"offset\":0,\"limit\":60},\"format\":\"columnar\"}",
-          "parser": "jsonata",
-          "root_selector": "$map($range(0,$count(data.data.from)-1),function($i){{\"timestamp\":data.data.from[$i],\"state\":data.data.state[$i],\"count\":data.data.count[$i]}})",
+          "data": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"ARCHIVED\"],\"interval\":\"1m\",\"limits\":{\"offset\":0,\"limit\":60}}",
+          "parser": "jq",
+          "root_selector": "[.data.intervals[] as $w | $w.states[] | {time: $w.start, state: .state, count: .count}]",
           "columns": [
             {
-              "selector": "timestamp",
+              "selector": "time",
               "text": "Time",
-              "type": "timestamp"
+              "type": "time"
             },
             {
               "selector": "state",
@@ -281,7 +323,28 @@
               "type": "number"
             }
           ],
-          "httpMethod": "POST"
+          "httpMethod": "POST",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "source": "url",
+          "format": "table",
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"ARCHIVED\"],\"interval\":\"1m\",\"limits\":{\"offset\":0,\"limit\":60}}",
+            "params": [],
+            "headers": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
         }
       ],
       "title": "State Count Time Series (1m intervals)",
@@ -361,14 +424,14 @@
           "type": "json",
           "url": "/api/query/state-transitions",
           "method": "POST",
-          "data": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"fromStates\":[\"(none)\"],\"toStates\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"ARCHIVED\",\"UPGRADED\"],\"interval\":\"5s\",\"limits\":{\"offset\":0,\"limit\":100},\"format\":\"columnar\"}",
-          "parser": "jsonata",
-          "root_selector": "$map($range(0,$count(data.data.from)-1),function($i){{\"timestamp\":data.data.from[$i],\"fromState\":data.data.fromState[$i],\"toState\":data.data.toState[$i],\"count\":data.data.count[$i]}})",
+          "data": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"fromStates\":[\"(none)\"],\"toStates\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"ARCHIVED\",\"UPGRADED\"],\"interval\":\"5s\",\"limits\":{\"offset\":0,\"limit\":100}}",
+          "parser": "jq",
+          "root_selector": "[.data.intervals[] as $w | $w.transitions[] | {time: $w.start, fromState: .fromState, toState: .toState, count: .count}]",
           "columns": [
             {
-              "selector": "timestamp",
+              "selector": "time",
               "text": "Time",
-              "type": "timestamp"
+              "type": "time"
             },
             {
               "selector": "fromState",
@@ -386,7 +449,28 @@
               "type": "number"
             }
           ],
-          "httpMethod": "POST"
+          "httpMethod": "POST",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "source": "url",
+          "format": "table",
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"fromStates\":[\"(none)\"],\"toStates\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"ARCHIVED\",\"UPGRADED\"],\"interval\":\"5s\",\"limits\":{\"offset\":0,\"limit\":100}}",
+            "params": [],
+            "headers": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
         }
       ],
       "title": "State Transitions Over Time (5s intervals)",
@@ -538,166 +622,77 @@
           "type": "json",
           "url": "/api/histograms/query",
           "method": "POST",
-          "data": "{\"serviceKey\":\"payments\",\"eventType\":\"http_request\",\"histogramName\":\"http_request_latency_ms\",\"interval\":\"1m\",\"key\":{\"http.method\":[\"GET\"],\"http.route\":[\"/api/checkout\"]},\"percentiles\":[0.5,0.9,0.95,0.99],\"limits\":{\"offset\":0,\"limit\":60},\"format\":\"columnar\"}",
+          "data": "{\"serviceKey\":\"payments\",\"eventType\":\"http_request\",\"histogramName\":\"http_request_latency_ms\",\"key\":{\"http.method\":[\"GET\"],\"http.route\":[\"/api/checkout\"]},\"percentiles\":[0.5,0.9,0.95,0.99],\"limits\":{\"offset\":0,\"limit\":60}}",
           "parser": "jsonata",
-          "root_selector": "$map($range(0,$count(data.data.from)-1),function($i){{\"timestamp\":data.data.from[$i],\"p50\":data.data.p50[$i],\"p90\":data.data.p90[$i],\"p95\":data.data.p95[$i],\"p99\":data.data.p99[$i]}})",
+          "query_mode": "frontend",
+          "root_selector": "data.intervals",
+          "json_options": {
+            "columnar": false,
+            "root_is_not_array": false
+          },
           "columns": [
             {
-              "selector": "timestamp",
+              "selector": "from",
               "text": "Time",
-              "type": "timestamp"
+              "type": "time"
             },
             {
-              "selector": "p50",
-              "text": "p50",
-              "type": "number"
-            },
-            {
-              "selector": "p90",
-              "text": "p90",
-              "type": "number"
-            },
-            {
-              "selector": "p95",
-              "text": "p95",
-              "type": "number"
-            },
-            {
-              "selector": "p99",
-              "text": "p99",
-              "type": "number"
-            }
-          ],
-          "httpMethod": "POST"
-        }
-      ],
-      "title": "HTTP Request Latency - Checkout API (percentiles)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": "Obsinity API",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "Latency (ms)",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 500
-              },
-              {
-                "color": "red",
-                "value": 1000
-              }
-            ]
-          },
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 26
-      },
-      "id": 7,
-      "options": {
-        "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "pluginVersion": "9.0.0",
-      "targets": [
-        {
-          "datasource": "Obsinity API",
-          "refId": "A",
-          "type": "json",
-          "url": "/api/histograms/query",
-          "method": "POST",
-          "data": "{\"serviceKey\":\"payments\",\"eventType\":\"user_profile.updated\",\"histogramName\":\"user_profile_update_duration_ms\",\"interval\":\"1m\",\"key\":{\"dimensions.channel\":[\"web\",\"mobile\",\"partner\"]},\"percentiles\":[0.5,0.9,0.95,0.99],\"limits\":{\"offset\":0,\"limit\":60},\"format\":\"columnar\"}",
-          "parser": "jsonata",
-          "root_selector": "$map($range(0,$count(data.data.from)-1),function($i){{\"timestamp\":data.data.from[$i],\"dimensions.channel\":data.data[\"dimensions.channel\"][$i],\"p50\":data.data.p50[$i],\"p90\":data.data.p90[$i],\"p95\":data.data.p95[$i],\"p99\":data.data.p99[$i]}})",
-          "columns": [
-            {
-              "selector": "timestamp",
-              "text": "Time",
-              "type": "timestamp"
-            },
-            {
-              "selector": "dimensions.channel",
-              "text": "Channel",
+              "selector": "series[0].key.\"http.route\"",
+              "text": "Route",
               "type": "string"
             },
             {
-              "selector": "p50",
+              "selector": "series[0].key.\"http.method\"",
+              "text": "Method",
+              "type": "string"
+            },
+            {
+              "selector": "series[0].percentiles.p50",
               "text": "p50",
               "type": "number"
             },
             {
-              "selector": "p90",
+              "selector": "series[0].percentiles.p90",
               "text": "p90",
               "type": "number"
             },
             {
-              "selector": "p95",
+              "selector": "series[0].percentiles.p95",
               "text": "p95",
               "type": "number"
             },
             {
-              "selector": "p99",
+              "selector": "series[0].percentiles.p99",
               "text": "p99",
               "type": "number"
             }
           ],
-          "httpMethod": "POST"
+          "httpMethod": "POST",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "source": "url",
+          "format": "table",
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\"serviceKey\":\"payments\",\"eventType\":\"http_request\",\"histogramName\":\"http_request_latency_ms\",\"key\":{\"http.method\":[\"GET\"],\"http.route\":[\"/api/checkout\"]},\"percentiles\":[0.5,0.9,0.95,0.99],\"limits\":{\"offset\":0,\"limit\":60}}",
+            "params": [],
+            "headers": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "query_mode": "frontend"
         }
       ],
-      "title": "Profile Update Latency by Channel (percentiles)",
+      "title": "HTTP Request Latency - Checkout API (percentiles)",
       "type": "timeseries"
     },
     {
@@ -776,9 +771,9 @@
           "type": "json",
           "url": "/api/query/counters",
           "method": "POST",
-          "data": "{\"serviceKey\":\"payments\",\"eventType\":\"http_request\",\"counterName\":\"http_requests_by_status\",\"interval\":\"5m\",\"key\":{\"http.method\":[\"GET\"],\"http.status\":[\"200\",\"500\"]},\"limits\":{\"offset\":0,\"limit\":60},\"format\":\"columnar\"}",
+          "data": "{\"serviceKey\":\"payments\",\"eventType\":\"http_request\",\"counterName\":\"http_requests_by_status\",\"interval\":\"5m\",\"key\":{\"http.method\":[\"GET\"],\"http.status\":[\"200\",\"500\"]},\"limits\":{\"offset\":0,\"limit\":60}}",
           "parser": "jsonata",
-          "root_selector": "$map($range(0,$count(data.data.from)-1),function($i){{\"timestamp\":data.data.from[$i],\"http.status\":data.data[\"http.status\"][$i],\"count\":data.data.count[$i]}})",
+          "root_selector": "$exists(data.data.from) ? $map(data.data.from,function($v,$i){{\"timestamp\":$v,\"http.status\":data.data[\"http.status\"][$i],\"count\":data.data.count[$i]}}) : $reduce($map(data.intervals,function($w){$map($w.series,function($s){{\"timestamp\":$w.from,\"http.status\":$s.key[\"http.status\"],\"count\":$s.count}})}),function($acc,$v){$append($acc,$v)},[])",
           "columns": [
             {
               "selector": "timestamp",
@@ -796,7 +791,29 @@
               "type": "number"
             }
           ],
-          "httpMethod": "POST"
+          "httpMethod": "POST",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "source": "url",
+          "format": "table",
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\"serviceKey\":\"payments\",\"eventType\":\"http_request\",\"counterName\":\"http_requests_by_status\",\"interval\":\"5m\",\"key\":{\"http.method\":[\"GET\"],\"http.status\":[\"200\",\"500\"]},\"limits\":{\"offset\":0,\"limit\":60}}",
+            "params": [],
+            "headers": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "query_mode": "frontend"
         }
       ],
       "title": "HTTP Requests by Status Code (5m rollup)",
@@ -878,9 +895,9 @@
           "type": "json",
           "url": "/api/query/counters",
           "method": "POST",
-          "data": "{\"serviceKey\":\"payments\",\"eventType\":\"user_profile.updated\",\"counterName\":\"user_profile_updates_by_status\",\"interval\":\"1m\",\"key\":{\"user.status\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"UPGRADED\",\"ARCHIVED\"],\"dimensions.channel\":[\"web\",\"mobile\",\"partner\"]},\"limits\":{\"offset\":0,\"limit\":120},\"format\":\"columnar\"}",
+          "data": "{\"serviceKey\":\"payments\",\"eventType\":\"user_profile.updated\",\"counterName\":\"user_profile_updates_by_status\",\"interval\":\"1m\",\"key\":{\"user.status\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"UPGRADED\",\"ARCHIVED\"],\"dimensions.channel\":[\"web\",\"mobile\",\"partner\"]},\"limits\":{\"offset\":0,\"limit\":120}}",
           "parser": "jsonata",
-          "root_selector": "$map($range(0,$count(data.data.from)-1),function($i){{\"timestamp\":data.data.from[$i],\"user.status\":data.data[\"user.status\"][$i],\"dimensions.channel\":data.data[\"dimensions.channel\"][$i],\"count\":data.data.count[$i]}})",
+          "root_selector": "$exists(data.data.from) ? $map(data.data.from,function($v,$i){{\"timestamp\":$v,\"user.status\":data.data[\"user.status\"][$i],\"dimensions.channel\":data.data[\"dimensions.channel\"][$i],\"count\":data.data.count[$i]}}) : $reduce($map(data.intervals,function($w){$map($w.series,function($s){{\"timestamp\":$w.from,\"user.status\":$s.key[\"user.status\"],\"dimensions.channel\":$s.key[\"dimensions.channel\"],\"count\":$s.count}})}),function($acc,$v){$append($acc,$v)},[])",
           "columns": [
             {
               "selector": "timestamp",
@@ -903,10 +920,251 @@
               "type": "number"
             }
           ],
-          "httpMethod": "POST"
+          "httpMethod": "POST",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "source": "url",
+          "format": "table",
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\"serviceKey\":\"payments\",\"eventType\":\"user_profile.updated\",\"counterName\":\"user_profile_updates_by_status\",\"interval\":\"1m\",\"key\":{\"user.status\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"UPGRADED\",\"ARCHIVED\"],\"dimensions.channel\":[\"web\",\"mobile\",\"partner\"]},\"limits\":{\"offset\":0,\"limit\":120}}",
+            "params": [],
+            "headers": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "query_mode": "frontend"
         }
       ],
       "title": "Profile Updates by Status and Channel (1m rollup)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Obsinity API",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "Latency (ms)",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 500
+              },
+              {
+                "color": "red",
+                "value": 1000
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p50"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p90"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p95"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p99"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 43
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "9.0.0",
+      "targets": [
+        {
+          "datasource": "Obsinity API",
+          "refId": "A",
+          "type": "json",
+          "url": "/api/histograms/query",
+          "method": "POST",
+          "data": "{\"serviceKey\":\"payments\",\"eventType\":\"http_request\",\"histogramName\":\"http_request_latency_ms\",\"key\":{\"http.method\":[\"GET\"],\"http.route\":[\"/api/checkout\"]},\"percentiles\":[0.5,0.9,0.95,0.99],\"limits\":{\"offset\":0,\"limit\":60}}",
+          "parser": "jsonata",
+          "query_mode": "frontend",
+          "root_selector": "data.intervals",
+          "json_options": {
+            "columnar": false,
+            "root_is_not_array": false
+          },
+          "columns": [
+            {
+              "selector": "from",
+              "text": "Time",
+              "type": "time"
+            },
+            {
+              "selector": "series[0].key.\"http.route\"",
+              "text": "Route",
+              "type": "string"
+            },
+            {
+              "selector": "series[0].key.\"http.method\"",
+              "text": "Method",
+              "type": "string"
+            },
+            {
+              "selector": "series[0].percentiles.p50",
+              "text": "p50",
+              "type": "number"
+            },
+            {
+              "selector": "series[0].percentiles.p90",
+              "text": "p90",
+              "type": "number"
+            },
+            {
+              "selector": "series[0].percentiles.p95",
+              "text": "p95",
+              "type": "number"
+            },
+            {
+              "selector": "series[0].percentiles.p99",
+              "text": "p99",
+              "type": "number"
+            }
+          ],
+          "httpMethod": "POST",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "source": "url",
+          "format": "table",
+          "url_options": {
+            "method": "POST",
+            "body_type": "raw",
+            "body_content_type": "application/json",
+            "data": "{\"serviceKey\":\"payments\",\"eventType\":\"http_request\",\"histogramName\":\"http_request_latency_ms\",\"key\":{\"http.method\":[\"GET\"],\"http.route\":[\"/api/checkout\"]},\"percentiles\":[0.5,0.9,0.95,0.99],\"limits\":{\"offset\":0,\"limit\":60}}",
+            "params": [],
+            "headers": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "query_mode": "frontend"
+        }
+      ],
+      "title": "HTTP Request Latency - Profile API (percentiles)",
       "type": "timeseries"
     }
   ],
@@ -928,6 +1186,6 @@
   "timezone": "",
   "title": "Obsinity Demo - Overview",
   "uid": "obsinity-demo-overview",
-  "version": 1,
+  "version": 13,
   "weekStart": ""
 }
