@@ -7,6 +7,10 @@ echo "Obsinity Grafana Demo Stack"
 echo "=========================================="
 echo ""
 
+# Full rebuild to ensure the latest code is packaged into Docker images.
+echo "Running full rebuild (mvn clean verify)..."
+(cd "$(dirname "$0")" && mvn clean verify)
+
 # Choose docker compose command (v2 preferred, v1 fallback)
 if command -v docker &> /dev/null && docker compose version &> /dev/null; then
     COMPOSE_CMD="docker compose"
@@ -21,6 +25,17 @@ fi
 echo "Stopping existing Obsinity containers and removing volumes..."
 (cd obsinity-reference-service && ${COMPOSE_CMD} down -v --remove-orphans 2>/dev/null) || true
 ${COMPOSE_CMD} -f docker-compose.demo.yml down -v --remove-orphans || true
+
+# Explicitly remove named database volumes to guarantee a fresh start.
+if command -v docker &> /dev/null; then
+    for VOLUME in obsinity_pg_demo obsinity_pg; do
+        if docker volume inspect "${VOLUME}" >/dev/null 2>&1; then
+            docker volume rm -f "${VOLUME}" >/dev/null 2>&1 || true
+            echo "✓ Removed volume ${VOLUME}"
+        fi
+    done
+fi
+
 echo "✓ Existing containers stopped and volumes removed"
 
 echo ""

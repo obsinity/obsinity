@@ -1,0 +1,27 @@
+apiVersion: obsinity/v1
+kind: MetricHistogram
+metadata:
+  service: payments
+  event: http_request
+  name: http_request_latency_ms
+  displayName: HTTP Request Latency (ms)
+  labels:
+    category: http
+spec:
+  sourceEvent:
+    service: payments
+    name: http_request
+  value: http.server.duration_ms
+  key:
+    dimensions:
+      - http.method
+      - http.route
+  sketch:
+    kind: ddsketch
+    relativeAccuracy: 0.001
+  rollup:
+    windowing:
+      granularities: [5s, 1m, 1h, 1d, 7d]
+    percentiles: [0.5, 0.9, 0.95, 0.99]
+  retention:
+    ttl: "730d"

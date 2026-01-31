@@ -1,0 +1,987 @@
+{
+  "message" : "Counts did not match expected values",
+  "expected" : {
+    "NEW->ARCHIVED" : 1
+  },
+  "actual" : { },
+  "interactions" : [ {
+    "method" : "POST",
+    "url" : "http://localhost:18086/events/publish",
+    "request" : {
+      "eventId" : "1f7fe07c-45ef-46c3-ae79-ac1199011eac",
+      "resource" : {
+        "service" : {
+          "name" : "payments"
+        }
+      },
+      "event" : {
+        "name" : "user_profile.updated"
+      },
+      "time" : {
+        "endedAt" : "2026-01-27T18:51:02.036345931Z",
+        "startedAt" : "2026-01-27T18:51:02.026345931Z"
+      },
+      "attributes" : {
+        "obsinity" : {
+          "run_id" : "0dcff801-7bfd-449d-8226-b897502afa48"
+        },
+        "user" : {
+          "profile_id" : "0dcff801-7bfd-449d-8226-b897502afa48-intermediate",
+          "status" : "NEW"
+        }
+      }
+    },
+    "response" : {
+      "status" : 202,
+      "body" : {
+        "eventId" : "1f7fe07c-45ef-46c3-ae79-ac1199011eac",
+        "status" : "stored"
+      }
+    },
+    "durationMs" : 10,
+    "timestamp" : "2026-01-27T18:57:02.036800184Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/events/publish",
+    "request" : {
+      "eventId" : "23bcc239-1f2f-4140-97dd-586971211393",
+      "resource" : {
+        "service" : {
+          "name" : "payments"
+        }
+      },
+      "event" : {
+        "name" : "user_profile.updated"
+      },
+      "time" : {
+        "endedAt" : "2026-01-27T18:51:03.036345931Z",
+        "startedAt" : "2026-01-27T18:51:03.026345931Z"
+      },
+      "attributes" : {
+        "obsinity" : {
+          "run_id" : "0dcff801-7bfd-449d-8226-b897502afa48"
+        },
+        "user" : {
+          "profile_id" : "0dcff801-7bfd-449d-8226-b897502afa48-intermediate",
+          "status" : "ACTIVE"
+        }
+      }
+    },
+    "response" : {
+      "status" : 202,
+      "body" : {
+        "eventId" : "23bcc239-1f2f-4140-97dd-586971211393",
+        "status" : "stored"
+      }
+    },
+    "durationMs" : 8,
+    "timestamp" : "2026-01-27T18:57:02.044783835Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/events/publish",
+    "request" : {
+      "eventId" : "d16e220a-e595-4f88-b6d7-e0e44d45b0c5",
+      "resource" : {
+        "service" : {
+          "name" : "payments"
+        }
+      },
+      "event" : {
+        "name" : "user_profile.updated"
+      },
+      "time" : {
+        "endedAt" : "2026-01-27T18:51:04.036345931Z",
+        "startedAt" : "2026-01-27T18:51:04.026345931Z"
+      },
+      "attributes" : {
+        "obsinity" : {
+          "run_id" : "0dcff801-7bfd-449d-8226-b897502afa48"
+        },
+        "user" : {
+          "profile_id" : "0dcff801-7bfd-449d-8226-b897502afa48-intermediate",
+          "status" : "ARCHIVED"
+        }
+      }
+    },
+    "response" : {
+      "status" : 202,
+      "body" : {
+        "eventId" : "d16e220a-e595-4f88-b6d7-e0e44d45b0c5",
+        "status" : "stored"
+      }
+    },
+    "durationMs" : 17,
+    "timestamp" : "2026-01-27T18:57:02.061519740Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:51:02.026345931Z",
+      "end" : "2026-01-27T18:51:08.026345931Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 1,
+        "totalCount" : 0,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:51:02.026345931Z",
+              "end" : "2026-01-27T18:51:08.026345931Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 10,
+    "timestamp" : "2026-01-27T18:57:02.073228013Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:51:02.026345931Z",
+      "end" : "2026-01-27T18:51:08.026345931Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 1,
+        "totalCount" : 0,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:51:02.026345931Z",
+              "end" : "2026-01-27T18:51:08.026345931Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 4,
+    "timestamp" : "2026-01-27T18:57:04.078800699Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:51:02.026345931Z",
+      "end" : "2026-01-27T18:51:08.026345931Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 1,
+        "totalCount" : 0,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:51:02.026345931Z",
+              "end" : "2026-01-27T18:51:08.026345931Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 4,
+    "timestamp" : "2026-01-27T18:57:06.083885520Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:51:02.026345931Z",
+      "end" : "2026-01-27T18:51:08.026345931Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 1,
+        "totalCount" : 0,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:51:02.026345931Z",
+              "end" : "2026-01-27T18:51:08.026345931Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 4,
+    "timestamp" : "2026-01-27T18:57:08.088448870Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:51:02.026345931Z",
+      "end" : "2026-01-27T18:51:08.026345931Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 1,
+        "totalCount" : 0,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:51:02.026345931Z",
+              "end" : "2026-01-27T18:51:08.026345931Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 4,
+    "timestamp" : "2026-01-27T18:57:10.092757482Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:51:02.026345931Z",
+      "end" : "2026-01-27T18:51:08.026345931Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 1,
+        "totalCount" : 0,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:51:02.026345931Z",
+              "end" : "2026-01-27T18:51:08.026345931Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 5,
+    "timestamp" : "2026-01-27T18:57:12.098454857Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:51:02.026345931Z",
+      "end" : "2026-01-27T18:51:08.026345931Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 1,
+        "totalCount" : 0,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:51:02.026345931Z",
+              "end" : "2026-01-27T18:51:08.026345931Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 3,
+    "timestamp" : "2026-01-27T18:57:14.103059552Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:51:02.026345931Z",
+      "end" : "2026-01-27T18:51:08.026345931Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 1,
+        "totalCount" : 0,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:51:02.026345931Z",
+              "end" : "2026-01-27T18:51:08.026345931Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 4,
+    "timestamp" : "2026-01-27T18:57:16.107914878Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:51:02.026345931Z",
+      "end" : "2026-01-27T18:51:08.026345931Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 1,
+        "totalCount" : 0,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:51:02.026345931Z",
+              "end" : "2026-01-27T18:51:08.026345931Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 4,
+    "timestamp" : "2026-01-27T18:57:18.112874446Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:51:02.026345931Z",
+      "end" : "2026-01-27T18:51:08.026345931Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 1,
+        "totalCount" : 0,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:51:02.026345931Z",
+              "end" : "2026-01-27T18:51:08.026345931Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 13,
+    "timestamp" : "2026-01-27T18:57:20.126627909Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:51:02.026345931Z",
+      "end" : "2026-01-27T18:51:08.026345931Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 1,
+        "totalCount" : 0,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:51:02.026345931Z",
+              "end" : "2026-01-27T18:51:08.026345931Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 4,
+    "timestamp" : "2026-01-27T18:57:22.131816709Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:51:02.026345931Z",
+      "end" : "2026-01-27T18:51:08.026345931Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 1,
+        "totalCount" : 0,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:51:02.026345931Z",
+              "end" : "2026-01-27T18:51:08.026345931Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 4,
+    "timestamp" : "2026-01-27T18:57:24.136387468Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:51:02.026345931Z",
+      "end" : "2026-01-27T18:51:08.026345931Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 1,
+        "totalCount" : 0,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:51:02.026345931Z",
+              "end" : "2026-01-27T18:51:08.026345931Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 3,
+    "timestamp" : "2026-01-27T18:57:26.141266203Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:51:02.026345931Z",
+      "end" : "2026-01-27T18:51:08.026345931Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 1,
+        "totalCount" : 0,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:51:02.026345931Z",
+              "end" : "2026-01-27T18:51:08.026345931Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 4,
+    "timestamp" : "2026-01-27T18:57:28.145550524Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:51:02.026345931Z",
+      "end" : "2026-01-27T18:51:08.026345931Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 1,
+        "totalCount" : 0,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:51:02.026345931Z",
+              "end" : "2026-01-27T18:51:08.026345931Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 4,
+    "timestamp" : "2026-01-27T18:57:30.150628404Z"
+  } ],
+  "pollAttempts" : [ {
+    "name" : "transition-ratios",
+    "attempt" : 1,
+    "timestamp" : "2026-01-27T18:57:02.073488006Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 2,
+    "timestamp" : "2026-01-27T18:57:04.078840498Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 3,
+    "timestamp" : "2026-01-27T18:57:06.083926649Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 4,
+    "timestamp" : "2026-01-27T18:57:08.088489839Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 5,
+    "timestamp" : "2026-01-27T18:57:10.092818231Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 6,
+    "timestamp" : "2026-01-27T18:57:12.098534706Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 7,
+    "timestamp" : "2026-01-27T18:57:14.103099771Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 8,
+    "timestamp" : "2026-01-27T18:57:16.107975536Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 9,
+    "timestamp" : "2026-01-27T18:57:18.112926015Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 10,
+    "timestamp" : "2026-01-27T18:57:20.126688337Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 11,
+    "timestamp" : "2026-01-27T18:57:22.131895497Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 12,
+    "timestamp" : "2026-01-27T18:57:24.136445237Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 13,
+    "timestamp" : "2026-01-27T18:57:26.141314342Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 14,
+    "timestamp" : "2026-01-27T18:57:28.145612583Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 15,
+    "timestamp" : "2026-01-27T18:57:30.150707322Z",
+    "result" : null
+  } ]
+}

@@ -1,0 +1,41 @@
+apiVersion: obsinity/v1
+kind: MetricCounter
+metadata:
+  service: payments
+  event: http_request
+  name: http_requests_5xx
+  displayName: HTTP 5xx Requests (folded)
+  labels:
+    category: http
+spec:
+  sourceEvent:
+    service: payments
+    name: http_request
+  # Group 500–599 into a folded attribute; if your backend requires a separate FoldRule,
+  # you can extract the 'fold' block into its own doc. For now, kept inline.
+  fold:
+    sourceAttribute: http.status
+    foldedAttribute: http.status_group
+    rules:
+      - name: "5xx"
+        when: { gte: 500, lt: 600 }
+        output: "5xx"
+  key:
+    dimensions:
+      - http.method
+      - http.route
+      - http.status_group
+  filters:
+    - path: http.status_group
+      op: eq
+      value: "5xx"
+  rollup:
+    windowing:
+      granularities: [5s, 1m, 1h, 1d, 7d]
+    operation: count
+  retention:
+    ttl: "90d"
+  attributeMapping:
+    method: http.method
+    route: http.route
+    status_group: http.status_group

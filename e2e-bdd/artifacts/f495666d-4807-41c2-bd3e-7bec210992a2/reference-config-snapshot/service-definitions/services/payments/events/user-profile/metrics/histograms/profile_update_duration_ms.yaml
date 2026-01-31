@@ -1,0 +1,24 @@
+apiVersion: obsinity/v1
+kind: MetricHistogram
+metadata:
+  service: payments
+  event: user_profile.updated
+  name: user_profile_update_duration_ms
+  displayName: Profile Update Duration (ms)
+  labels:
+    category: user
+spec:
+  sourceEvent: { service: payments, name: user_profile.updated }
+  value: timings.duration_ms
+  key:
+    dimensions: [ dimensions.channel, dimensions.region ]
+  sketch:
+    kind: ddsketch
+    relativeAccuracy: 0.01
+  rollup:
+    windowing:
+      granularities: [5s, 1m, 1h, 1d, 7d]
+    percentiles: [0.5, 0.9, 0.99]
+  attributeMapping:
+    channel: dimensions.channel
+    region: dimensions.region

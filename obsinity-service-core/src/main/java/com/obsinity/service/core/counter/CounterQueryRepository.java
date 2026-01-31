@@ -63,4 +63,24 @@ public class CounterQueryRepository {
             return null;
         });
     }
+
+    public Instant findLatestTimestamp(UUID counterConfigId, CounterBucket bucket) {
+        String sql =
+                """
+                SELECT MAX(ts) AS latest
+                FROM obsinity.event_counts
+                WHERE counter_config_id = :counterConfigId
+                  AND bucket = :bucket
+                """;
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("counterConfigId", counterConfigId)
+                .addValue("bucket", bucket.label());
+        return jdbcTemplate.query(sql, params, rs -> {
+            if (rs.next()) {
+                Timestamp ts = rs.getTimestamp("latest");
+                return ts != null ? ts.toInstant() : null;
+            }
+            return null;
+        });
+    }
 }

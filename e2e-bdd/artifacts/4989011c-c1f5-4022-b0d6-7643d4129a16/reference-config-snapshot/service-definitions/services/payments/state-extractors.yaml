@@ -1,0 +1,20 @@
+service: payments
+stateExtractors:
+  - rawType: user_profile.updated
+    objectType: UserProfile
+    objectIdField: user.profile_id
+    stateAttributes:
+      - user.status
+    terminalStates:
+      - ARCHIVED
+      - BLOCKED
+
+transitionCounters:
+  - name: new_to_archived
+    objectType: UserProfile
+    from: [NEW]
+    to: ARCHIVED
+  - name: new_to_blocked
+    objectType: UserProfile
+    from: [NEW]
+    to: BLOCKED

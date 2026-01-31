@@ -1,0 +1,3 @@
+NAME                 IMAGE                COMMAND                  SERVICE   CREATED          STATUS                    PORTS
+obsinity-e2e-app-1   obsinity-e2e-app     "java -XX:MaxRAMPerc…"   app       15 seconds ago   Up 9 seconds              0.0.0.0:18086->8086/tcp, [::]:18086->8086/tcp
+obsinity-e2e-db-1    postgres:16-alpine   "docker-entrypoint.s…"   db        15 seconds ago   Up 14 seconds (healthy)   5432/tcp

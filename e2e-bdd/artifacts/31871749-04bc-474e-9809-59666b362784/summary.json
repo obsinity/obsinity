@@ -1,0 +1,7 @@
+{
+  "runId": "31871749-04bc-474e-9809-59666b362784",
+  "baseUrl": "http://localhost:18086",
+  "port": 18086,
+  "composeProject": "obsinity-e2e",
+  "exitCode": 1
+}

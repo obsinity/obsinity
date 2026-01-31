@@ -1,0 +1,20 @@
+apiVersion: obsinity/v1
+kind: MetricCounter
+metadata:
+  service: obsinity-demo-client
+  event: demo.client.call
+  name: client.call.count
+  displayName: Demo Client Call Count
+spec:
+  sourceEvent:
+    service: obsinity-demo-client
+    name: demo.client.call
+  key:
+    dimensions:
+      - client.target
+      - outcome
+  rollup:
+    windowing:
+      granularities: [1m, 5m, 1h, 1d]
+  retention:
+    ttl: "30d"

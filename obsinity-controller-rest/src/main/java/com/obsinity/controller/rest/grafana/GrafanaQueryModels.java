@@ -1,5 +1,7 @@
 package com.obsinity.controller.rest.grafana;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import java.util.List;
 import java.util.Map;
 
@@ -10,11 +12,15 @@ public final class GrafanaQueryModels {
     public record GrafanaQueryRequest(
             Range range,
             String timezone,
-            Long intervalMs,
-            Integer maxDataPoints,
+            @JsonDeserialize(using = FlexibleLongDeserializer.class) Long intervalMs,
+            @JsonDeserialize(using = FlexibleIntegerDeserializer.class) Integer maxDataPoints,
             List<GrafanaSubQuery> queries) {}
 
-    public record Range(String from, String to, Long fromMs, Long toMs) {}
+    public record Range(
+            String from,
+            String to,
+            @JsonDeserialize(using = FlexibleLongDeserializer.class) Long fromMs,
+            @JsonDeserialize(using = FlexibleLongDeserializer.class) Long toMs) {}
 
     public record GrafanaSubQuery(
             String refId,
@@ -31,11 +37,21 @@ public final class GrafanaQueryModels {
             String attribute,
             List<String> states) {}
 
-    public record GrafanaQueryResponse(List<GrafanaResult> results) {}
+    public record GrafanaQueryResponse(Map<String, GrafanaResult> results, List<Map<String, Object>> rows) {}
 
-    public record GrafanaResult(String refId, List<DataFrame> frames) {}
+    public record GrafanaResult(List<Frame> frames, List<Map<String, Object>> rows) {}
 
-    public record DataFrame(String name, List<Field> fields, List<List<Object>> values) {}
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record Frame(Schema schema, FrameData data, List<Field> fields, List<List<Object>> values) {}
 
-    public record Field(String name, String type, Map<String, String> labels) {}
+    public record Schema(String refId, String name, List<Field> fields) {}
+
+    public record Field(
+            String name,
+            String type,
+            Map<String, Object> config,
+            Map<String, String> labels,
+            Map<String, String> typeInfo) {}
+
+    public record FrameData(List<List<Object>> values) {}
 }

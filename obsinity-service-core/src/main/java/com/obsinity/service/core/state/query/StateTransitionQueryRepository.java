@@ -49,5 +49,17 @@ public class StateTransitionQueryRepository {
                 (rs, rowNum) -> rs.getTimestamp(1) != null ? rs.getTimestamp(1).toInstant() : null);
     }
 
+    public Instant findLatestTimestamp(UUID serviceId, CounterBucket bucket) {
+        MapSqlParameterSource params =
+                new MapSqlParameterSource().addValue("service_id", serviceId).addValue("bucket", bucket.label());
+        return jdbc.queryForObject(
+                """
+                SELECT MAX(ts) FROM obsinity.object_state_transitions
+                WHERE service_id = :service_id AND bucket = :bucket
+                """,
+                params,
+                (rs, rowNum) -> rs.getTimestamp(1) != null ? rs.getTimestamp(1).toInstant() : null);
+    }
+
     public record Row(String fromState, String toState, long total) {}
 }

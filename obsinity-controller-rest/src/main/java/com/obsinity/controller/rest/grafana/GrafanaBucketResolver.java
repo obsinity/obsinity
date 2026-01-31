@@ -1,6 +1,8 @@
 package com.obsinity.controller.rest.grafana;
 
 import java.time.Duration;
+import java.util.Comparator;
+import java.util.List;
 
 public final class GrafanaBucketResolver {
 
@@ -13,7 +15,8 @@ public final class GrafanaBucketResolver {
             Long intervalMs,
             Integer maxDataPoints,
             long fromMs,
-            long toMs) {
+            long toMs,
+            List<Duration> allowedBuckets) {
         if (requestedBucket != null && !requestedBucket.isBlank()) {
             return requestedBucket;
         }
@@ -30,7 +33,10 @@ public final class GrafanaBucketResolver {
         }
 
         bucketMs = Math.max(MIN_BUCKET_MS, bucketMs);
-        return toDurationString(bucketMs);
+        if (allowedBuckets == null || allowedBuckets.isEmpty()) {
+            return toDurationString(bucketMs);
+        }
+        return toDurationString(selectAllowedBucket(bucketMs, allowedBuckets));
     }
 
     private static long defaultBucketMs(long rangeMs, Integer maxDataPoints) {
@@ -60,5 +66,17 @@ public final class GrafanaBucketResolver {
             return (millis / Duration.ofSeconds(1).toMillis()) + "s";
         }
         return millis + "ms";
+    }
+
+    private static long selectAllowedBucket(long desiredMs, List<Duration> allowedBuckets) {
+        List<Duration> sorted = allowedBuckets.stream()
+                .sorted(Comparator.comparingLong(Duration::toMillis))
+                .toList();
+        for (Duration duration : sorted) {
+            if (desiredMs <= duration.toMillis()) {
+                return duration.toMillis();
+            }
+        }
+        return sorted.get(sorted.size() - 1).toMillis();
     }
 }

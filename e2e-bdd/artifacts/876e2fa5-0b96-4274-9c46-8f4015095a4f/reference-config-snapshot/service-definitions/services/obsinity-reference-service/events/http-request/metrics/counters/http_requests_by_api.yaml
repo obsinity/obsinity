@@ -1,0 +1,24 @@
+apiVersion: obsinity/v1
+kind: MetricCounter
+metadata:
+  service: obsinity-reference-service
+  event: http_request
+  name: http_requests_by_api
+  displayName: HTTP Requests by API
+  labels:
+    category: http
+spec:
+  sourceEvent:
+    service: obsinity-reference-service
+    name: http_request
+  key:
+    dimensions:
+      - api.name
+      - http.method
+  rollup:
+    windowing:
+      granularities: [1m, 5m, 1h, 1d, 7d]
+    operation: count
+  attributeMapping:
+    api_name: api.name
+    method: http.method

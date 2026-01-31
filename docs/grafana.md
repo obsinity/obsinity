@@ -56,8 +56,8 @@ Grafana sends time range and interval hints. Obsinity uses:
             }
           ],
           "values": [
-            ["2026-01-30T09:00:00Z", 123.4],
-            ["2026-01-30T09:01:00Z", 150.2]
+            ["2026-01-30T09:00:00Z", "2026-01-30T09:01:00Z"],
+            [123.4, 150.2]
           ]
         }
       ]
@@ -100,8 +100,8 @@ Grafana sends time range and interval hints. Obsinity uses:
             { "name": "count", "type": "number", "labels": { "state": "ACTIVE" } }
           ],
           "values": [
-            ["2026-01-30T09:00:00Z", 2007],
-            ["2026-01-30T10:00:00Z", 2011]
+            ["2026-01-30T09:00:00Z", "2026-01-30T10:00:00Z"],
+            [2007, 2011]
           ]
         }
       ]
@@ -143,8 +143,8 @@ Grafana sends time range and interval hints. Obsinity uses:
             { "name": "count", "type": "number", "labels": { "http.method": "GET" } }
           ],
           "values": [
-            ["2026-01-30T09:00:00Z", 120],
-            ["2026-01-30T09:01:00Z", 132]
+            ["2026-01-30T09:00:00Z", "2026-01-30T09:01:00Z"],
+            [120, 132]
           ]
         }
       ]
@@ -172,5 +172,6 @@ Response:
 ## Notes
 
 - Time values in responses are ISO‑8601 UTC strings.
+- Frame values are columnar arrays aligned to the `fields` order.
 - Bucketing uses `queries[].bucket` if provided; otherwise `intervalMs` or `maxDataPoints` drives bucket selection.
 - Best effort is made to avoid returning more points than `maxDataPoints`.

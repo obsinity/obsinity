@@ -1,0 +1,16 @@
+apiVersion: obsinity/v1
+kind: Event
+metadata:
+  service: obsinity-demo-client
+  name: demo.orphan.step
+  displayName: Demo Orphan Step
+  labels:
+    category: demo
+spec:
+  retention:
+    ttl: "7d"
+  schema:
+    type: object
+    properties:
+      note: { type: string, index: true }
+      outcome: { type: string, index: true }

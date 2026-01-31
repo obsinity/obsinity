@@ -70,6 +70,28 @@ public class StateCountTimeseriesQueryRepository {
                 .orElse(null);
     }
 
+    public Instant findLatestTimestamp(UUID serviceId, String objectType, String attribute, CounterBucket bucket) {
+        MapSqlParameterSource params =
+                baseParams(serviceId, objectType, attribute).addValue("bucket", bucket.label());
+        return jdbc
+                .query(
+                        """
+                SELECT MAX(ts)
+                  FROM obsinity.object_state_count_timeseries
+                 WHERE service_id = :service_id
+                   AND object_type = :object_type
+                   AND attribute = :attribute
+                   AND bucket = :bucket
+                """,
+                        params,
+                        (rs, rowNum) ->
+                                rs.getTimestamp(1) != null ? rs.getTimestamp(1).toInstant() : null)
+                .stream()
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+    }
+
     private MapSqlParameterSource baseParams(UUID serviceId, String objectType, String attribute) {
         return new MapSqlParameterSource()
                 .addValue("service_id", serviceId)

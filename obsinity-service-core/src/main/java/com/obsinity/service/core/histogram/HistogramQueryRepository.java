@@ -68,4 +68,24 @@ public class HistogramQueryRepository {
             return null;
         });
     }
+
+    public Instant findLatestTimestamp(UUID histogramConfigId, CounterBucket bucket) {
+        String sql =
+                """
+                SELECT MAX(ts) AS latest
+                FROM obsinity.event_histograms
+                WHERE histogram_config_id = :histogramConfigId
+                  AND bucket = :bucket
+                """;
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("histogramConfigId", histogramConfigId)
+                .addValue("bucket", bucket.label());
+        return jdbcTemplate.query(sql, params, rs -> {
+            if (rs.next()) {
+                Timestamp ts = rs.getTimestamp("latest");
+                return ts != null ? ts.toInstant() : null;
+            }
+            return null;
+        });
+    }
 }

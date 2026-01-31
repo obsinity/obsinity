@@ -36,7 +36,14 @@ public class StateCountQueryController {
     }
 
     public record StateCountQueryHalResponse(
-            int count, long total, int limit, int offset, Object data, Map<String, HalLink> links, String format) {
+            int count,
+            long total,
+            int limit,
+            int offset,
+            Object data,
+            List<Map<String, Object>> rows,
+            Map<String, HalLink> links,
+            String format) {
 
         record Data(java.util.List<StateCountQueryResult.StateCountEntry> states) {}
 
@@ -54,14 +61,27 @@ public class StateCountQueryController {
             int limit = result.limit();
             ResponseFormat format = ResponseFormat.defaulted(responseFormat);
             Map<String, HalLink> links = buildLinks(href, request, offset, limit, count, total);
+            List<StateCountQueryResult.StateCountEntry> filtered = filterStates(result);
             Object data = format == ResponseFormat.COLUMNAR
-                    ? FrictionlessData.columnar(filterStates(result), mapper)
-                    : new Data(result.states());
-            return new StateCountQueryHalResponse(count, total, limit, offset, data, links, format.wireValue());
+                    ? FrictionlessData.columnar(filtered, mapper)
+                    : new Data(filtered);
+            List<Map<String, Object>> rows = toRows(filtered);
+            return new StateCountQueryHalResponse(count, total, limit, offset, data, rows, links, format.wireValue());
         }
 
         private static List<StateCountQueryResult.StateCountEntry> filterStates(StateCountQueryResult result) {
             return result.states().stream().filter(s -> s.count() > 0).toList();
+        }
+
+        private static List<Map<String, Object>> toRows(List<StateCountQueryResult.StateCountEntry> entries) {
+            return entries.stream()
+                    .map(entry -> {
+                        Map<String, Object> row = new LinkedHashMap<>();
+                        row.put("state", entry.state());
+                        row.put("count", entry.count());
+                        return row;
+                    })
+                    .toList();
         }
 
         private static Map<String, HalLink> buildLinks(

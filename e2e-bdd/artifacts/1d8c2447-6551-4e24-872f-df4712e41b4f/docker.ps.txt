@@ -1,0 +1,2 @@
+NAME                IMAGE                COMMAND                  SERVICE   CREATED         STATUS                   PORTS
+obsinity-e2e-db-1   postgres:16-alpine   "docker-entrypoint.s…"   db        5 seconds ago   Up 5 seconds (healthy)   5432/tcp

@@ -1,7 +1,7 @@
 package com.obsinity.controller.rest.grafana;
 
-import java.time.Instant;
 import java.time.Duration;
+import java.time.Instant;
 
 public final class GrafanaRangeResolver {
 
@@ -29,6 +29,12 @@ public final class GrafanaRangeResolver {
         }
 
         Instant from = now.minus(Duration.ofHours(1));
+        return new ResolvedRange(from, now, from.toEpochMilli(), now.toEpochMilli());
+    }
+
+    public static ResolvedRange resolveForDatabaseDefaults() {
+        Instant now = Instant.now();
+        Instant from = now.minus(Duration.ofDays(7));
         return new ResolvedRange(from, now, from.toEpochMilli(), now.toEpochMilli());
     }
 }

@@ -1,0 +1,261 @@
+[
+    {
+        "Id": "b5ff03d119f6bacc5d8f0e571c1fb35197b667c638bf4ba6e96e4c9cfd7f8509",
+        "Created": "2026-01-26T20:36:04.037899484Z",
+        "Path": "java",
+        "Args": [
+            "-XX:MaxRAMPercentage=75",
+            "-jar",
+            "/opt/app/app.jar"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 150454,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2026-01-26T20:36:09.610395033Z",
+            "FinishedAt": "0001-01-01T00:00:00Z"
+        },
+        "Image": "sha256:86871683fcdd5138d72a2f5735f36f39493a6155743ee74b08d4d3c7abeb7caf",
+        "ResolvConfPath": "/data/docker/containers/b5ff03d119f6bacc5d8f0e571c1fb35197b667c638bf4ba6e96e4c9cfd7f8509/resolv.conf",
+        "HostnamePath": "/data/docker/containers/b5ff03d119f6bacc5d8f0e571c1fb35197b667c638bf4ba6e96e4c9cfd7f8509/hostname",
+        "HostsPath": "/data/docker/containers/b5ff03d119f6bacc5d8f0e571c1fb35197b667c638bf4ba6e96e4c9cfd7f8509/hosts",
+        "LogPath": "",
+        "Name": "/obsinity-e2e-app-1",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "docker-default",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": [
+                "/home/jallen/git/obsinity/e2e-groovy/reference-config:/opt/obsinity/config:ro"
+            ],
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "local",
+                "Config": {
+                    "max-file": "3",
+                    "max-size": "100m"
+                }
+            },
+            "NetworkMode": "obsinity-e2e_default",
+            "PortBindings": {
+                "8086/tcp": [
+                    {
+                        "HostIp": "",
+                        "HostPort": "18086"
+                    }
+                ]
+            },
+            "RestartPolicy": {
+                "Name": "unless-stopped",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": null,
+            "DnsSearch": null,
+            "ExtraHosts": [],
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/acpi",
+                "/proc/asound",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/sys/devices/virtual/powercap",
+                "/sys/firmware"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "ID": "b5ff03d119f6bacc5d8f0e571c1fb35197b667c638bf4ba6e96e4c9cfd7f8509",
+                "LowerDir": "/data/docker/overlay2/457bfa75334e1593fa1cb322d272b4941439efccecb7978dae2ad9705d3bcce0-init/diff:/data/docker/overlay2/xwsnwtz8mk5yt02t8bzpsslz1/diff:/data/docker/overlay2/9gn7cukzhs6m5nwj9457hyznm/diff:/data/docker/overlay2/40f7dc54398c11dd35f861be3a3cb08deb76d901bdae5fd8f0e1b1be28cc3801/diff:/data/docker/overlay2/5778adfa764aefde33be9a2d9944a8f434d14baeac93fd7515ce34b4ce5c9e92/diff:/data/docker/overlay2/5dd9749c74b3908537c12c591302df39e4d4c15b4d3ba0a5f985bcf34eabb513/diff:/data/docker/overlay2/0571af7501adae0e3df29ae35ac1aa4ab9f70379e1aa66066ff21028c2fa01c3/diff:/data/docker/overlay2/e6e30a2219e70227df0fd253516b898118d2ae847f97d35021c13d407a641854/diff",
+                "MergedDir": "/data/docker/overlay2/457bfa75334e1593fa1cb322d272b4941439efccecb7978dae2ad9705d3bcce0/merged",
+                "UpperDir": "/data/docker/overlay2/457bfa75334e1593fa1cb322d272b4941439efccecb7978dae2ad9705d3bcce0/diff",
+                "WorkDir": "/data/docker/overlay2/457bfa75334e1593fa1cb322d272b4941439efccecb7978dae2ad9705d3bcce0/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [
+            {
+                "Type": "bind",
+                "Source": "/home/jallen/git/obsinity/e2e-groovy/reference-config",
+                "Destination": "/opt/obsinity/config",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            }
+        ],
+        "Config": {
+            "Hostname": "b5ff03d119f6",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": true,
+            "AttachStderr": true,
+            "ExposedPorts": {
+                "8086/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "SPRING_DATASOURCE_PASSWORD=obsinity",
+                "OBSINITY_CONFIG_INIT_LOCATION=file:/opt/obsinity/config/",
+                "SPRING_PROFILES_ACTIVE=local",
+                "LOGGING_LEVEL_ROOT=INFO",
+                "OBSINITY_CONFIG_INIT_ENABLED=true",
+                "SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/obsinity",
+                "SPRING_FLYWAY_ENABLED=true",
+                "OBSINITY_CONFIG_INIT_CRON=0/10 * * * * *",
+                "SPRING_DATASOURCE_USERNAME=obsinity",
+                "SERVER_PORT=8086",
+                "PATH=/opt/java/openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "JAVA_HOME=/opt/java/openjdk",
+                "LANG=en_US.UTF-8",
+                "LANGUAGE=en_US:en",
+                "LC_ALL=en_US.UTF-8",
+                "JAVA_VERSION=jdk-21.0.9+10"
+            ],
+            "Cmd": null,
+            "Image": "obsinity-e2e-app",
+            "Volumes": null,
+            "WorkingDir": "/opt/app",
+            "Entrypoint": [
+                "java",
+                "-XX:MaxRAMPercentage=75",
+                "-jar",
+                "/opt/app/app.jar"
+            ],
+            "Labels": {
+                "com.docker.compose.config-hash": "f93eed0246735e6b6f1bca95d7609c95d0e926e71777fc202ea3a83936da05c7",
+                "com.docker.compose.container-number": "1",
+                "com.docker.compose.depends_on": "db:service_healthy:false",
+                "com.docker.compose.image": "sha256:86871683fcdd5138d72a2f5735f36f39493a6155743ee74b08d4d3c7abeb7caf",
+                "com.docker.compose.oneoff": "False",
+                "com.docker.compose.project": "obsinity-e2e",
+                "com.docker.compose.project.config_files": "/home/jallen/git/obsinity/e2e-groovy/docker-compose.yml",
+                "com.docker.compose.project.working_dir": "/home/jallen/git/obsinity/e2e-groovy",
+                "com.docker.compose.service": "app",
+                "com.docker.compose.version": "5.0.1",
+                "org.opencontainers.image.ref.name": "ubuntu",
+                "org.opencontainers.image.version": "24.04"
+            }
+        },
+        "NetworkSettings": {
+            "SandboxID": "5b8eaf47390c7698208b8a5590dc82edbf7b50b36fdf7a4dff18e953a86326d7",
+            "SandboxKey": "/var/run/docker/netns/5b8eaf47390c",
+            "Ports": {
+                "8086/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "18086"
+                    },
+                    {
+                        "HostIp": "::",
+                        "HostPort": "18086"
+                    }
+                ]
+            },
+            "Networks": {
+                "obsinity-e2e_default": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "obsinity-e2e-app-1",
+                        "app"
+                    ],
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "e85372c1544d631ec6f25905587c4f9105c0e24cedd198e6b59a882d97a5f895",
+                    "EndpointID": "2de936521679f753e3762aaccd585639c63b8c35e766f0ed490a3e6977982bdc",
+                    "Gateway": "172.19.0.1",
+                    "IPAddress": "172.19.0.3",
+                    "MacAddress": "06:36:75:f1:44:0c",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "obsinity-e2e-app-1",
+                        "app",
+                        "b5ff03d119f6"
+                    ]
+                }
+            }
+        }
+    }
+]

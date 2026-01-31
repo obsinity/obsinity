@@ -1,0 +1,22 @@
+apiVersion: obsinity/v1
+kind: Event
+metadata:
+  service: open-finance-end-user-data-management
+  name: header.validation
+  displayName: Header Validation
+  labels:
+    category: security
+spec:
+  retention:
+    ttl: "7d"
+  schema:
+    type: object
+    properties:
+      auth:
+        type: object
+        properties:
+          consent.id: { type: string, index: true }
+          partner.id": { type: string, index: true }
+          partner.application.id": { type: string, index: true }
+          error": { type: string, index: true }
+

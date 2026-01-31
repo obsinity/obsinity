@@ -1,0 +1,20 @@
+apiVersion: obsinity/v1
+kind: MetricCounter
+metadata:
+  service: obsinity-demo-client
+  event: demo.produce
+  name: produce.count
+  displayName: Demo Produce Count
+spec:
+  sourceEvent:
+    service: obsinity-demo-client
+    name: demo.produce
+  key:
+    dimensions:
+      - messaging.topic
+      - outcome
+  rollup:
+    windowing:
+      granularities: [1m, 5m, 1h, 1d]
+  retention:
+    ttl: "30d"

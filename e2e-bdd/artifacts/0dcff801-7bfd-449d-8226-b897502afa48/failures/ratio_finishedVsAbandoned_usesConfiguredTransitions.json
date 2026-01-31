@@ -1,0 +1,1099 @@
+{
+  "message" : "Counts did not match expected values",
+  "expected" : {
+    "NEW->ARCHIVED" : 1,
+    "NEW->BLOCKED" : 1
+  },
+  "actual" : { },
+  "interactions" : [ {
+    "method" : "POST",
+    "url" : "http://localhost:18086/events/publish",
+    "request" : {
+      "eventId" : "c27f809c-64b4-4df8-ae2e-cf841f954bf7",
+      "resource" : {
+        "service" : {
+          "name" : "payments"
+        }
+      },
+      "event" : {
+        "name" : "user_profile.updated"
+      },
+      "time" : {
+        "endedAt" : "2026-01-27T18:55:32.174120461Z",
+        "startedAt" : "2026-01-27T18:55:32.164120461Z"
+      },
+      "attributes" : {
+        "obsinity" : {
+          "run_id" : "0dcff801-7bfd-449d-8226-b897502afa48"
+        },
+        "user" : {
+          "profile_id" : "0dcff801-7bfd-449d-8226-b897502afa48-finish",
+          "status" : "NEW"
+        }
+      }
+    },
+    "response" : {
+      "status" : 202,
+      "body" : {
+        "eventId" : "c27f809c-64b4-4df8-ae2e-cf841f954bf7",
+        "status" : "stored"
+      }
+    },
+    "durationMs" : 11,
+    "timestamp" : "2026-01-27T18:57:32.175752129Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/events/publish",
+    "request" : {
+      "eventId" : "b09986dc-960d-4400-845a-8658c6d686ff",
+      "resource" : {
+        "service" : {
+          "name" : "payments"
+        }
+      },
+      "event" : {
+        "name" : "user_profile.updated"
+      },
+      "time" : {
+        "endedAt" : "2026-01-27T18:55:33.174120461Z",
+        "startedAt" : "2026-01-27T18:55:33.164120461Z"
+      },
+      "attributes" : {
+        "obsinity" : {
+          "run_id" : "0dcff801-7bfd-449d-8226-b897502afa48"
+        },
+        "user" : {
+          "profile_id" : "0dcff801-7bfd-449d-8226-b897502afa48-finish",
+          "status" : "ARCHIVED"
+        }
+      }
+    },
+    "response" : {
+      "status" : 202,
+      "body" : {
+        "eventId" : "b09986dc-960d-4400-845a-8658c6d686ff",
+        "status" : "stored"
+      }
+    },
+    "durationMs" : 8,
+    "timestamp" : "2026-01-27T18:57:32.183628918Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/events/publish",
+    "request" : {
+      "eventId" : "273384e8-b0a1-4031-b93b-543fdb320749",
+      "resource" : {
+        "service" : {
+          "name" : "payments"
+        }
+      },
+      "event" : {
+        "name" : "user_profile.updated"
+      },
+      "time" : {
+        "endedAt" : "2026-01-27T18:55:34.174120461Z",
+        "startedAt" : "2026-01-27T18:55:34.164120461Z"
+      },
+      "attributes" : {
+        "obsinity" : {
+          "run_id" : "0dcff801-7bfd-449d-8226-b897502afa48"
+        },
+        "user" : {
+          "profile_id" : "0dcff801-7bfd-449d-8226-b897502afa48-abandon",
+          "status" : "NEW"
+        }
+      }
+    },
+    "response" : {
+      "status" : 202,
+      "body" : {
+        "eventId" : "273384e8-b0a1-4031-b93b-543fdb320749",
+        "status" : "stored"
+      }
+    },
+    "durationMs" : 5,
+    "timestamp" : "2026-01-27T18:57:32.188605009Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/events/publish",
+    "request" : {
+      "eventId" : "5295585e-4968-4ec2-a38e-6c9b7cde0c71",
+      "resource" : {
+        "service" : {
+          "name" : "payments"
+        }
+      },
+      "event" : {
+        "name" : "user_profile.updated"
+      },
+      "time" : {
+        "endedAt" : "2026-01-27T18:55:35.174120461Z",
+        "startedAt" : "2026-01-27T18:55:35.164120461Z"
+      },
+      "attributes" : {
+        "obsinity" : {
+          "run_id" : "0dcff801-7bfd-449d-8226-b897502afa48"
+        },
+        "user" : {
+          "profile_id" : "0dcff801-7bfd-449d-8226-b897502afa48-abandon",
+          "status" : "BLOCKED"
+        }
+      }
+    },
+    "response" : {
+      "status" : 202,
+      "body" : {
+        "eventId" : "5295585e-4968-4ec2-a38e-6c9b7cde0c71",
+        "status" : "stored"
+      }
+    },
+    "durationMs" : 7,
+    "timestamp" : "2026-01-27T18:57:32.195968850Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED", "BLOCKED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:55:32.164120461Z",
+      "end" : "2026-01-27T18:55:40.164120461Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 2,
+        "totalCount" : 1,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          }, {
+            "fromState" : "NEW",
+            "toState" : "BLOCKED",
+            "count" : 1,
+            "ratio" : 1.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED", "BLOCKED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:55:32.164120461Z",
+              "end" : "2026-01-27T18:55:40.164120461Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 2,
+    "timestamp" : "2026-01-27T18:57:32.198302239Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED", "BLOCKED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:55:32.164120461Z",
+      "end" : "2026-01-27T18:55:40.164120461Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 2,
+        "totalCount" : 1,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          }, {
+            "fromState" : "NEW",
+            "toState" : "BLOCKED",
+            "count" : 1,
+            "ratio" : 1.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED", "BLOCKED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:55:32.164120461Z",
+              "end" : "2026-01-27T18:55:40.164120461Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 4,
+    "timestamp" : "2026-01-27T18:57:34.204469276Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED", "BLOCKED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:55:32.164120461Z",
+      "end" : "2026-01-27T18:55:40.164120461Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 2,
+        "totalCount" : 1,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          }, {
+            "fromState" : "NEW",
+            "toState" : "BLOCKED",
+            "count" : 1,
+            "ratio" : 1.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED", "BLOCKED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:55:32.164120461Z",
+              "end" : "2026-01-27T18:55:40.164120461Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 5,
+    "timestamp" : "2026-01-27T18:57:36.209688056Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED", "BLOCKED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:55:32.164120461Z",
+      "end" : "2026-01-27T18:55:40.164120461Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 2,
+        "totalCount" : 1,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          }, {
+            "fromState" : "NEW",
+            "toState" : "BLOCKED",
+            "count" : 1,
+            "ratio" : 1.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED", "BLOCKED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:55:32.164120461Z",
+              "end" : "2026-01-27T18:55:40.164120461Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 4,
+    "timestamp" : "2026-01-27T18:57:38.215035795Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED", "BLOCKED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:55:32.164120461Z",
+      "end" : "2026-01-27T18:55:40.164120461Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 2,
+        "totalCount" : 1,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          }, {
+            "fromState" : "NEW",
+            "toState" : "BLOCKED",
+            "count" : 1,
+            "ratio" : 1.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED", "BLOCKED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:55:32.164120461Z",
+              "end" : "2026-01-27T18:55:40.164120461Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 4,
+    "timestamp" : "2026-01-27T18:57:40.219911598Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED", "BLOCKED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:55:32.164120461Z",
+      "end" : "2026-01-27T18:55:40.164120461Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 2,
+        "totalCount" : 1,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          }, {
+            "fromState" : "NEW",
+            "toState" : "BLOCKED",
+            "count" : 1,
+            "ratio" : 1.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED", "BLOCKED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:55:32.164120461Z",
+              "end" : "2026-01-27T18:55:40.164120461Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 3,
+    "timestamp" : "2026-01-27T18:57:42.224470555Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED", "BLOCKED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:55:32.164120461Z",
+      "end" : "2026-01-27T18:55:40.164120461Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 2,
+        "totalCount" : 1,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          }, {
+            "fromState" : "NEW",
+            "toState" : "BLOCKED",
+            "count" : 1,
+            "ratio" : 1.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED", "BLOCKED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:55:32.164120461Z",
+              "end" : "2026-01-27T18:55:40.164120461Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 3,
+    "timestamp" : "2026-01-27T18:57:44.229020281Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED", "BLOCKED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:55:32.164120461Z",
+      "end" : "2026-01-27T18:55:40.164120461Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 2,
+        "totalCount" : 1,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          }, {
+            "fromState" : "NEW",
+            "toState" : "BLOCKED",
+            "count" : 1,
+            "ratio" : 1.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED", "BLOCKED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:55:32.164120461Z",
+              "end" : "2026-01-27T18:55:40.164120461Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 3,
+    "timestamp" : "2026-01-27T18:57:46.233197410Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED", "BLOCKED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:55:32.164120461Z",
+      "end" : "2026-01-27T18:55:40.164120461Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 2,
+        "totalCount" : 1,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          }, {
+            "fromState" : "NEW",
+            "toState" : "BLOCKED",
+            "count" : 1,
+            "ratio" : 1.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED", "BLOCKED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:55:32.164120461Z",
+              "end" : "2026-01-27T18:55:40.164120461Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 4,
+    "timestamp" : "2026-01-27T18:57:48.237728995Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED", "BLOCKED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:55:32.164120461Z",
+      "end" : "2026-01-27T18:55:40.164120461Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 2,
+        "totalCount" : 1,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          }, {
+            "fromState" : "NEW",
+            "toState" : "BLOCKED",
+            "count" : 1,
+            "ratio" : 1.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED", "BLOCKED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:55:32.164120461Z",
+              "end" : "2026-01-27T18:55:40.164120461Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 3,
+    "timestamp" : "2026-01-27T18:57:50.242062357Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED", "BLOCKED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:55:32.164120461Z",
+      "end" : "2026-01-27T18:55:40.164120461Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 2,
+        "totalCount" : 1,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          }, {
+            "fromState" : "NEW",
+            "toState" : "BLOCKED",
+            "count" : 1,
+            "ratio" : 1.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED", "BLOCKED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:55:32.164120461Z",
+              "end" : "2026-01-27T18:55:40.164120461Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 4,
+    "timestamp" : "2026-01-27T18:57:52.246457370Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED", "BLOCKED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:55:32.164120461Z",
+      "end" : "2026-01-27T18:55:40.164120461Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 2,
+        "totalCount" : 1,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          }, {
+            "fromState" : "NEW",
+            "toState" : "BLOCKED",
+            "count" : 1,
+            "ratio" : 1.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED", "BLOCKED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:55:32.164120461Z",
+              "end" : "2026-01-27T18:55:40.164120461Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 4,
+    "timestamp" : "2026-01-27T18:57:54.251036060Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED", "BLOCKED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:55:32.164120461Z",
+      "end" : "2026-01-27T18:55:40.164120461Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 2,
+        "totalCount" : 1,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          }, {
+            "fromState" : "NEW",
+            "toState" : "BLOCKED",
+            "count" : 1,
+            "ratio" : 1.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED", "BLOCKED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:55:32.164120461Z",
+              "end" : "2026-01-27T18:55:40.164120461Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 4,
+    "timestamp" : "2026-01-27T18:57:56.255626411Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED", "BLOCKED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:55:32.164120461Z",
+      "end" : "2026-01-27T18:55:40.164120461Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 2,
+        "totalCount" : 1,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          }, {
+            "fromState" : "NEW",
+            "toState" : "BLOCKED",
+            "count" : 1,
+            "ratio" : 1.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED", "BLOCKED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:55:32.164120461Z",
+              "end" : "2026-01-27T18:55:40.164120461Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 4,
+    "timestamp" : "2026-01-27T18:57:58.260853987Z"
+  }, {
+    "method" : "POST",
+    "url" : "http://localhost:18086/api/query/transition-ratios",
+    "request" : {
+      "serviceKey" : "payments",
+      "objectType" : "UserProfile",
+      "attribute" : "user.status",
+      "transitions" : [ {
+        "from" : [ "NEW" ],
+        "to" : [ "ARCHIVED", "BLOCKED" ]
+      } ],
+      "interval" : "5s",
+      "start" : "2026-01-27T18:55:32.164120461Z",
+      "end" : "2026-01-27T18:55:40.164120461Z",
+      "groupByFromState" : true
+    },
+    "response" : {
+      "status" : 200,
+      "body" : {
+        "count" : 2,
+        "totalCount" : 1,
+        "data" : {
+          "transitions" : [ {
+            "fromState" : "NEW",
+            "toState" : "ARCHIVED",
+            "count" : 0,
+            "ratio" : 0.0
+          }, {
+            "fromState" : "NEW",
+            "toState" : "BLOCKED",
+            "count" : 1,
+            "ratio" : 1.0
+          } ]
+        },
+        "links" : {
+          "self" : {
+            "href" : "/api/query/transition-ratios",
+            "method" : "POST",
+            "body" : {
+              "serviceKey" : "payments",
+              "objectType" : "UserProfile",
+              "attribute" : "user.status",
+              "transitions" : [ {
+                "from" : [ "NEW" ],
+                "to" : [ "ARCHIVED", "BLOCKED" ]
+              } ],
+              "interval" : "5s",
+              "start" : "2026-01-27T18:55:32.164120461Z",
+              "end" : "2026-01-27T18:55:40.164120461Z",
+              "groupByFromState" : true
+            }
+          }
+        },
+        "format" : "row"
+      }
+    },
+    "durationMs" : 3,
+    "timestamp" : "2026-01-27T18:58:00.264929436Z"
+  } ],
+  "pollAttempts" : [ {
+    "name" : "transition-ratios",
+    "attempt" : 1,
+    "timestamp" : "2026-01-27T18:57:32.198332918Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 2,
+    "timestamp" : "2026-01-27T18:57:34.204506885Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 3,
+    "timestamp" : "2026-01-27T18:57:36.209724896Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 4,
+    "timestamp" : "2026-01-27T18:57:38.215097673Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 5,
+    "timestamp" : "2026-01-27T18:57:40.219990207Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 6,
+    "timestamp" : "2026-01-27T18:57:42.224515994Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 7,
+    "timestamp" : "2026-01-27T18:57:44.229084010Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 8,
+    "timestamp" : "2026-01-27T18:57:46.233250989Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 9,
+    "timestamp" : "2026-01-27T18:57:48.237785164Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 10,
+    "timestamp" : "2026-01-27T18:57:50.242113616Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 11,
+    "timestamp" : "2026-01-27T18:57:52.246505839Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 12,
+    "timestamp" : "2026-01-27T18:57:54.251106328Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 13,
+    "timestamp" : "2026-01-27T18:57:56.255673240Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 14,
+    "timestamp" : "2026-01-27T18:57:58.260904986Z",
+    "result" : null
+  }, {
+    "name" : "transition-ratios",
+    "attempt" : 15,
+    "timestamp" : "2026-01-27T18:58:00.264972395Z",
+    "result" : null
+  } ]
+}

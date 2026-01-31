@@ -1,0 +1,20 @@
+apiVersion: obsinity/v1
+kind: Event
+metadata:
+  service: obsinity-reference-service
+  name: auth_decision
+  displayName: Auth Decision
+  labels:
+    category: security
+spec:
+  retention:
+    ttl: "7d"
+  schema:
+    type: object
+    properties:
+      auth:
+        type: object
+        properties:
+          user_id: { type: string, index: true }
+          subject: { type: string, index: true }
+          decision: { type: string, index: true }

@@ -1,0 +1,17 @@
+apiVersion: obsinity/v1
+kind: Event
+metadata:
+  service: obsinity-demo-client
+  name: demo.checkout
+  displayName: Demo Checkout
+  labels:
+    category: demo
+spec:
+  retention:
+    ttl: "7d"
+  schema:
+    type: object
+    properties:
+      "user.id": { type: string, index: true }
+      "cart.size": { type: integer, index: true }
+      outcome: { type: string, index: true }

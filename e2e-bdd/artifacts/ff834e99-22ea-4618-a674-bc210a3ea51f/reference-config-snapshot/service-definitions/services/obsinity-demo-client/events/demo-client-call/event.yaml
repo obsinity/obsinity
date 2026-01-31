@@ -1,0 +1,16 @@
+apiVersion: obsinity/v1
+kind: Event
+metadata:
+  service: obsinity-demo-client
+  name: demo.client.call
+  displayName: Demo Client Call
+  labels:
+    category: demo
+spec:
+  retention:
+    ttl: "7d"
+  schema:
+    type: object
+    properties:
+      "client.target": { type: string, index: true }
+      outcome: { type: string, index: true }

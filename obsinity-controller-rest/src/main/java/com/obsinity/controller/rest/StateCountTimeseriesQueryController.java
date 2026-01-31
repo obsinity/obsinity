@@ -37,7 +37,14 @@ public class StateCountTimeseriesQueryController {
     }
 
     public record StateCountTimeseriesHalResponse(
-            int count, int total, int limit, int offset, Object data, Map<String, HalLink> links, String format) {
+            int count,
+            int total,
+            int limit,
+            int offset,
+            Object data,
+            List<Map<String, Object>> rows,
+            Map<String, HalLink> links,
+            String format) {
 
         record Data(java.util.List<StateCountTimeseriesWindow> intervals) {}
 
@@ -55,10 +62,12 @@ public class StateCountTimeseriesQueryController {
             int limit = result.limit();
             ResponseFormat format = ResponseFormat.defaulted(responseFormat);
             Map<String, HalLink> links = buildLinks(href, request, offset, limit, count, total);
+            List<Map<String, Object>> rows = flattenWindows(result);
             Object data = format == ResponseFormat.COLUMNAR
-                    ? FrictionlessData.columnar(flattenWindows(result), mapper)
+                    ? FrictionlessData.columnar(rows, mapper)
                     : new Data(result.windows());
-            return new StateCountTimeseriesHalResponse(count, total, limit, offset, data, links, format.wireValue());
+            return new StateCountTimeseriesHalResponse(
+                    count, total, limit, offset, data, rows, links, format.wireValue());
         }
 
         private static List<Map<String, Object>> flattenWindows(StateCountTimeseriesQueryResult result) {
