@@ -108,7 +108,7 @@ docker-compose -f docker-compose.demo.yml up -d
 # Or use the quick start script
 ./start-grafana-demo.sh
 ```
-Starts: PostgreSQL + Obsinity Server + Demo Client + **Grafana** (ports 8086, 8080, 3000)  
+Starts: PostgreSQL + Obsinity Server + Demo Client + **Grafana** (ports 8086, 8080, 3086)  
 **Includes Grafana** - Use this for demos and visualization
 
 ### Quick Start with Grafana
@@ -133,7 +133,7 @@ curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
     "recentWindowSeconds": 3600
   }'
 
-# Access Grafana at http://localhost:3000
+# Access Grafana at http://localhost:3086
 # Login: admin/admin
 ```
 
@@ -158,5 +158,4 @@ See [`obsinity-reference-service/grafana/README.md`](obsinity-reference-service/
 - API query examples
 - Customization guide
 - Troubleshooting tips
-
 

@@ -16,10 +16,15 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": null,
-  "links": [],
+  "links": [
+
+  ],
   "panels": [
     {
-      "datasource": "Obsinity API",
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "obsinity-api"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -53,7 +58,9 @@
               "mode": "off"
             }
           },
-          "mappings": [],
+          "mappings": [
+
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -69,7 +76,9 @@
           },
           "unit": "short"
         },
-        "overrides": []
+        "overrides": [
+
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -80,7 +89,9 @@
       "id": 2,
       "options": {
         "legend": {
-          "calcs": [],
+          "calcs": [
+
+          ],
           "displayMode": "list",
           "placement": "bottom"
         },
@@ -91,49 +102,45 @@
       "pluginVersion": "9.0.0",
       "targets": [
         {
-          "datasource": "Obsinity API",
           "refId": "A",
+          "queryType": "json",
           "method": "POST",
-          "urlPath": "/api/query/state-counts",
-          "body": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"UPGRADED\",\"ARCHIVED\"],\"limits\":{\"offset\":0,\"limit\":20}}",
-          "headers": {
-            "Content-Type": "application/json"
-          },
-          "queryParams": "",
-          "params": [
-            [
-              "",
-              ""
-            ]
-          ],
+          "path": "/api/grafana/state-counts",
+          "body": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"UPGRADED\",\"ARCHIVED\"]}",
           "cacheDurationSeconds": 0,
           "fields": [
             {
               "name": "state",
-              "jsonPath": "$.rows[*].state",
+              "jsonPath": "$[*].state",
               "type": "string",
               "language": "jsonpath"
             },
             {
               "name": "count",
-              "jsonPath": "$.rows[*].count",
+              "jsonPath": "$[*].count",
               "type": "number",
               "language": "jsonpath"
             }
-          ]
+          ],
+          "urlPath": "/api/grafana/state-counts"
         }
       ],
       "title": "Current State Counts by Status",
       "type": "barchart"
     },
     {
-      "datasource": "Obsinity API",
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "obsinity-api"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "thresholds"
           },
-          "mappings": [],
+          "mappings": [
+
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -145,7 +152,9 @@
           },
           "unit": "short"
         },
-        "overrides": []
+        "overrides": [
+
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -159,7 +168,9 @@
         "legend": {
           "displayMode": "list",
           "placement": "bottom",
-          "calcs": []
+          "calcs": [
+
+          ]
         },
         "tooltip": {
           "mode": "single"
@@ -168,43 +179,37 @@
       "pluginVersion": "9.0.0",
       "targets": [
         {
-          "datasource": "Obsinity API",
           "refId": "A",
+          "queryType": "json",
           "method": "POST",
-          "urlPath": "/api/query/state-counts",
-          "body": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\"],\"limits\":{\"offset\":0,\"limit\":20}}",
-          "headers": {
-            "Content-Type": "application/json"
-          },
-          "queryParams": "",
-          "params": [
-            [
-              "",
-              ""
-            ]
-          ],
+          "path": "/api/grafana/state-counts",
+          "body": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\"]}",
           "cacheDurationSeconds": 0,
           "fields": [
             {
               "name": "state",
-              "jsonPath": "$.rows[*].state",
+              "jsonPath": "$[*].state",
               "type": "string",
               "language": "jsonpath"
             },
             {
               "name": "count",
-              "jsonPath": "$.rows[*].count",
+              "jsonPath": "$[*].count",
               "type": "number",
               "language": "jsonpath"
             }
-          ]
+          ],
+          "urlPath": "/api/grafana/state-counts"
         }
       ],
       "title": "State Counts - Key Statuses",
       "type": "barchart"
     },
     {
-      "datasource": "Obsinity API",
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "obsinity-api"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -238,7 +243,9 @@
               "mode": "off"
             }
           },
-          "mappings": [],
+          "mappings": [
+
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -250,7 +257,9 @@
           },
           "unit": "short"
         },
-        "overrides": []
+        "overrides": [
+
+        ]
       },
       "gridPos": {
         "h": 9,
@@ -261,7 +270,9 @@
       "id": 4,
       "options": {
         "legend": {
-          "calcs": [],
+          "calcs": [
+
+          ],
           "displayMode": "list",
           "placement": "bottom"
         },
@@ -272,49 +283,53 @@
       "pluginVersion": "9.0.0",
       "targets": [
         {
-          "datasource": "Obsinity API",
-          "refId": "A",
-          "method": "POST",
-          "urlPath": "/api/query/state-count-timeseries",
-          "body": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"ARCHIVED\"],\"interval\":\"1h\",\"start\":\"${__from:date:iso}\",\"end\":\"${__to:date:iso}\",\"limits\":{\"offset\":0,\"limit\":200}}",
-          "headers": {
-            "Content-Type": "application/json"
+          "datasource": {
+            "type": "marcusolsson-json-datasource",
+            "uid": "obsinity-api"
           },
-          "queryParams": "",
-          "params": [
-            [
-              "",
-              ""
-            ]
+          "refId": "A",
+          "queryType": "json",
+          "method": "POST",
+          "path": "/api/grafana/state-count-timeseries",
+          "body": "{\"range\":{\"fromMs\":\"${__from}\",\"toMs\":\"${__to}\"},\"maxDataPoints\":200,\"bucket\":\"1h\",\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"ARCHIVED\"]}",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
           ],
           "cacheDurationSeconds": 0,
           "fields": [
             {
               "name": "time",
-              "jsonPath": "$.rows[*].from",
+              "jsonPath": "$[*].from",
               "type": "time",
               "language": "jsonpath"
             },
             {
               "name": "count",
-              "jsonPath": "$.rows[*].count",
+              "jsonPath": "$[*].count",
               "type": "number",
               "language": "jsonpath"
             },
             {
               "name": "state",
-              "jsonPath": "$.rows[*].state",
+              "jsonPath": "$[*].state",
               "type": "string",
               "language": "jsonpath"
             }
-          ]
+          ],
+          "urlPath": "/api/grafana/state-count-timeseries"
         }
       ],
       "title": "State Count Time Series (1h intervals)",
       "type": "timeseries"
     },
     {
-      "datasource": "Obsinity API",
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "obsinity-api"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -348,7 +363,9 @@
               "mode": "off"
             }
           },
-          "mappings": [],
+          "mappings": [
+
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -360,7 +377,9 @@
           },
           "unit": "short"
         },
-        "overrides": []
+        "overrides": [
+
+        ]
       },
       "gridPos": {
         "h": 9,
@@ -371,7 +390,9 @@
       "id": 5,
       "options": {
         "legend": {
-          "calcs": [],
+          "calcs": [
+
+          ],
           "displayMode": "table",
           "placement": "right"
         },
@@ -382,55 +403,59 @@
       "pluginVersion": "9.0.0",
       "targets": [
         {
-          "datasource": "Obsinity API",
-          "refId": "A",
-          "method": "POST",
-          "urlPath": "/api/query/state-transitions",
-          "body": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"fromStates\":[\"(none)\"],\"toStates\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"ARCHIVED\",\"UPGRADED\"],\"interval\":\"5s\",\"start\":\"${__from:date:iso}\",\"end\":\"${__to:date:iso}\",\"limits\":{\"offset\":0,\"limit\":100}}",
-          "headers": {
-            "Content-Type": "application/json"
+          "datasource": {
+            "type": "marcusolsson-json-datasource",
+            "uid": "obsinity-api"
           },
-          "queryParams": "",
-          "params": [
-            [
-              "",
-              ""
-            ]
+          "refId": "A",
+          "queryType": "json",
+          "method": "POST",
+          "path": "/api/query/state-transitions",
+          "body": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"fromStates\":[\"(none)\"],\"toStates\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"ARCHIVED\",\"UPGRADED\"],\"interval\":\"5s\",\"start\":\"${__from:date:iso}\",\"end\":\"${__to:date:iso}\",\"limits\":{\"offset\":0,\"limit\":100}}",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
           ],
           "cacheDurationSeconds": 0,
           "fields": [
             {
               "name": "time",
-              "jsonPath": "$.rows[*].from",
+              "jsonPath": "$[*].from",
               "type": "time",
               "language": "jsonpath"
             },
             {
               "name": "fromState",
-              "jsonPath": "$.rows[*].fromState",
+              "jsonPath": "$[*].fromState",
               "type": "string",
               "language": "jsonpath"
             },
             {
               "name": "toState",
-              "jsonPath": "$.rows[*].toState",
+              "jsonPath": "$[*].toState",
               "type": "string",
               "language": "jsonpath"
             },
             {
               "name": "count",
-              "jsonPath": "$.rows[*].count",
+              "jsonPath": "$[*].count",
               "type": "number",
               "language": "jsonpath"
             }
-          ]
+          ],
+          "urlPath": "/api/query/state-transitions"
         }
       ],
       "title": "State Transitions Over Time (5s intervals)",
       "type": "timeseries"
     },
     {
-      "datasource": "Obsinity API",
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "obsinity-api"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -464,7 +489,9 @@
               "mode": "off"
             }
           },
-          "mappings": [],
+          "mappings": [
+
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -556,56 +583,54 @@
       "targets": [
         {
           "refId": "A",
+          "queryType": "json",
           "method": "POST",
-          "urlPath": "/api/grafana/query",
-          "body": "{\"range\":{\"fromMs\":\"${__from}\",\"toMs\":\"${__to}\"},\"intervalMs\":\"${__interval_ms}\",\"queries\":[{\"refId\":\"A\",\"kind\":\"histogram_percentiles\",\"serviceKey\":\"payments\",\"eventType\":\"http_request\",\"histogramName\":\"http_request_latency_ms\",\"filters\":{\"http.method\":[\"GET\"],\"http.route\":[\"/api/checkout\"]},\"percentiles\":[0.5,0.9,0.95,0.99]}]}",
-          "queryParams": "",
-          "params": [
-            [
-              "",
-              ""
-            ]
-          ],
+          "path": "/api/grafana/histograms",
+          "body": "{\"range\":{\"fromMs\":\"${__from}\",\"toMs\":\"${__to}\"},\"intervalMs\":\"${__interval_ms}\",\"serviceKey\":\"payments\",\"eventType\":\"http_request\",\"histogramName\":\"http_request_latency_ms\",\"filters\":{\"http.method\":[\"GET\"],\"http.route\":[\"/api/checkout\"]},\"percentiles\":[0.5,0.9,0.95,0.99]}",
           "cacheDurationSeconds": 0,
           "fields": [
             {
               "name": "time",
-              "jsonPath": "$.rows[*].time",
+              "jsonPath": "$[*].time",
               "type": "time",
               "language": "jsonpath"
             },
             {
               "name": "p50",
-              "jsonPath": "$.rows[*].p50",
+              "jsonPath": "$[*].p50",
               "type": "number",
               "language": "jsonpath"
             },
             {
               "name": "p90",
-              "jsonPath": "$.rows[*].p90",
+              "jsonPath": "$[*].p90",
               "type": "number",
               "language": "jsonpath"
             },
             {
               "name": "p95",
-              "jsonPath": "$.rows[*].p95",
+              "jsonPath": "$[*].p95",
               "type": "number",
               "language": "jsonpath"
             },
             {
               "name": "p99",
-              "jsonPath": "$.rows[*].p99",
+              "jsonPath": "$[*].p99",
               "type": "number",
               "language": "jsonpath"
             }
-          ]
+          ],
+          "urlPath": "/api/grafana/histograms"
         }
       ],
       "title": "HTTP Request Latency - Checkout API (percentiles)",
       "type": "timeseries"
     },
     {
-      "datasource": "Obsinity API",
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "obsinity-api"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -639,7 +664,9 @@
               "mode": "off"
             }
           },
-          "mappings": [],
+          "mappings": [
+
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -651,7 +678,9 @@
           },
           "unit": "short"
         },
-        "overrides": []
+        "overrides": [
+
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -675,49 +704,53 @@
       "pluginVersion": "9.0.0",
       "targets": [
         {
-          "datasource": "Obsinity API",
-          "refId": "A",
-          "method": "POST",
-          "urlPath": "/api/query/counters",
-          "body": "{\"serviceKey\":\"payments\",\"eventType\":\"http_request\",\"counterName\":\"http_requests_by_status\",\"interval\":\"5m\",\"key\":{\"http.method\":[\"GET\"],\"http.status\":[\"200\",\"500\"]},\"start\":\"${__from:date:iso}\",\"end\":\"${__to:date:iso}\",\"limits\":{\"offset\":0,\"limit\":60}}",
-          "headers": {
-            "Content-Type": "application/json"
+          "datasource": {
+            "type": "marcusolsson-json-datasource",
+            "uid": "obsinity-api"
           },
-          "queryParams": "",
-          "params": [
-            [
-              "",
-              ""
-            ]
+          "refId": "A",
+          "queryType": "json",
+          "method": "POST",
+          "path": "/api/grafana/event-counts",
+          "body": "{\"range\":{\"fromMs\":\"${__from}\",\"toMs\":\"${__to}\"},\"maxDataPoints\":60,\"bucket\":\"5m\",\"serviceKey\":\"payments\",\"eventType\":\"http_request\",\"filters\":{\"http.method\":[\"GET\"],\"http.status\":[\"200\",\"500\"]}}",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
           ],
           "cacheDurationSeconds": 0,
           "fields": [
             {
               "name": "time",
-              "jsonPath": "$.rows[*].from",
+              "jsonPath": "$[*].from",
               "type": "time",
               "language": "jsonpath"
             },
             {
               "name": "http.status",
-              "jsonPath": "$.rows[*][\"http.status\"]",
+              "jsonPath": "$[*][\"http.status\"]",
               "type": "string",
               "language": "jsonpath"
             },
             {
               "name": "count",
-              "jsonPath": "$.rows[*].count",
+              "jsonPath": "$[*].count",
               "type": "number",
               "language": "jsonpath"
             }
-          ]
+          ],
+          "urlPath": "/api/grafana/event-counts"
         }
       ],
       "title": "HTTP Requests by Status Code (5m rollup)",
       "type": "timeseries"
     },
     {
-      "datasource": "Obsinity API",
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "obsinity-api"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -751,7 +784,9 @@
               "mode": "off"
             }
           },
-          "mappings": [],
+          "mappings": [
+
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -763,7 +798,9 @@
           },
           "unit": "short"
         },
-        "overrides": []
+        "overrides": [
+
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -787,55 +824,59 @@
       "pluginVersion": "9.0.0",
       "targets": [
         {
-          "datasource": "Obsinity API",
-          "refId": "A",
-          "method": "POST",
-          "urlPath": "/api/query/counters",
-          "body": "{\"serviceKey\":\"payments\",\"eventType\":\"user_profile.updated\",\"counterName\":\"user_profile_updates_by_status\",\"interval\":\"1h\",\"key\":{\"user.status\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"UPGRADED\",\"ARCHIVED\"],\"dimensions.channel\":[\"web\",\"mobile\",\"partner\"]},\"start\":\"${__from:date:iso}\",\"end\":\"${__to:date:iso}\",\"limits\":{\"offset\":0,\"limit\":120}}",
-          "headers": {
-            "Content-Type": "application/json"
+          "datasource": {
+            "type": "marcusolsson-json-datasource",
+            "uid": "obsinity-api"
           },
-          "queryParams": "",
-          "params": [
-            [
-              "",
-              ""
-            ]
+          "refId": "A",
+          "queryType": "json",
+          "method": "POST",
+          "path": "/api/grafana/event-counts",
+          "body": "{\"range\":{\"fromMs\":\"${__from}\",\"toMs\":\"${__to}\"},\"maxDataPoints\":120,\"bucket\":\"1h\",\"serviceKey\":\"payments\",\"eventType\":\"user_profile.updated\",\"filters\":{\"user.status\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"UPGRADED\",\"ARCHIVED\"],\"dimensions.channel\":[\"web\",\"mobile\",\"partner\"]}}",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
           ],
           "cacheDurationSeconds": 0,
           "fields": [
             {
               "name": "time",
-              "jsonPath": "$.rows[*].from",
+              "jsonPath": "$[*].from",
               "type": "time",
               "language": "jsonpath"
             },
             {
               "name": "user.status",
-              "jsonPath": "$.rows[*][\"user.status\"]",
+              "jsonPath": "$[*][\"user.status\"]",
               "type": "string",
               "language": "jsonpath"
             },
             {
               "name": "dimensions.channel",
-              "jsonPath": "$.rows[*][\"dimensions.channel\"]",
+              "jsonPath": "$[*][\"dimensions.channel\"]",
               "type": "string",
               "language": "jsonpath"
             },
             {
               "name": "count",
-              "jsonPath": "$.rows[*].count",
+              "jsonPath": "$[*].count",
               "type": "number",
               "language": "jsonpath"
             }
-          ]
+          ],
+          "urlPath": "/api/grafana/event-counts"
         }
       ],
       "title": "Profile Updates by Status and Channel (1h rollup)",
       "type": "timeseries"
     },
     {
-      "datasource": "Obsinity API",
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "obsinity-api"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -869,7 +910,9 @@
               "mode": "off"
             }
           },
-          "mappings": [],
+          "mappings": [
+
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -961,50 +1004,48 @@
       "targets": [
         {
           "refId": "A",
+          "queryType": "json",
           "method": "POST",
-          "urlPath": "/api/grafana/query",
-          "body": "{\"range\":{\"fromMs\":\"${__from}\",\"toMs\":\"${__to}\"},\"intervalMs\":\"${__interval_ms}\",\"queries\":[{\"refId\":\"A\",\"kind\":\"histogram_percentiles\",\"serviceKey\":\"payments\",\"eventType\":\"user_profile.updated\",\"histogramName\":\"user_profile_update_duration_ms\",\"filters\":{\"dimensions.channel\":[\"web\"],\"dimensions.region\":[\"us-east\"]},\"percentiles\":[0.5,0.9,0.99]}]}",
-          "queryParams": "",
-          "params": [
-            [
-              "",
-              ""
-            ]
-          ],
+          "path": "/api/grafana/histograms",
+          "body": "{\"range\":{\"fromMs\":\"${__from}\",\"toMs\":\"${__to}\"},\"intervalMs\":\"${__interval_ms}\",\"serviceKey\":\"payments\",\"eventType\":\"user_profile.updated\",\"histogramName\":\"user_profile_update_duration_ms\",\"filters\":{\"dimensions.channel\":[\"web\"],\"dimensions.region\":[\"us-east\"]},\"percentiles\":[0.5,0.9,0.99]}",
           "cacheDurationSeconds": 0,
           "fields": [
             {
               "name": "time",
-              "jsonPath": "$.rows[*].time",
+              "jsonPath": "$[*].time",
               "type": "time",
               "language": "jsonpath"
             },
             {
               "name": "p50",
-              "jsonPath": "$.rows[*].p50",
+              "jsonPath": "$[*].p50",
               "type": "number",
               "language": "jsonpath"
             },
             {
               "name": "p90",
-              "jsonPath": "$.rows[*].p90",
+              "jsonPath": "$[*].p90",
               "type": "number",
               "language": "jsonpath"
             },
             {
               "name": "p99",
-              "jsonPath": "$.rows[*].p99",
+              "jsonPath": "$[*].p99",
               "type": "number",
               "language": "jsonpath"
             }
-          ]
+          ],
+          "urlPath": "/api/grafana/histograms"
         }
       ],
       "title": "HTTP Request Latency - Profile API (percentiles)",
       "type": "timeseries"
     },
     {
-      "datasource": "Obsinity API",
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "obsinity-api"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1038,7 +1079,9 @@
               "mode": "off"
             }
           },
-          "mappings": [],
+          "mappings": [
+
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1145,42 +1188,37 @@
       "targets": [
         {
           "refId": "A",
+          "queryType": "json",
           "method": "GET",
-          "urlPath": "/api/grafana/static",
-          "queryParams": "",
-          "params": [
-            [
-              "",
-              ""
-            ]
-          ],
+          "path": "/api/grafana/static",
           "cacheDurationSeconds": 0,
           "fields": [
             {
               "name": "time",
-              "jsonPath": "$.rows[*].time",
+              "jsonPath": "$[*].time",
               "type": "time",
               "language": "jsonpath"
             },
             {
               "name": "p50",
-              "jsonPath": "$.rows[*].p50",
+              "jsonPath": "$[*].p50",
               "type": "number",
               "language": "jsonpath"
             },
             {
               "name": "p90",
-              "jsonPath": "$.rows[*].p90",
+              "jsonPath": "$[*].p90",
               "type": "number",
               "language": "jsonpath"
             },
             {
               "name": "p99",
-              "jsonPath": "$.rows[*].p99",
+              "jsonPath": "$[*].p99",
               "type": "number",
               "language": "jsonpath"
             }
-          ]
+          ],
+          "urlPath": "/api/grafana/static"
         }
       ],
       "title": "Static Latency Percentiles (24h)",
@@ -1195,13 +1233,16 @@
     "demo"
   ],
   "templating": {
-    "list": []
+    "list": [
+
+    ]
   },
   "time": {
     "from": "now-1h",
     "to": "now"
   },
-  "timepicker": {},
+  "timepicker": {
+  },
   "timezone": "",
   "title": "Obsinity Demo - Overview",
   "uid": "obsinity-demo-overview",

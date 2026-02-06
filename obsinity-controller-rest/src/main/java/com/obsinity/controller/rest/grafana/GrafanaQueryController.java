@@ -14,6 +14,9 @@ import com.obsinity.service.core.histogram.HistogramQueryRequest;
 import com.obsinity.service.core.histogram.HistogramQueryResult;
 import com.obsinity.service.core.histogram.HistogramQueryService;
 import com.obsinity.service.core.histogram.HistogramQueryWindow;
+import com.obsinity.service.core.state.query.StateCountQueryRequest;
+import com.obsinity.service.core.state.query.StateCountQueryResult;
+import com.obsinity.service.core.state.query.StateCountQueryService;
 import com.obsinity.service.core.state.query.StateCountTimeseriesQueryRequest;
 import com.obsinity.service.core.state.query.StateCountTimeseriesQueryResult;
 import com.obsinity.service.core.state.query.StateCountTimeseriesQueryService;
@@ -31,6 +34,7 @@ public class GrafanaQueryController {
 
     private static final String KIND_HISTOGRAM = "histogram_percentiles";
     private static final String KIND_STATE_COUNT = "state_count";
+    private static final String KIND_STATE_COUNT_SNAPSHOT = "state_count_snapshot";
     private static final String KIND_EVENT_COUNT = "event_count";
     private static final String FORMAT_TABLE = "table";
     private static final List<Duration> COUNTER_BUCKETS = List.of(
@@ -45,16 +49,19 @@ public class GrafanaQueryController {
 
     private final HistogramQueryService histogramQueryService;
     private final StateCountTimeseriesQueryService stateCountTimeseriesQueryService;
+    private final StateCountQueryService stateCountQueryService;
     private final CounterQueryService counterQueryService;
     private final ObjectMapper objectMapper;
 
     public GrafanaQueryController(
             HistogramQueryService histogramQueryService,
             StateCountTimeseriesQueryService stateCountTimeseriesQueryService,
+            StateCountQueryService stateCountQueryService,
             CounterQueryService counterQueryService,
             ObjectMapper objectMapper) {
         this.histogramQueryService = histogramQueryService;
         this.stateCountTimeseriesQueryService = stateCountTimeseriesQueryService;
+        this.stateCountQueryService = stateCountQueryService;
         this.counterQueryService = counterQueryService;
         this.objectMapper = objectMapper;
     }
@@ -62,7 +69,7 @@ public class GrafanaQueryController {
     @PostMapping(path = "/query", consumes = MediaType.APPLICATION_JSON_VALUE)
     public GrafanaQueryResponse query(@RequestBody JsonNode requestBody) {
         GrafanaQueryRequest request = parseRequest(requestBody);
-        GrafanaRangeResolver.ResolvedRange range = GrafanaRangeResolver.resolveForDatabaseDefaults();
+        GrafanaRangeResolver.ResolvedRange range = GrafanaRangeResolver.resolve(request.range());
         Map<String, GrafanaResult> results = new LinkedHashMap<>();
         List<Map<String, Object>> rows = null;
 
@@ -84,6 +91,12 @@ public class GrafanaQueryController {
                 }
             } else if (KIND_STATE_COUNT.equals(kind)) {
                 results.put(refId, runStateCount(range, request, query));
+            } else if (KIND_STATE_COUNT_SNAPSHOT.equals(kind)) {
+                GrafanaResult result = runStateCountSnapshot(request, query);
+                results.put(refId, result);
+                if (rows == null && result.rows() != null) {
+                    rows = result.rows();
+                }
             } else if (KIND_EVENT_COUNT.equals(kind)) {
                 results.put(refId, runEventCount(range, request, query));
             } else {
@@ -92,6 +105,30 @@ public class GrafanaQueryController {
         }
 
         return new GrafanaQueryResponse(results, rows);
+    }
+
+    @PostMapping(path = "/histograms", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public List<Map<String, Object>> histogram(@RequestBody JsonNode requestBody) {
+        SingleQuery query = parseSingleQuery(requestBody, KIND_HISTOGRAM);
+        return rowsOnly(runHistogram(query.range(), query.request(), query.query()));
+    }
+
+    @PostMapping(path = "/state-counts", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public List<Map<String, Object>> stateCounts(@RequestBody JsonNode requestBody) {
+        SingleQuery query = parseSingleQuery(requestBody, KIND_STATE_COUNT_SNAPSHOT);
+        return rowsOnly(runStateCountSnapshot(query.request(), query.query()));
+    }
+
+    @PostMapping(path = "/state-count-timeseries", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public List<Map<String, Object>> stateCountTimeseries(@RequestBody JsonNode requestBody) {
+        SingleQuery query = parseSingleQuery(requestBody, KIND_STATE_COUNT);
+        return rowsOnly(runStateCount(query.range(), query.request(), query.query()));
+    }
+
+    @PostMapping(path = "/event-counts", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public List<Map<String, Object>> eventCounts(@RequestBody JsonNode requestBody) {
+        SingleQuery query = parseSingleQuery(requestBody, KIND_EVENT_COUNT);
+        return rowsOnly(runEventCount(query.range(), query.request(), query.query()));
     }
 
     private GrafanaQueryRequest parseRequest(JsonNode requestBody) {
@@ -107,7 +144,19 @@ public class GrafanaQueryController {
                 coerceLong(range, "fromMs");
                 coerceLong(range, "toMs");
             }
-            return objectMapper.convertValue(root, GrafanaQueryRequest.class);
+            GrafanaQueryRequest request = objectMapper.convertValue(root, GrafanaQueryRequest.class);
+            if (request.queries() == null || request.queries().isEmpty()) {
+                GrafanaSubQuery candidate = extractSingleQuery(root);
+                if (candidate != null) {
+                    request = new GrafanaQueryRequest(
+                            request.range(),
+                            request.timezone(),
+                            request.intervalMs(),
+                            request.maxDataPoints(),
+                            List.of(candidate));
+                }
+            }
+            return request;
         }
         return objectMapper.convertValue(requestBody, GrafanaQueryRequest.class);
     }
@@ -226,6 +275,19 @@ public class GrafanaQueryController {
                 ResponseFormat.ROW);
 
         StateCountTimeseriesQueryResult result = stateCountTimeseriesQueryService.runQuery(payload);
+        List<Map<String, Object>> rows = result.windows().stream()
+                .flatMap(window -> window.states().stream()
+                        .filter(entry -> entry.count() > 0)
+                        .map(entry -> {
+                            Map<String, Object> row = new LinkedHashMap<>();
+                            row.put("from", window.start());
+                            row.put("to", window.end());
+                            row.put("state", entry.state());
+                            row.put("count", entry.count());
+                            return row;
+                        }))
+                .toList();
+
         if (FORMAT_TABLE.equalsIgnoreCase(query.format())) {
             FrameBuilder table = FrameBuilder.table(
                     query.refId(),
@@ -239,7 +301,7 @@ public class GrafanaQueryController {
                     table.addRow(window.start(), entry.state(), entry.count());
                 }
             }
-            return new GrafanaResult(List.of(table.build()), null);
+            return new GrafanaResult(List.of(table.build()), rows);
         }
 
         Map<String, FrameBuilder> frames = new LinkedHashMap<>();
@@ -255,7 +317,35 @@ public class GrafanaQueryController {
         }
 
         return new GrafanaResult(
-                frames.values().stream().map(FrameBuilder::build).toList(), null);
+                frames.values().stream().map(FrameBuilder::build).toList(), rows);
+    }
+
+    private GrafanaResult runStateCountSnapshot(GrafanaQueryRequest request, GrafanaSubQuery query) {
+        Integer limit = request.maxDataPoints() != null && request.maxDataPoints() > 0 ? request.maxDataPoints() : null;
+        StateCountQueryRequest.Limits limits = limit != null ? new StateCountQueryRequest.Limits(0, limit) : null;
+        StateCountQueryRequest payload = new StateCountQueryRequest(
+                query.serviceKey(), query.objectType(), query.attribute(), query.states(), limits, ResponseFormat.ROW);
+        StateCountQueryResult result = stateCountQueryService.runQuery(payload);
+        List<StateCountQueryResult.StateCountEntry> entries =
+                result.states().stream().filter(entry -> entry.count() > 0).toList();
+        List<Map<String, Object>> rows = entries.stream()
+                .map(entry -> {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("state", entry.state());
+                    row.put("count", entry.count());
+                    return row;
+                })
+                .toList();
+        FrameBuilder table = FrameBuilder.table(
+                query.refId(),
+                "state_count",
+                List.of(
+                        new Field("state", "string", Map.of(), null, null),
+                        new Field("count", "number", Map.of(), null, null)));
+        for (StateCountQueryResult.StateCountEntry entry : entries) {
+            table.addRow(entry.state(), entry.count());
+        }
+        return new GrafanaResult(List.of(table.build()), rows);
     }
 
     private GrafanaResult runEventCount(
@@ -282,6 +372,20 @@ public class GrafanaQueryController {
 
         CounterQueryResult result = counterQueryService.runQuery(payload);
         Map<String, FrameBuilder> frames = new LinkedHashMap<>();
+        List<Map<String, Object>> rows = result.windows().stream()
+                .flatMap(window -> window.counts().stream()
+                        .filter(entry -> entry.count() > 0)
+                        .map(entry -> {
+                            Map<String, Object> row = new LinkedHashMap<>();
+                            row.put("from", window.from());
+                            row.put("to", window.to());
+                            if (entry.key() != null) {
+                                row.putAll(entry.key());
+                            }
+                            row.put("count", entry.count());
+                            return row;
+                        }))
+                .toList();
 
         for (CounterQueryWindow window : result.windows()) {
             for (CounterQueryWindow.CountEntry entry : window.counts()) {
@@ -295,7 +399,7 @@ public class GrafanaQueryController {
         }
 
         return new GrafanaResult(
-                frames.values().stream().map(FrameBuilder::build).toList(), null);
+                frames.values().stream().map(FrameBuilder::build).toList(), rows);
     }
 
     private List<Map<String, Object>> buildPercentileRows(HistogramQueryResult result, List<Double> percentiles) {
@@ -368,6 +472,85 @@ public class GrafanaQueryController {
         }
         String text = Double.toString(scaled).replace(".", "_");
         return "p" + text;
+    }
+
+    private SingleQuery parseSingleQuery(JsonNode requestBody, String defaultKind) {
+        GrafanaQueryRequest request = parseRequest(requestBody);
+        GrafanaSubQuery query = firstQuery(request);
+        if (query == null && requestBody instanceof ObjectNode root) {
+            query = extractSingleQuery(root);
+        }
+        query = normalizeQuery(query, defaultKind);
+        GrafanaRangeResolver.ResolvedRange range = GrafanaRangeResolver.resolve(request.range());
+        return new SingleQuery(range, request, query);
+    }
+
+    private GrafanaSubQuery firstQuery(GrafanaQueryRequest request) {
+        if (request == null || request.queries() == null) {
+            return null;
+        }
+        for (GrafanaSubQuery query : request.queries()) {
+            if (query != null) {
+                return query;
+            }
+        }
+        return null;
+    }
+
+    private GrafanaSubQuery extractSingleQuery(ObjectNode root) {
+        JsonNode queryNode = root.get("query");
+        if (queryNode != null && queryNode.isObject()) {
+            return objectMapper.convertValue(queryNode, GrafanaSubQuery.class);
+        }
+        GrafanaSubQuery candidate = objectMapper.convertValue(root, GrafanaSubQuery.class);
+        if (candidate.serviceKey() == null
+                && candidate.eventType() == null
+                && candidate.objectType() == null
+                && candidate.histogramName() == null
+                && candidate.attribute() == null
+                && candidate.states() == null
+                && candidate.filters() == null) {
+            return null;
+        }
+        return candidate;
+    }
+
+    private GrafanaSubQuery normalizeQuery(GrafanaSubQuery query, String defaultKind) {
+        if (query == null) {
+            throw new IllegalArgumentException("Grafana query payload is required");
+        }
+        String refId = query.refId();
+        if (refId == null || refId.isBlank()) {
+            refId = "A";
+        }
+        String kind = query.kind();
+        if (kind == null || kind.isBlank()) {
+            kind = defaultKind;
+        }
+        return new GrafanaSubQuery(
+                refId,
+                kind,
+                query.format(),
+                query.bucket(),
+                query.serviceKey(),
+                query.eventType(),
+                query.histogramName(),
+                query.filters(),
+                query.percentiles(),
+                query.groupBy(),
+                query.objectType(),
+                query.attribute(),
+                query.states());
+    }
+
+    private record SingleQuery(
+            GrafanaRangeResolver.ResolvedRange range, GrafanaQueryRequest request, GrafanaSubQuery query) {}
+
+    private List<Map<String, Object>> rowsOnly(GrafanaResult result) {
+        if (result == null || result.rows() == null) {
+            return List.of();
+        }
+        return result.rows();
     }
 
     private static final class FrameBuilder {

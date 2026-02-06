@@ -47,7 +47,7 @@ Are you developing code?
 │                               ▼                  ▼              │
 │                        ┌──────────┐      ┌─────────┐           │
 │                        │ Grafana  │      │  Demo   │           │
-│                        │  :3000   │      │ Client  │           │
+│                        │  :3086   │      │ Client  │           │
 │                        └──────────┘      │  :8080  │           │
 │                               │          └─────────┘           │
 │                               ▼                                 │
@@ -138,7 +138,7 @@ docker-compose -f docker-compose.demo.yml down -v
 | PostgreSQL | ✅ 5432 | ✅ 5432 | Database |
 | Obsinity Server | ✅ 8086 | ✅ 8086 | REST API |
 | Demo Client | ❌ N/A | ✅ 8080 | Sample app |
-| Grafana | ❌ N/A | ✅ 3000 | Dashboards |
+| Grafana | ❌ N/A | ✅ 3086 | Dashboards |
 
 ## When to Use What
 

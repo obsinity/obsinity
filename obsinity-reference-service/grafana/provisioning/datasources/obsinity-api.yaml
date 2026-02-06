@@ -2,6 +2,7 @@ apiVersion: 1
 
 datasources:
   - name: Obsinity API
+    uid: obsinity-api
     type: marcusolsson-json-datasource
     access: proxy
     url: http://obsinity-reference-server:8086

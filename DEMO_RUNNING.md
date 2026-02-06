@@ -8,19 +8,19 @@ All services are **running**:
 ✓ PostgreSQL          (obsinity-demo-db) - Port 5432
 ✓ Obsinity Server     (obsinity-reference-server) - Port 8086  
 ✓ Demo Client         (obsinity-demo-client) - Port 8080
-✓ Grafana             (obsinity-grafana) - Port 3000
+✓ Grafana             (obsinity-grafana) - Port 3086
 ```
 
 ## Access the Demo
 
 ### 1. Open Grafana
-**URL:** http://localhost:3000  
+**URL:** http://localhost:3086  
 **Login:** admin / admin
 
 ### 2. Find the Dashboard
 - Click "Dashboards" in the left sidebar (four squares icon)
 - Look for "Obsinity Demo - Overview"
-- Or go directly to: http://localhost:3000/d/obsinity-demo-overview
+- Or go directly to: http://localhost:3086/d/obsinity-demo-overview
 
 ### 3. Generate More Demo Data
 

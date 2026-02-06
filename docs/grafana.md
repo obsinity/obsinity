@@ -9,6 +9,27 @@ Grafana sends time range and interval hints. Obsinity uses:
 - otherwise `range.from`/`range.to` (ISO‑8601)
 - `intervalMs` / `maxDataPoints` to pick a bucket when `queries[].bucket` is not provided
 
+## Typed Grafana Endpoints
+
+For parity with the standard query API, Obsinity also exposes typed Grafana endpoints. These accept either a
+full Grafana payload with `queries[]` or a single-query payload (fields at the root).
+
+- `POST /api/grafana/histograms`
+- `POST /api/grafana/state-counts`
+- `POST /api/grafana/state-count-timeseries`
+- `POST /api/grafana/event-counts`
+
+Example (state count snapshot, single-query payload):
+
+```json
+{
+  "serviceKey": "payments",
+  "objectType": "UserProfile",
+  "attribute": "user.status",
+  "states": ["ACTIVE", "SUSPENDED", "BLOCKED", "ARCHIVED"]
+}
+```
+
 ### Request (Histogram Percentiles)
 
 ```json
@@ -36,37 +57,13 @@ Grafana sends time range and interval hints. Obsinity uses:
 ### Response (Histogram Percentiles)
 
 ```json
-{
-  "results": [
-    {
-      "refId": "A",
-      "frames": [
-        {
-          "name": "http_request_latency_ms.p95",
-          "fields": [
-            { "name": "time", "type": "time" },
-            {
-              "name": "value",
-              "type": "number",
-              "labels": {
-                "http.method": "GET",
-                "http.route": "/api/checkout",
-                "percentile": "p95"
-              }
-            }
-          ],
-          "values": [
-            ["2026-01-30T09:00:00Z", "2026-01-30T09:01:00Z"],
-            [123.4, 150.2]
-          ]
-        }
-      ]
-    }
-  ]
-}
+[
+  { "time": "2026-01-30T09:00:00Z", "p50": 120.3, "p90": 145.7, "p95": 150.2, "p99": 162.4 },
+  { "time": "2026-01-30T09:01:00Z", "p50": 123.4, "p90": 148.9, "p95": 152.6, "p99": 165.1 }
+]
 ```
 
-### Request (State Count)
+### Request (State Count Timeseries)
 
 ```json
 {
@@ -85,29 +82,41 @@ Grafana sends time range and interval hints. Obsinity uses:
 }
 ```
 
-### Response (State Count)
+### Response (State Count Timeseries)
+
+```json
+[
+  { "from": "2026-01-30T09:00:00Z", "to": "2026-01-30T10:00:00Z", "state": "ACTIVE", "count": 2007 },
+  { "from": "2026-01-30T09:00:00Z", "to": "2026-01-30T10:00:00Z", "state": "SUSPENDED", "count": 120 }
+]
+```
+
+### Request (State Count Snapshot)
 
 ```json
 {
-  "results": [
+  "queries": [
     {
-      "refId": "B",
-      "frames": [
-        {
-          "name": "user.status.ACTIVE",
-          "fields": [
-            { "name": "time", "type": "time" },
-            { "name": "count", "type": "number", "labels": { "state": "ACTIVE" } }
-          ],
-          "values": [
-            ["2026-01-30T09:00:00Z", "2026-01-30T10:00:00Z"],
-            [2007, 2011]
-          ]
-        }
-      ]
+      "refId": "D",
+      "kind": "state_count_snapshot",
+      "serviceKey": "payments",
+      "objectType": "UserProfile",
+      "attribute": "user.status",
+      "states": ["ACTIVE", "SUSPENDED", "BLOCKED", "ARCHIVED"]
     }
   ]
 }
+```
+
+### Response (State Count Snapshot)
+
+```json
+[
+  { "state": "ACTIVE", "count": 2007 },
+  { "state": "SUSPENDED", "count": 120 },
+  { "state": "BLOCKED", "count": 34 },
+  { "state": "ARCHIVED", "count": 18 }
+]
 ```
 
 ### Request (Event Count)
@@ -131,26 +140,10 @@ Grafana sends time range and interval hints. Obsinity uses:
 ### Response (Event Count)
 
 ```json
-{
-  "results": [
-    {
-      "refId": "C",
-      "frames": [
-        {
-          "name": "http_request.count",
-          "fields": [
-            { "name": "time", "type": "time" },
-            { "name": "count", "type": "number", "labels": { "http.method": "GET" } }
-          ],
-          "values": [
-            ["2026-01-30T09:00:00Z", "2026-01-30T09:01:00Z"],
-            [120, 132]
-          ]
-        }
-      ]
-    }
-  ]
-}
+[
+  { "from": "2026-01-30T09:00:00Z", "to": "2026-01-30T09:01:00Z", "http.method": "GET", "count": 120 },
+  { "from": "2026-01-30T09:01:00Z", "to": "2026-01-30T09:02:00Z", "http.method": "GET", "count": 132 }
+]
 ```
 
 ## GET /api/grafana/label-values

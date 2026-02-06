@@ -10,7 +10,7 @@ cd obsinity-reference-service
 
 ## Grafana Integration
 
-The reference service includes Grafana dashboards for visualizing demo data. When running the demo stack, Grafana is available at http://localhost:3000 (admin/admin).
+The reference service includes Grafana dashboards for visualizing demo data. When running the demo stack, Grafana is available at http://localhost:3086 (admin/admin).
 
 See [grafana/README.md](grafana/README.md) for complete documentation on:
 - Dashboard panels and visualizations
@@ -29,6 +29,5 @@ curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
   -d '{"events": 1000, "recentWindowSeconds": 3600}'
 
 # Open Grafana
-open http://localhost:3000
+open http://localhost:3086
 ```
-

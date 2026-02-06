@@ -14,7 +14,7 @@ Added Grafana service with:
 - Automatic provisioning of datasources and dashboards
 - Persistent storage volume
 - Anonymous viewer access for demos
-- Exposed on port 3000
+- Exposed on port 3086
 
 ### 2. Grafana Provisioning
 
@@ -36,7 +36,7 @@ Added Grafana service with:
 **9 Visualization Panels:**
 
 1. **Current State Counts by Status** (Time Series)
-   - API: `/api/query/state-counts`
+   - API: `/api/grafana/state-counts`
    - Shows distribution across NEW, ACTIVE, SUSPENDED, BLOCKED, UPGRADED, ARCHIVED
 
 ## Infinity JSONata parsing notes
@@ -44,12 +44,12 @@ Added Grafana service with:
 When using the `yesoreyeram-infinity-datasource` against JSON responses that are **objects** (not arrays), keep JSONata outputs in ISO time strings (e.g. `"time": $w.start`) and return a flat array of row objects. Frontend JSONata parsing can fail to materialize frames when time fields are emitted as epoch millis. If a panel shows `No data` while the API response contains values, switch the JSONata output to ISO time strings and keep the output flat (or pivot to wide columns for time series). If frames are still empty, try switching the query to backend mode.
 
 2. **State Counts - Key Statuses** (Gauge)
-   - API: `/api/query/state-counts`
+   - API: `/api/grafana/state-counts`
    - Focus on ACTIVE, SUSPENDED, BLOCKED
 
 3. **State Count Time Series** (Time Series)
-   - API: `/api/query/state-count-timeseries`
-   - 1-minute intervals, 60-point window
+   - API: `/api/grafana/state-count-timeseries`
+   - 1-hour intervals, 200-point window
    - Historical state distribution
 
 4. **State Transitions Over Time** (Stacked Bars)
@@ -58,23 +58,23 @@ When using the `yesoreyeram-infinity-datasource` against JSON responses that are
    - Shows state change flows (from → to)
 
 5. **HTTP Request Latency - Checkout API** (Time Series)
-   - API: `/api/histograms/query`
+   - API: `/api/grafana/histograms`
    - Percentiles: p50 (green), p90 (yellow), p95 (orange), p99 (red)
    - 1-minute intervals
    - Color-coded thresholds
 
 6. **Profile Update Latency by Channel** (Time Series)
-   - API: `/api/histograms/query`
+   - API: `/api/grafana/histograms`
    - Broken down by web/mobile/partner
    - Percentile metrics
 
 7. **HTTP Requests by Status Code** (Stacked Area)
-   - API: `/api/query/counters`
+   - API: `/api/grafana/event-counts`
    - 5-minute rollups
    - 200 vs 500 status codes
 
 8. **Profile Updates by Status and Channel** (Stacked Area)
-   - API: `/api/query/counters`
+   - API: `/api/grafana/event-counts`
    - 1-minute rollups
    - Multi-dimensional: status × channel
 
@@ -154,7 +154,7 @@ When using the `yesoreyeram-infinity-datasource` against JSON responses that are
 - Uses `docker-compose.demo.yml` (root directory)
 - Scripts: `start-grafana-demo.sh` (root directory)
 - Services: PostgreSQL + Obsinity Server + Demo Client + **Grafana**
-- Ports: 8086, 8080, 3000
+- Ports: 8086, 8080, 3086
 
 ### Option A: Use Existing build.sh/run.sh (No Grafana)
 
@@ -220,7 +220,7 @@ curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
 ```
 
 ### Access Grafana
-- URL: http://localhost:3000
+- URL: http://localhost:3086
 - Username: `admin`
 - Password: `admin`
 - Dashboard: "Obsinity Demo - Overview"
@@ -315,7 +315,7 @@ Created:
 ## Testing Checklist
 
 - [x] Docker Compose starts all services
-- [x] Grafana accessible at http://localhost:3000
+- [x] Grafana accessible at http://localhost:3086
 - [x] Infinity datasource provisioned automatically
 - [x] Dashboard appears in sidebar
 - [x] Demo data generator works

@@ -24,7 +24,7 @@ This will start:
 - PostgreSQL database
 - Obsinity reference server (port 8086)
 - Obsinity demo client (port 8080)
-- **Grafana (port 3000)**
+- **Grafana (port 3086)**
 
 ### 2. Generate Demo Data
 
@@ -50,7 +50,7 @@ curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
 
 ### 3. Access Grafana
 
-Open your browser to: **http://localhost:3000**
+Open your browser to: **http://localhost:3086**
 
 **Login Credentials:**
 - Username: `admin`
@@ -84,12 +84,12 @@ The Infinity datasource is automatically provisioned with:
 ## Dashboard Panels
 
 ### 1. Current State Counts by Status
-**API Endpoint**: `/api/query/state-counts`
+**API Endpoint**: `/api/grafana/state-counts`
 
 Shows the current distribution of user profiles across different statuses (NEW, ACTIVE, SUSPENDED, etc.).
 
 ### 2. State Count Time Series
-**API Endpoint**: `/api/query/state-count-timeseries`
+**API Endpoint**: `/api/grafana/state-count-timeseries`
 
 Historical view of state counts at 1-minute intervals. Tracks how state distributions change over time.
 
@@ -99,7 +99,7 @@ Historical view of state counts at 1-minute intervals. Tracks how state distribu
 Visualizes state transition events (e.g., NEW → ACTIVE, ACTIVE → SUSPENDED) at 5-second intervals.
 
 ### 4. HTTP Request Latency
-**API Endpoint**: `/api/histograms/query`
+**API Endpoint**: `/api/grafana/histograms`
 
 Percentile-based latency visualization for the checkout API:
 - **p50** (median) - green
@@ -108,17 +108,17 @@ Percentile-based latency visualization for the checkout API:
 - **p99** - red
 
 ### 5. Profile Update Latency by Channel
-**API Endpoint**: `/api/histograms/query`
+**API Endpoint**: `/api/grafana/histograms`
 
 Latency histogram broken down by channel (web, mobile, partner).
 
 ### 6. HTTP Requests by Status Code
-**API Endpoint**: `/api/query/counters`
+**API Endpoint**: `/api/grafana/event-counts`
 
 Stacked area chart showing request volume by HTTP status code at 5-minute rollups.
 
 ### 7. Profile Updates by Status and Channel
-**API Endpoint**: `/api/query/counters`
+**API Endpoint**: `/api/grafana/event-counts`
 
 Multi-dimensional counter showing profile update events grouped by status and channel at 1-minute intervals.
 
@@ -126,45 +126,44 @@ Multi-dimensional counter showing profile update events grouped by status and ch
 
 All queries use POST requests with JSON bodies. Here are some examples:
 
-### State Counts Query
+### State Counts Query (`/api/grafana/state-counts`)
 ```json
 {
   "serviceKey": "payments",
   "objectType": "UserProfile",
   "attribute": "user.status",
-  "states": ["NEW", "ACTIVE", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED"],
-  "limits": {"offset": 0, "limit": 20}
+  "states": ["NEW", "ACTIVE", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED"]
 }
 ```
 
-### Histogram Query
+### Histogram Query (`/api/grafana/histograms`)
 ```json
 {
+  "range": { "fromMs": 1769754000000, "toMs": 1769757600000 },
+  "intervalMs": 60000,
   "serviceKey": "payments",
   "eventType": "http_request",
   "histogramName": "http_request_latency_ms",
-  "interval": "1m",
-  "key": {
+  "filters": {
     "http.method": ["GET"],
     "http.route": ["/api/checkout"]
   },
-  "percentiles": [0.5, 0.9, 0.95, 0.99],
-  "limits": {"offset": 0, "limit": 60}
+  "percentiles": [0.5, 0.9, 0.95, 0.99]
 }
 ```
 
-### Counter Query
+### Event Count Query (`/api/grafana/event-counts`)
 ```json
 {
+  "range": { "fromMs": 1769754000000, "toMs": 1769757600000 },
+  "bucket": "5m",
+  "maxDataPoints": 60,
   "serviceKey": "payments",
   "eventType": "http_request",
-  "counterName": "http_requests_by_status",
-  "interval": "5m",
-  "key": {
+  "filters": {
     "http.method": ["GET"],
     "http.status": ["200", "500"]
-  },
-  "limits": {"offset": 0, "limit": 60}
+  }
 }
 ```
 
@@ -188,7 +187,7 @@ The dashboard defaults to "Last 1 hour" with 30-second auto-refresh.
    - **URL**: `/api/query/...` (your endpoint)
    - **Data**: JSON query body
    - **Parser**: backend
-   - **Root Selector**: `rows` (for most queries)
+   - **Root Selector**: (leave empty; responses are arrays)
    - **Columns**: Define the response field mappings
 
 ### Modifying Queries

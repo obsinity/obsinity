@@ -1531,29 +1531,97 @@ resources:
   - _id: req_grafana_query_percentiles
     parentId: fld_grafana
     created: 1769850000000
-    modified: 1769850000000
-    name: Grafana → Histogram Percentiles
+    modified: 1769860000000
+    name: Grafana → Histograms (percentiles)
     description: |
-      Run the Grafana-specific query endpoint with histogram_percentiles payload (columnar frames).
+      Run the Grafana histogram endpoint (frames + rows).
     method: POST
-    url: "{{ base_url }}/api/grafana/query"
+    url: "{{ base_url }}/api/grafana/histograms"
     body:
       mimeType: application/json
       text: |
         {
-          "range": {"fromMs": 1769793268718, "toMs": 1769796868718},
+          "range": { "fromMs": {{ grafana_from_ms }}, "toMs": {{ grafana_to_ms }} },
           "intervalMs": 5000,
-          "queries": [
-            {
-              "refId": "A",
-              "kind": "histogram_percentiles",
-              "serviceKey": "{{ service_id }}",
-              "eventType": "{{ event_name }}",
-              "histogramName": "http_request_latency_ms",
-              "filters": {"http.method": ["GET"], "http.route": ["/api/checkout"]},
-              "percentiles": [0.5, 0.9, 0.95, 0.99]
-            }
-          ]
+          "serviceKey": "{{ service_id }}",
+          "eventType": "{{ event_name }}",
+          "histogramName": "http_request_latency_ms",
+          "filters": {"http.method": ["GET"], "http.route": ["/api/checkout"]},
+          "percentiles": [0.5, 0.9, 0.95, 0.99]
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_grafana_state_counts
+    parentId: fld_grafana
+    created: 1769860000001
+    modified: 1769860000001
+    name: Grafana → State Counts (snapshot)
+    description: |
+      Run the Grafana state count snapshot endpoint.
+    method: POST
+    url: "{{ base_url }}/api/grafana/state-counts"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "serviceKey": "{{ service_id }}",
+          "objectType": "UserProfile",
+          "attribute": "user.status",
+          "states": ["NEW", "ACTIVE", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED"]
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_grafana_state_count_timeseries
+    parentId: fld_grafana
+    created: 1769860000002
+    modified: 1769860000002
+    name: Grafana → State Count Timeseries
+    description: |
+      Run the Grafana state count timeseries endpoint.
+    method: POST
+    url: "{{ base_url }}/api/grafana/state-count-timeseries"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "range": { "fromMs": {{ grafana_from_ms }}, "toMs": {{ grafana_to_ms }} },
+          "maxDataPoints": 120,
+          "bucket": "1m",
+          "serviceKey": "{{ service_id }}",
+          "objectType": "UserProfile",
+          "attribute": "user.status",
+          "states": ["ACTIVE", "SUSPENDED", "ARCHIVED"]
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_grafana_event_counts
+    parentId: fld_grafana
+    created: 1769860000003
+    modified: 1769860000003
+    name: Grafana → Event Counts
+    description: |
+      Run the Grafana event count endpoint.
+    method: POST
+    url: "{{ base_url }}/api/grafana/event-counts"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "range": { "fromMs": {{ grafana_from_ms }}, "toMs": {{ grafana_to_ms }} },
+          "maxDataPoints": 120,
+          "bucket": "1m",
+          "serviceKey": "{{ service_id }}",
+          "eventType": "{{ event_name }}",
+          "filters": {"http.method": ["GET"], "http.status": ["200", "500"]}
         }
     headers:
       - name: Content-Type

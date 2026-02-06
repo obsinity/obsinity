@@ -63,7 +63,7 @@ done
 # Wait for Grafana
 echo -n "Checking Grafana..."
 for i in {1..30}; do
-    if curl -s http://localhost:3000/api/health > /dev/null 2>&1; then
+    if curl -s http://localhost:3086/api/health > /dev/null 2>&1; then
         echo " ✓"
         break
     fi
@@ -98,7 +98,7 @@ echo "=========================================="
 echo ""
 echo "Services:"
 echo "  - Obsinity Server: http://localhost:8086"
-echo "  - Grafana:         http://localhost:3000 (admin/admin)"
+echo "  - Grafana:         http://localhost:3086 (admin/admin)"
 echo "  - Demo Client:     http://localhost:8080"
 echo "  - PostgreSQL:      localhost:5432 (obsinity/obsinity)"
 echo ""

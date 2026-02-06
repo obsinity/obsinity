@@ -10,7 +10,7 @@
 | **PostgreSQL** | ✅ Yes (port 5432) | ✅ Yes (port 5432) |
 | **Obsinity Server** | ✅ Yes (port 8086) | ✅ Yes (port 8086) |
 | **Demo Client** | ❌ No | ✅ Yes (port 8080) |
-| **Grafana** | ❌ No | ✅ Yes (port 3000) |
+| **Grafana** | ❌ No | ✅ Yes (port 3086) |
 | **Use Case** | Development & testing | Demos & visualization |
 | **Build Process** | Maven build included | Uses pre-built image |
 | **Clean Start** | `./run.sh --clean` | `docker-compose -f docker-compose.demo.yml down -v` |
@@ -65,7 +65,7 @@ obsinity-grafana              (Grafana + dashboards)
 ```
 
 **Access:**
-- Grafana: http://localhost:3000 (admin/admin)
+- Grafana: http://localhost:3086 (admin/admin)
 - Obsinity API: http://localhost:8086
 - Demo Client: http://localhost:8080
 - PostgreSQL: localhost:5432 (obsinity/obsinity)
