@@ -1244,8 +1244,9 @@
     "to": "now"
   },
   "timepicker": {
+    "timezone": "utc"
   },
-  "timezone": "",
+  "timezone": "utc",
   "title": "Obsinity Demo - Overview",
   "uid": "obsinity-demo-overview",
   "version": 43,
