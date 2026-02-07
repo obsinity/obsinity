@@ -131,10 +131,6 @@ public class SampleDataController {
         Map<String, String> lastStatusByProfile = new HashMap<>();
 
         int unifiedEventCount = resolveUnifiedEventCount(req);
-        long windowSeconds = resolveGenerationWindowSeconds(req);
-        Instant windowStart = now.minusSeconds(windowSeconds);
-        long strideSeconds = Math.max(1L, windowSeconds / Math.max(1, unifiedEventCount));
-        Instant cursor = windowStart;
         int profiles = Math.max(1, req.profilePool());
         String runPrefix = "run-" + UUID.randomUUID().toString().substring(0, 8);
         SampleRequest httpSample = SampleRequest.defaults(null);
@@ -144,7 +140,9 @@ public class SampleDataController {
             String profileId = String.format("%s-profile-%04d", runPrefix, profileIndex + 1);
             String seedStatus = pickRandomStatus(statuses);
             lastStatusByProfile.put(profileId, seedStatus);
-            Instant seedStart = cursor.plusSeconds(profileIndex);
+            long durationMs = 25L + random.nextInt(Math.max(1, req.maxEventDurationMillis()));
+            Instant seedStart = Instant.now();
+            Instant seedEnd = seedStart.plusMillis(durationMs);
             ingestService.ingestOne(buildUnifiedEvent(
                     req.serviceKey(),
                     req.eventType(),
@@ -154,49 +152,41 @@ public class SampleDataController {
                     pickRandomValue(channels, "web"),
                     pickRandomValue(regions, "us-east"),
                     seedStart,
-                    seedStart.plusMillis(50),
-                    50));
-            ingestService.ingestOne(buildEvent(httpSample, seedStart, seedStart.plusMillis(50), "200"));
+                    seedEnd,
+                    durationMs));
+            ingestService.ingestOne(buildEvent(httpSample, seedStart, seedEnd, "200"));
         }
 
         long remaining = Math.max(0, unifiedEventCount - profiles);
         if (remaining > 0) {
-            long intervals = Math.max(1, windowSeconds / strideSeconds);
-            long eventsPerInterval = Math.max(1, remaining / intervals);
-            cursor = windowStart;
             long emitted = 0;
-            while (cursor.isBefore(now) && emitted < remaining) {
-                for (long i = 0; i < eventsPerInterval && emitted < remaining; i++) {
-                    String profileId =
-                            String.format("%s-profile-%04d", runPrefix, (int) ((emitted + i) % profiles) + 1);
-                    String status = pickRandomStatus(statuses);
-                    lastStatusByProfile.put(profileId, status);
-                    String channel = pickRandomValue(channels, "web");
-                    String region = pickRandomValue(regions, "us-east");
-                    String tier = pickRandomValue(tiers, "FREE");
-                    long durationMs = 25L + random.nextInt(Math.max(1, req.maxEventDurationMillis()));
-                    long jitterMillis = random.nextLong(Math.max(1, strideSeconds * 1000));
-                    Instant start = cursor.plusMillis(jitterMillis);
-                    Instant end = start.plusMillis(durationMs);
-                    ingestService.ingestOne(buildUnifiedEvent(
-                            req.serviceKey(),
-                            req.eventType(),
-                            profileId,
-                            status,
-                            tier,
-                            channel,
-                            region,
-                            start,
-                            end,
-                            durationMs));
-                    emitted++;
-                    ingestService.ingestOne(buildEvent(httpSample, start, end, "200"));
-                }
-                cursor = cursor.plusSeconds(strideSeconds);
+            while (emitted < remaining) {
+                String profileId = String.format("%s-profile-%04d", runPrefix, (int) (emitted % profiles) + 1);
+                String status = pickRandomStatus(statuses);
+                lastStatusByProfile.put(profileId, status);
+                String channel = pickRandomValue(channels, "web");
+                String region = pickRandomValue(regions, "us-east");
+                String tier = pickRandomValue(tiers, "FREE");
+                long durationMs = 25L + random.nextInt(Math.max(1, req.maxEventDurationMillis()));
+                Instant start = Instant.now();
+                Instant end = start.plusMillis(durationMs);
+                ingestService.ingestOne(buildUnifiedEvent(
+                        req.serviceKey(),
+                        req.eventType(),
+                        profileId,
+                        status,
+                        tier,
+                        channel,
+                        region,
+                        start,
+                        end,
+                        durationMs));
+                emitted++;
+                ingestService.ingestOne(buildEvent(httpSample, start, end, "200"));
             }
         }
 
-        ingestHistogramEvents(req, windowStart, now, windowSeconds, unifiedEventCount);
+        ingestHistogramEvents(req, unifiedEventCount);
 
         return Map.of(
                 "generated", unifiedEventCount + profiles,
@@ -454,15 +444,11 @@ public class SampleDataController {
                 .build();
     }
 
-    private int ingestHistogramEvents(
-            UnifiedEventRequest req, Instant windowStart, Instant now, long windowSeconds, int sampleCount) {
+    private int ingestHistogramEvents(UnifiedEventRequest req, int sampleCount) {
         double[] latencyProfile = {50, 65, 90, 120, 160, 210, 280, 360, 450, 560, 700, 900, 1150, 1400};
-        double spacingSeconds = (double) windowSeconds / Math.max(1, sampleCount);
         List<String> statusCodes = List.of("200", "500");
         int stored = 0;
         for (int i = 0; i < sampleCount; i++) {
-            long offsetSeconds = Math.min(windowSeconds - 1, Math.round(i * spacingSeconds));
-            Instant start = windowStart.plusSeconds(offsetSeconds);
             double baseLatency = latencyProfile[i % latencyProfile.length];
             boolean spike = i % 50 == 0;
             if (spike) {
@@ -470,10 +456,8 @@ public class SampleDataController {
             }
             double jitterFactor = 0.9 + ((i % 4) * 0.05);
             long latencyMillis = Math.max(25, Math.round(baseLatency * jitterFactor));
+            Instant start = Instant.now();
             Instant end = start.plusMillis(latencyMillis);
-            if (!end.isAfter(start)) {
-                continue;
-            }
             String status = selectStatus(statusCodes, i);
             stored += ingestService.ingestOne(buildHistogramEvent(req.serviceKey(), start, end, status));
         }
@@ -682,13 +666,6 @@ public class SampleDataController {
         }
         long windowSeconds = resolveRecentWindowSeconds(req);
         return (int) Math.min(Integer.MAX_VALUE, Math.max(5L, windowSeconds / 6L));
-    }
-
-    private long resolveGenerationWindowSeconds(UnifiedEventRequest req) {
-        if (req.runIntervalSeconds() != null && req.runIntervalSeconds() > 0) {
-            return req.runIntervalSeconds();
-        }
-        return 10L;
     }
 
     private void runUnifiedLoop(
