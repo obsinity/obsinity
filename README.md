@@ -123,14 +123,15 @@ curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
   -d '{
     "serviceKey": "payments",
     "eventType": "user_profile.updated",
-    "events": 1000,
+    "duration": "2m",
+    "eventsPerSecond": 500,
     "profilePool": 100,
-    "statuses": ["NEW", "ACTIVE", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED"],
+    "statuses": ["NEW", "ACTIVE", "ACTIVE", "ACTIVE", "SUSPENDED", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED", "ARCHIVED", "ARCHIVED"],
     "channels": ["web", "mobile", "partner"],
     "regions": ["us-east", "us-west", "eu-central"],
     "tiers": ["FREE", "PLUS", "PRO"],
-    "maxDurationMillis": 1500,
-    "recentWindowSeconds": 3600
+    "maxEventDurationMillis": 1500,
+    "recentWindow": "1h"
   }'
 
 # Access Grafana at http://localhost:3086
@@ -158,4 +159,3 @@ See [`obsinity-reference-service/grafana/README.md`](obsinity-reference-service/
 - API query examples
 - Customization guide
 - Troubleshooting tips
-

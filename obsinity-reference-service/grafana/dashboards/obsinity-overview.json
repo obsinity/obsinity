@@ -21,10 +21,11 @@
   ],
   "panels": [
     {
-      "datasource": {
-        "type": "marcusolsson-json-datasource",
-        "uid": "obsinity-api"
-      },
+  "datasource": {
+    "type": "marcusolsson-json-datasource",
+    "uid": "obsinity-api",
+    "name": "Obsinity API"
+  },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -125,13 +126,14 @@
           "urlPath": "/api/grafana/state-counts"
         }
       ],
-      "title": "Current State Counts by Status",
+  "title": "UserProfile State Counts by Status",
       "type": "barchart"
     },
     {
       "datasource": {
         "type": "marcusolsson-json-datasource",
-        "uid": "obsinity-api"
+        "uid": "obsinity-api",
+        "name": "Obsinity API"
       },
       "fieldConfig": {
         "defaults": {
@@ -202,7 +204,7 @@
           "urlPath": "/api/grafana/state-counts"
         }
       ],
-      "title": "State Counts - Key Statuses",
+  "title": "UserProfile State Counts - Key Statuses",
       "type": "barchart"
     },
     {
@@ -261,12 +263,12 @@
 
         ]
       },
-      "gridPos": {
-        "h": 9,
-        "w": 24,
-        "x": 0,
-        "y": 35
-      },
+  "gridPos": {
+    "h": 9,
+    "w": 24,
+    "x": 0,
+    "y": 26
+  },
       "id": 4,
       "options": {
         "legend": {
@@ -291,38 +293,38 @@
           "queryType": "json",
           "method": "POST",
           "path": "/api/grafana/state-count-timeseries",
-          "body": "{\"range\":{\"fromMs\":\"${__from}\",\"toMs\":\"${__to}\"},\"maxDataPoints\":200,\"bucket\":\"1h\",\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"ARCHIVED\"]}",
-          "headers": [
-            {
-              "key": "Content-Type",
-              "value": "application/json"
-            }
-          ],
-          "cacheDurationSeconds": 0,
-          "fields": [
-            {
-              "name": "time",
-              "jsonPath": "$[*].from",
-              "type": "time",
-              "language": "jsonpath"
-            },
-            {
-              "name": "count",
-              "jsonPath": "$[*].count",
-              "type": "number",
-              "language": "jsonpath"
-            },
-            {
-              "name": "state",
-              "jsonPath": "$[*].state",
-              "type": "string",
-              "language": "jsonpath"
-            }
-          ],
-          "urlPath": "/api/grafana/state-count-timeseries"
+      "body": "{\"range\":{\"fromMs\":\"${__from}\",\"toMs\":\"${__to}\"},\"maxDataPoints\":360,\"bucket\":\"1m\",\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"ARCHIVED\"]}",
+      "cacheDurationSeconds": 0,
+      "fields": [
+        {
+          "name": "time",
+          "jsonPath": "$[*].time",
+          "type": "time",
+          "language": "jsonpath"
+        },
+        {
+          "name": "ACTIVE",
+          "jsonPath": "$[*].ACTIVE",
+          "type": "number",
+          "language": "jsonpath"
+        },
+        {
+          "name": "SUSPENDED",
+          "jsonPath": "$[*].SUSPENDED",
+          "type": "number",
+          "language": "jsonpath"
+        },
+        {
+          "name": "ARCHIVED",
+          "jsonPath": "$[*].ARCHIVED",
+          "type": "number",
+          "language": "jsonpath"
         }
       ],
-      "title": "State Count Time Series (1h intervals)",
+      "urlPath": "/api/grafana/state-count-timeseries"
+    }
+  ],
+  "title": "UserProfile State Count Time Series (1m intervals)",
       "type": "timeseries"
     },
     {
@@ -682,12 +684,12 @@
 
         ]
       },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 26
-      },
+  "gridPos": {
+    "h": 8,
+    "w": 24,
+    "x": 0,
+    "y": 35
+  },
       "id": 8,
       "options": {
         "legend": {
@@ -1238,7 +1240,7 @@
     ]
   },
   "time": {
-    "from": "now-3h",
+    "from": "now-24h",
     "to": "now"
   },
   "timepicker": {

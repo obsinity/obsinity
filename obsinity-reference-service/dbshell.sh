@@ -1,5 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "🐘 Connecting to Postgres shell (container: obsinity-db, db/user: obsinity)..."
-docker exec -it obsinity-db psql -U obsinity -d obsinity
+CONTAINER_NAME="${1:-obsinity-db}"
+
+echo "🐘 Connecting to Postgres shell (container: ${CONTAINER_NAME}, db/user: obsinity)..."
+docker exec -it "${CONTAINER_NAME}" psql -U obsinity -d obsinity

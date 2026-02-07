@@ -58,7 +58,7 @@ public class StateCountTimeseriesQueryService {
         }
         Instant end = request.end() != null ? Instant.parse(request.end()) : defaultEnd;
         if (!end.isAfter(start)) {
-            throw new IllegalArgumentException("The requested end time must be after start");
+            end = start.plus(requestedInterval.isZero() ? Duration.ofMinutes(1) : requestedInterval);
         }
 
         Instant alignedStart = truncateToMinute(start);

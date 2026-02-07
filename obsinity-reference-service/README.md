@@ -26,7 +26,7 @@ docker-compose -f docker-compose.demo.yml up -d
 # Generate demo data
 curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
   -H "Content-Type: application/json" \
-  -d '{"events": 1000, "recentWindowSeconds": 3600}'
+  -d '{"duration": "2m", "eventsPerSecond": 500, "recentWindow": "1h"}'
 
 # Open Grafana
 open http://localhost:3086

@@ -1,5 +1,6 @@
 package com.obsinity.reference.api;
 
+import com.obsinity.service.core.counter.DurationParser;
 import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.spi.EventIngestService;
 import java.time.Duration;
@@ -76,8 +77,9 @@ public class SampleDataController {
         List<String> tiers = req.tiers();
         Map<String, String> lastStatusByProfile = new HashMap<>();
 
-        int unifiedEventCount = Math.max(1, req.events());
-        long windowSeconds = Math.max(1, req.recentWindowSeconds());
+        int unifiedEventCount = resolveUnifiedEventCount(req);
+        Duration windowDuration = DurationParser.parse(req.recentWindow());
+        long windowSeconds = Math.max(1L, windowDuration.getSeconds());
         Instant windowStart = now.minusSeconds(windowSeconds);
         long strideSeconds = Math.max(1L, windowSeconds / Math.max(1, unifiedEventCount));
         Instant cursor = windowStart;
@@ -120,7 +122,7 @@ public class SampleDataController {
                     String channel = pickRandomValue(channels, "web");
                     String region = pickRandomValue(regions, "us-east");
                     String tier = pickRandomValue(tiers, "FREE");
-                    long durationMs = 25L + random.nextInt(Math.max(1, req.maxDurationMillis()));
+                    long durationMs = 25L + random.nextInt(Math.max(1, req.maxEventDurationMillis()));
                     long jitterMillis = random.nextLong(Math.max(1, strideSeconds * 1000));
                     Instant start = cursor.plusMillis(jitterMillis);
                     Instant end = start.plusMillis(durationMs);
@@ -517,35 +519,60 @@ public class SampleDataController {
     public record UnifiedEventRequest(
             String serviceKey,
             String eventType,
-            Integer events,
+            String duration,
+            Integer eventsPerSecond,
             Integer profilePool,
             List<String> statuses,
             List<String> channels,
             List<String> regions,
             List<String> tiers,
-            Integer maxDurationMillis,
-            Integer recentWindowSeconds) {
+            Integer maxEventDurationMillis,
+            String recentWindow) {
         static UnifiedEventRequest defaults(UnifiedEventRequest maybe) {
             if (maybe == null) {
                 return new UnifiedEventRequest(
                         "payments",
                         "user_profile.updated",
-                        500,
+                        "5m",
+                        1000,
                         50,
-                        List.of("NEW", "ACTIVE", "SUSPENDED", "ACTIVE", "BLOCKED", "UPGRADED", "ARCHIVED"),
+                        List.of(
+                                "NEW",
+                                "ACTIVE",
+                                "ACTIVE",
+                                "ACTIVE",
+                                "SUSPENDED",
+                                "SUSPENDED",
+                                "BLOCKED",
+                                "UPGRADED",
+                                "ARCHIVED",
+                                "ARCHIVED",
+                                "ARCHIVED"),
                         List.of("web", "mobile", "partner"),
                         List.of("us-east", "us-west", "eu-central"),
                         List.of("FREE", "PLUS", "PRO"),
                         1500,
-                        3600);
+                        "1h");
             }
             return new UnifiedEventRequest(
                     emptyToDefault(maybe.serviceKey, "payments"),
                     emptyToDefault(maybe.eventType, "user_profile.updated"),
-                    maybe.events == null || maybe.events <= 0 ? 500 : maybe.events,
+                    emptyToDefault(maybe.duration, "5m"),
+                    maybe.eventsPerSecond == null || maybe.eventsPerSecond <= 0 ? 1000 : maybe.eventsPerSecond,
                     maybe.profilePool == null || maybe.profilePool <= 0 ? 50 : maybe.profilePool,
                     (maybe.statuses == null || maybe.statuses.isEmpty())
-                            ? List.of("NEW", "ACTIVE", "SUSPENDED", "ACTIVE", "BLOCKED", "UPGRADED", "ARCHIVED")
+                            ? List.of(
+                                    "NEW",
+                                    "ACTIVE",
+                                    "ACTIVE",
+                                    "ACTIVE",
+                                    "SUSPENDED",
+                                    "SUSPENDED",
+                                    "BLOCKED",
+                                    "UPGRADED",
+                                    "ARCHIVED",
+                                    "ARCHIVED",
+                                    "ARCHIVED")
                             : maybe.statuses,
                     (maybe.channels == null || maybe.channels.isEmpty())
                             ? List.of("web", "mobile", "partner")
@@ -554,14 +581,22 @@ public class SampleDataController {
                             ? List.of("us-east", "us-west", "eu-central")
                             : maybe.regions,
                     (maybe.tiers == null || maybe.tiers.isEmpty()) ? List.of("FREE", "PLUS", "PRO") : maybe.tiers,
-                    maybe.maxDurationMillis == null || maybe.maxDurationMillis <= 0 ? 1500 : maybe.maxDurationMillis,
-                    maybe.recentWindowSeconds == null || maybe.recentWindowSeconds <= 0
-                            ? 3600
-                            : maybe.recentWindowSeconds);
+                    maybe.maxEventDurationMillis == null || maybe.maxEventDurationMillis <= 0
+                            ? 1500
+                            : maybe.maxEventDurationMillis,
+                    emptyToDefault(maybe.recentWindow, "1h"));
         }
 
         private static String emptyToDefault(String value, String fallback) {
             return (value == null || value.isBlank()) ? fallback : value;
         }
+    }
+
+    private int resolveUnifiedEventCount(UnifiedEventRequest req) {
+        Duration duration = DurationParser.parse(req.duration());
+        long durationSeconds = Math.max(1L, duration.getSeconds());
+        int eventsPerSecond = Math.max(1, req.eventsPerSecond());
+        long total = durationSeconds * (long) eventsPerSecond;
+        return (int) Math.max(1L, Math.min(Integer.MAX_VALUE, total));
     }
 }

@@ -37,14 +37,15 @@ curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
   -d '{
     "serviceKey": "payments",
     "eventType": "user_profile.updated",
-    "events": 1000,
+    "duration": "2m",
+    "eventsPerSecond": 500,
     "profilePool": 100,
-    "statuses": ["NEW", "ACTIVE", "SUSPENDED", "ACTIVE", "BLOCKED", "UPGRADED", "ARCHIVED"],
+    "statuses": ["NEW", "ACTIVE", "ACTIVE", "ACTIVE", "SUSPENDED", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED", "ARCHIVED", "ARCHIVED"],
     "channels": ["web", "mobile", "partner"],
     "regions": ["us-east", "us-west", "eu-central"],
     "tiers": ["FREE", "PLUS", "PRO"],
-    "maxDurationMillis": 1500,
-    "recentWindowSeconds": 3600
+    "maxEventDurationMillis": 1500,
+    "recentWindow": "1h"
   }'
 ```
 
@@ -209,7 +210,7 @@ curl http://localhost:8086/api/catalog/event-type
 ### No Data in Panels
 1. Verify demo data has been generated
 2. Check the time range (default: last 1 hour)
-3. Ensure the `recentWindowSeconds` in demo generation covers your time range
+3. Ensure the `recentWindow` in demo generation covers your time range
 
 ### Infinity Plugin Not Installed
 If you see datasource errors, manually install:
@@ -256,10 +257,10 @@ Key endpoints used in dashboards:
 
 ### Scenario 1: Profile Update Storm
 ```bash
-# Generate 10,000 profile updates over 10 minutes
+# Generate profile updates over 10 minutes
 curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
   -H "Content-Type: application/json" \
-  -d '{"events": 10000, "recentWindowSeconds": 600}'
+  -d '{"duration": "10m", "eventsPerSecond": 20, "recentWindow": "10m"}'
 ```
 
 Watch the state transitions and counters panels update in real-time.

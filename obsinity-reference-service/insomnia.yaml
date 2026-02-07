@@ -38,6 +38,8 @@ resources:
       cloud_region: local-dev
       grafana_from_ms: "1769793268718"
       grafana_to_ms: "1769796868718"
+      grafana_from_iso: "2026-01-30T17:14:28Z"
+      grafana_to_iso: "2026-01-30T18:14:28Z"
 
       # Event defaults
       event_name: http_request
@@ -156,14 +158,15 @@ resources:
         {
           "serviceKey": "payments",
           "eventType": "user_profile.updated",
-          "events": 200000,
+          "duration": "1m",
+          "eventsPerSecond": 1000,
           "profilePool": 4000,
-          "statuses": ["NEW", "ACTIVE", "SUSPENDED", "ACTIVE", "BLOCKED", "UPGRADED", "ARCHIVED"],
+          "statuses": ["NEW", "ACTIVE", "ACTIVE", "ACTIVE", "SUSPENDED", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED", "ARCHIVED", "ARCHIVED"],
           "channels": ["web", "mobile", "partner"],
           "regions": ["us-east", "us-west", "eu-central"],
           "tiers": ["FREE", "PLUS", "PRO"],
-          "maxDurationMillis": 1500,
-          "recentWindowSeconds": 3600
+          "maxEventDurationMillis": 1500,
+          "recentWindow": "7d"
         }
     _type: request
 
@@ -1541,7 +1544,7 @@ resources:
       mimeType: application/json
       text: |
         {
-          "range": { "fromMs": {{ grafana_from_ms }}, "toMs": {{ grafana_to_ms }} },
+          "range": { "from": "{{ grafana_from_iso }}", "to": "{{ grafana_to_iso }}" },
           "intervalMs": 5000,
           "serviceKey": "{{ service_id }}",
           "eventType": "{{ event_name }}",
@@ -1590,7 +1593,7 @@ resources:
       mimeType: application/json
       text: |
         {
-          "range": { "fromMs": {{ grafana_from_ms }}, "toMs": {{ grafana_to_ms }} },
+          "range": { "from": "{{ grafana_from_iso }}", "to": "{{ grafana_to_iso }}" },
           "maxDataPoints": 120,
           "bucket": "1m",
           "serviceKey": "{{ service_id }}",
@@ -1616,7 +1619,7 @@ resources:
       mimeType: application/json
       text: |
         {
-          "range": { "fromMs": {{ grafana_from_ms }}, "toMs": {{ grafana_to_ms }} },
+          "range": { "from": "{{ grafana_from_iso }}", "to": "{{ grafana_to_iso }}" },
           "maxDataPoints": 120,
           "bucket": "1m",
           "serviceKey": "{{ service_id }}",

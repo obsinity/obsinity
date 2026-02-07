@@ -21,10 +21,12 @@ import com.obsinity.service.core.state.query.StateCountTimeseriesQueryRequest;
 import com.obsinity.service.core.state.query.StateCountTimeseriesQueryResult;
 import com.obsinity.service.core.state.query.StateCountTimeseriesQueryService;
 import java.time.Duration;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
@@ -131,6 +133,15 @@ public class GrafanaQueryController {
         return rowsOnly(runEventCount(query.range(), query.request(), query.query()));
     }
 
+    @ExceptionHandler({IllegalArgumentException.class, DateTimeParseException.class})
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, Object> handleBadRequest(Exception ex) {
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("error", "Bad Request");
+        response.put("message", ex.getMessage());
+        return response;
+    }
+
     private GrafanaQueryRequest parseRequest(JsonNode requestBody) {
         if (requestBody == null || requestBody.isNull()) {
             return new GrafanaQueryRequest(null, null, null, null, null);
@@ -206,8 +217,8 @@ public class GrafanaQueryController {
                 query.histogramName(),
                 query.filters(),
                 bucket,
-                null,
-                null,
+                range.from().toString(),
+                range.to().toString(),
                 query.percentiles(),
                 new HistogramQueryRequest.Limits(0, limit),
                 ResponseFormat.ROW);
@@ -262,6 +273,12 @@ public class GrafanaQueryController {
                 range.toMs(),
                 STATE_BUCKETS);
         int limit = resolveLimit(range, bucket, request.maxDataPoints());
+        java.time.Instant start = range.from();
+        java.time.Instant end = range.to();
+        if (!end.isAfter(start)) {
+            Duration step = DurationParser.parse(bucket);
+            end = start.plus(step.isZero() ? Duration.ofMinutes(1) : step);
+        }
 
         StateCountTimeseriesQueryRequest payload = new StateCountTimeseriesQueryRequest(
                 query.serviceKey(),
@@ -269,24 +286,37 @@ public class GrafanaQueryController {
                 query.attribute(),
                 query.states(),
                 bucket,
-                null,
-                null,
+                start.toString(),
+                end.toString(),
                 new StateCountTimeseriesQueryRequest.Limits(0, limit),
                 ResponseFormat.ROW);
 
         StateCountTimeseriesQueryResult result = stateCountTimeseriesQueryService.runQuery(payload);
-        List<Map<String, Object>> rows = result.windows().stream()
-                .flatMap(window -> window.states().stream()
-                        .filter(entry -> entry.count() > 0)
-                        .map(entry -> {
-                            Map<String, Object> row = new LinkedHashMap<>();
-                            row.put("from", window.start());
-                            row.put("to", window.end());
-                            row.put("state", entry.state());
-                            row.put("count", entry.count());
-                            return row;
-                        }))
-                .toList();
+        List<String> seriesStates = query.states();
+        List<String> resolvedStates = seriesStates == null || seriesStates.isEmpty()
+                ? result.windows().stream()
+                        .flatMap(window -> window.states().stream())
+                        .map(StateCountTimeseriesQueryResult.StateCountTimeseriesWindow.Entry::state)
+                        .distinct()
+                        .toList()
+                : seriesStates;
+
+        Map<String, Map<String, Object>> rowsByTime = new LinkedHashMap<>();
+        for (StateCountTimeseriesQueryResult.StateCountTimeseriesWindow window : result.windows()) {
+            String time = window.start();
+            Map<String, Object> row = rowsByTime.computeIfAbsent(time, key -> {
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("time", key);
+                for (String state : resolvedStates) {
+                    map.put(state, 0L);
+                }
+                return map;
+            });
+            for (StateCountTimeseriesQueryResult.StateCountTimeseriesWindow.Entry entry : window.states()) {
+                row.put(entry.state(), entry.count());
+            }
+        }
+        List<Map<String, Object>> rows = rowsByTime.values().stream().toList();
 
         if (FORMAT_TABLE.equalsIgnoreCase(query.format())) {
             FrameBuilder table = FrameBuilder.table(
