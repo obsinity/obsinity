@@ -125,13 +125,15 @@ curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
     "eventType": "user_profile.updated",
     "duration": "2m",
     "eventsPerSecond": 500,
+    "events": 60000,
     "profilePool": 100,
     "statuses": ["NEW", "ACTIVE", "ACTIVE", "ACTIVE", "SUSPENDED", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED", "ARCHIVED", "ARCHIVED"],
     "channels": ["web", "mobile", "partner"],
     "regions": ["us-east", "us-west", "eu-central"],
     "tiers": ["FREE", "PLUS", "PRO"],
     "maxEventDurationMillis": 1500,
-    "recentWindow": "1h"
+    "recentWindow": "1h",
+    "recentWindowSeconds": 10800
   }'
 
 # Access Grafana at http://localhost:3086
@@ -151,6 +153,10 @@ curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
 - **Profile Updates by Status/Channel**: Multi-dimensional event counters
 
 All panels query the Obsinity REST API (not the database directly), demonstrating real-world API usage patterns.
+
+Notes:
+- `events` overrides `duration` x `eventsPerSecond`.
+- `recentWindowSeconds` overrides `recentWindow`.
 
 ### Documentation
 

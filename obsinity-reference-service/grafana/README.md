@@ -39,13 +39,15 @@ curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
     "eventType": "user_profile.updated",
     "duration": "2m",
     "eventsPerSecond": 500,
+    "events": 60000,
     "profilePool": 100,
     "statuses": ["NEW", "ACTIVE", "ACTIVE", "ACTIVE", "SUSPENDED", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED", "ARCHIVED", "ARCHIVED"],
     "channels": ["web", "mobile", "partner"],
     "regions": ["us-east", "us-west", "eu-central"],
     "tiers": ["FREE", "PLUS", "PRO"],
     "maxEventDurationMillis": 1500,
-    "recentWindow": "1h"
+    "recentWindow": "1h",
+    "recentWindowSeconds": 10800
   }'
 ```
 
@@ -210,7 +212,7 @@ curl http://localhost:8086/api/catalog/event-type
 ### No Data in Panels
 1. Verify demo data has been generated
 2. Check the time range (default: last 1 hour)
-3. Ensure the `recentWindow` in demo generation covers your time range
+3. Ensure the demo generation covers your time range (`recentWindowSeconds` overrides `recentWindow`)
 
 ### Infinity Plugin Not Installed
 If you see datasource errors, manually install:

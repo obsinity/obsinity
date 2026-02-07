@@ -78,8 +78,7 @@ public class SampleDataController {
         Map<String, String> lastStatusByProfile = new HashMap<>();
 
         int unifiedEventCount = resolveUnifiedEventCount(req);
-        Duration windowDuration = DurationParser.parse(req.recentWindow());
-        long windowSeconds = Math.max(1L, windowDuration.getSeconds());
+        long windowSeconds = resolveRecentWindowSeconds(req);
         Instant windowStart = now.minusSeconds(windowSeconds);
         long strideSeconds = Math.max(1L, windowSeconds / Math.max(1, unifiedEventCount));
         Instant cursor = windowStart;
@@ -521,13 +520,15 @@ public class SampleDataController {
             String eventType,
             String duration,
             Integer eventsPerSecond,
+            Integer events,
             Integer profilePool,
             List<String> statuses,
             List<String> channels,
             List<String> regions,
             List<String> tiers,
             Integer maxEventDurationMillis,
-            String recentWindow) {
+            String recentWindow,
+            Long recentWindowSeconds) {
         static UnifiedEventRequest defaults(UnifiedEventRequest maybe) {
             if (maybe == null) {
                 return new UnifiedEventRequest(
@@ -535,6 +536,7 @@ public class SampleDataController {
                         "user_profile.updated",
                         "5m",
                         1000,
+                        null,
                         50,
                         List.of(
                                 "NEW",
@@ -552,13 +554,15 @@ public class SampleDataController {
                         List.of("us-east", "us-west", "eu-central"),
                         List.of("FREE", "PLUS", "PRO"),
                         1500,
-                        "1h");
+                        "1h",
+                        null);
             }
             return new UnifiedEventRequest(
                     emptyToDefault(maybe.serviceKey, "payments"),
                     emptyToDefault(maybe.eventType, "user_profile.updated"),
                     emptyToDefault(maybe.duration, "5m"),
                     maybe.eventsPerSecond == null || maybe.eventsPerSecond <= 0 ? 1000 : maybe.eventsPerSecond,
+                    maybe.events == null || maybe.events <= 0 ? null : maybe.events,
                     maybe.profilePool == null || maybe.profilePool <= 0 ? 50 : maybe.profilePool,
                     (maybe.statuses == null || maybe.statuses.isEmpty())
                             ? List.of(
@@ -584,7 +588,10 @@ public class SampleDataController {
                     maybe.maxEventDurationMillis == null || maybe.maxEventDurationMillis <= 0
                             ? 1500
                             : maybe.maxEventDurationMillis,
-                    emptyToDefault(maybe.recentWindow, "1h"));
+                    emptyToDefault(maybe.recentWindow, "1h"),
+                    maybe.recentWindowSeconds == null || maybe.recentWindowSeconds <= 0
+                            ? null
+                            : maybe.recentWindowSeconds);
         }
 
         private static String emptyToDefault(String value, String fallback) {
@@ -593,10 +600,21 @@ public class SampleDataController {
     }
 
     private int resolveUnifiedEventCount(UnifiedEventRequest req) {
+        if (req.events() != null && req.events() > 0) {
+            return req.events();
+        }
         Duration duration = DurationParser.parse(req.duration());
         long durationSeconds = Math.max(1L, duration.getSeconds());
         int eventsPerSecond = Math.max(1, req.eventsPerSecond());
         long total = durationSeconds * (long) eventsPerSecond;
         return (int) Math.max(1L, Math.min(Integer.MAX_VALUE, total));
+    }
+
+    private long resolveRecentWindowSeconds(UnifiedEventRequest req) {
+        if (req.recentWindowSeconds() != null && req.recentWindowSeconds() > 0) {
+            return req.recentWindowSeconds();
+        }
+        Duration windowDuration = DurationParser.parse(req.recentWindow());
+        return Math.max(1L, windowDuration.getSeconds());
     }
 }
