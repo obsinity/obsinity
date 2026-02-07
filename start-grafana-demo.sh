@@ -2,9 +2,21 @@
 
 set -e
 
+CLEAN_MODE=false
+for arg in "$@"; do
+    if [[ "$arg" == "--clean" ]]; then
+        CLEAN_MODE=true
+        break
+    fi
+done
+
 echo "=========================================="
 echo "Obsinity Grafana Demo Stack"
 echo "=========================================="
+echo ""
+echo "Usage:"
+echo "  $0 [--clean]"
+echo "    --clean  Remove database volumes for a fresh start"
 echo ""
 
 # Full rebuild to ensure the latest code is packaged into Docker images.
@@ -21,22 +33,27 @@ else
     exit 1
 fi
 
-# Stop any existing Obsinity containers and remove volumes to avoid conflicts
-echo "Stopping existing Obsinity containers and removing volumes..."
-(cd obsinity-reference-service && ${COMPOSE_CMD} down -v --remove-orphans 2>/dev/null) || true
-${COMPOSE_CMD} -f docker-compose.demo.yml down -v --remove-orphans || true
+echo "Stopping existing Obsinity containers..."
+if $CLEAN_MODE; then
+    echo "Clean mode enabled: removing volumes"
+    (cd obsinity-reference-service && ${COMPOSE_CMD} down -v --remove-orphans 2>/dev/null) || true
+    ${COMPOSE_CMD} -f docker-compose.demo.yml down -v --remove-orphans || true
 
-# Explicitly remove named database volumes to guarantee a fresh start.
-if command -v docker &> /dev/null; then
-    for VOLUME in obsinity_pg_demo obsinity_pg; do
-        if docker volume inspect "${VOLUME}" >/dev/null 2>&1; then
-            docker volume rm -f "${VOLUME}" >/dev/null 2>&1 || true
-            echo "✓ Removed volume ${VOLUME}"
-        fi
-    done
+    # Explicitly remove named database volumes to guarantee a fresh start.
+    if command -v docker &> /dev/null; then
+        for VOLUME in obsinity_pg_demo obsinity_pg; do
+            if docker volume inspect "${VOLUME}" >/dev/null 2>&1; then
+                docker volume rm -f "${VOLUME}" >/dev/null 2>&1 || true
+                echo "✓ Removed volume ${VOLUME}"
+            fi
+        done
+    fi
+else
+    (cd obsinity-reference-service && ${COMPOSE_CMD} down --remove-orphans 2>/dev/null) || true
+    ${COMPOSE_CMD} -f docker-compose.demo.yml down --remove-orphans || true
 fi
 
-echo "✓ Existing containers stopped and volumes removed"
+echo "✓ Existing containers stopped"
 
 echo ""
 echo "Starting demo stack (fresh)..."

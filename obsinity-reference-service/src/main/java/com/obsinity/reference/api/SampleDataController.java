@@ -48,6 +48,8 @@ public class SampleDataController {
         return t;
     });
     private final AtomicReference<UnifiedDemoRunner> unifiedDemoRunner = new AtomicReference<>();
+    private final AtomicReference<UnifiedEventRequest> unifiedDemoConfig = new AtomicReference<>();
+    private final AtomicReference<Integer> unifiedDemoIntervalSeconds = new AtomicReference<>();
     private final Random random = new Random();
 
     @PostMapping("/generate-latency")
@@ -85,6 +87,8 @@ public class SampleDataController {
     private Map<String, Object> startUnifiedEvents(UnifiedEventRequest maybe) {
         UnifiedEventRequest req = UnifiedEventRequest.defaults(maybe);
         int intervalSeconds = resolveRunIntervalSeconds(req);
+        unifiedDemoConfig.set(req);
+        unifiedDemoIntervalSeconds.set(intervalSeconds);
         UnifiedDemoRunner existing = unifiedDemoRunner.get();
         if (existing != null && !existing.task().isDone()) {
             return buildUnifiedRunnerStatus(existing, true);
@@ -93,8 +97,7 @@ public class SampleDataController {
         AtomicReference<Instant> lastRunAt = new AtomicReference<>();
         AtomicReference<Map<String, Object>> lastResult = new AtomicReference<>();
         Instant startedAt = Instant.now();
-        Future<?> task =
-                demoExecutor.submit(() -> runUnifiedLoop(req, intervalSeconds, stopSignal, lastRunAt, lastResult));
+        Future<?> task = demoExecutor.submit(() -> runUnifiedLoop(stopSignal, lastRunAt, lastResult));
         UnifiedDemoRunner runner =
                 new UnifiedDemoRunner(req, intervalSeconds, startedAt, stopSignal, task, lastRunAt, lastResult);
         unifiedDemoRunner.set(runner);
@@ -669,12 +672,18 @@ public class SampleDataController {
     }
 
     private void runUnifiedLoop(
-            UnifiedEventRequest req,
-            int intervalSeconds,
             AtomicBoolean stopSignal,
             AtomicReference<Instant> lastRunAt,
             AtomicReference<Map<String, Object>> lastResult) {
         while (!stopSignal.get()) {
+            UnifiedEventRequest req = unifiedDemoConfig.get();
+            if (req == null) {
+                req = UnifiedEventRequest.defaults(null);
+            }
+            Integer configuredInterval = unifiedDemoIntervalSeconds.get();
+            int intervalSeconds = configuredInterval != null && configuredInterval > 0
+                    ? configuredInterval
+                    : resolveRunIntervalSeconds(req);
             lastRunAt.set(Instant.now());
             lastResult.set(generateUnifiedEventsOnce(req));
             try {
@@ -689,7 +698,8 @@ public class SampleDataController {
     private Map<String, Object> buildUnifiedRunnerStatus(UnifiedDemoRunner runner, boolean running) {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("running", running);
-        response.put("intervalSeconds", runner.intervalSeconds());
+        Integer interval = unifiedDemoIntervalSeconds.get();
+        response.put("intervalSeconds", interval != null ? interval : runner.intervalSeconds());
         response.put("startedAt", runner.startedAt().toString());
         Instant lastRun = runner.lastRunAt().get();
         if (lastRun != null) {
@@ -699,7 +709,8 @@ public class SampleDataController {
         if (lastResult != null) {
             response.put("lastResult", lastResult);
         }
-        response.put("request", runner.request());
+        UnifiedEventRequest current = unifiedDemoConfig.get();
+        response.put("request", current != null ? current : runner.request());
         return response;
     }
 

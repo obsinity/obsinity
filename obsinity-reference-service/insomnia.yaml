@@ -160,7 +160,7 @@ resources:
           "eventType": "user_profile.updated",
           "events": 2000,
           "profilePool": 4000,
-          "statuses": ["NEW", "ACTIVE", "ACTIVE", "ACTIVE", "SUSPENDED", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED", "ARCHIVED", "ARCHIVED"],
+          "statuses": ["NEW", "ACTIVE", "ACTIVE", "ACTIVE", "ACTIVE", "ACTIVE", "ACTIVE", "SUSPENDED", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED", "ARCHIVED"],
           "channels": ["web", "mobile", "partner"],
           "regions": ["us-east", "us-west", "eu-central"],
           "tiers": ["FREE", "PLUS", "PRO"],
