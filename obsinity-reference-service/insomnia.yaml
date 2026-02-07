@@ -143,8 +143,8 @@ resources:
   - _id: req_demo_unified_events
     parentId: fld_demo
     created: 1757433600000
-    modified: 1757433600000
-    name: Generate Demo Events
+    modified: 1769900000000
+    name: Start Demo Generator
     method: POST
     url: "{{ base_url }}/internal/demo/generate-unified-events"
     headers:
@@ -158,16 +158,39 @@ resources:
         {
           "serviceKey": "payments",
           "eventType": "user_profile.updated",
-          "duration": "1m",
-          "eventsPerSecond": 1000,
+          "events": 2000,
           "profilePool": 4000,
           "statuses": ["NEW", "ACTIVE", "ACTIVE", "ACTIVE", "SUSPENDED", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED", "ARCHIVED", "ARCHIVED"],
           "channels": ["web", "mobile", "partner"],
           "regions": ["us-east", "us-west", "eu-central"],
           "tiers": ["FREE", "PLUS", "PRO"],
           "maxEventDurationMillis": 1500,
-          "recentWindow": "7d"
+          "runIntervalSeconds": 60
         }
+    _type: request
+
+  - _id: req_demo_unified_events_status
+    parentId: fld_demo
+    created: 1769900000001
+    modified: 1769900000001
+    name: Demo Generator Status
+    method: GET
+    url: "{{ base_url }}/internal/demo/generate-unified-events/status"
+    headers:
+      - name: Accept
+        value: application/json
+    _type: request
+
+  - _id: req_demo_unified_events_stop
+    parentId: fld_demo
+    created: 1769900000002
+    modified: 1769900000002
+    name: Stop Demo Generator
+    method: POST
+    url: "{{ base_url }}/internal/demo/generate-unified-events/stop"
+    headers:
+      - name: Accept
+        value: application/json
     _type: request
 
   - _id: fld_state_query

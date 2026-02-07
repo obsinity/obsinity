@@ -491,6 +491,11 @@ public class GrafanaQueryController {
         if (maxDataPoints != null && maxDataPoints > 0) {
             limit = Math.min(limit, maxDataPoints);
         }
+        long sixHoursMs = Duration.ofHours(6).toMillis();
+        long minPoints = bucketMs > 0 ? (long) Math.ceil((double) sixHoursMs / (double) bucketMs) : 0L;
+        if (minPoints > 0) {
+            limit = Math.max(limit, minPoints);
+        }
         return (int) Math.min(Integer.MAX_VALUE, Math.max(1L, limit));
     }
 

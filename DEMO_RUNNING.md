@@ -22,10 +22,10 @@ All services are **running**:
 - Look for "Obsinity Demo - Overview"
 - Or go directly to: http://localhost:3086/d/obsinity-demo-overview
 
-### 3. Generate More Demo Data
+### 3. Start Demo Generator
 
 ```bash
-# Generate 1000 events over the last hour
+# Start the generator (runs until stopped)
 curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
   -H "Content-Type: application/json" \
   -d '{
@@ -37,9 +37,13 @@ curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
     "channels": ["web", "mobile", "partner"],
     "regions": ["us-east", "us-west", "eu-central"],
     "tiers": ["FREE", "PLUS", "PRO"],
-    "maxDurationMillis": 1500,
-    "recentWindowSeconds": 3600
+    "maxEventDurationMillis": 1500,
+    "runIntervalSeconds": 60
   }'
+
+curl http://localhost:8086/internal/demo/generate-unified-events/status
+
+curl -X POST http://localhost:8086/internal/demo/generate-unified-events/stop
 ```
 
 **Note:** Initial data generation (100 events) has already been triggered.

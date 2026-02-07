@@ -201,7 +201,7 @@ cd ..
 docker-compose -f docker-compose.demo.yml up -d
 ```
 
-### Generate Demo Data
+### Start Demo Generator
 ```bash
 curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
   -H "Content-Type: application/json" \
@@ -214,9 +214,13 @@ curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
     "channels": ["web", "mobile", "partner"],
     "regions": ["us-east", "us-west", "eu-central"],
     "tiers": ["FREE", "PLUS", "PRO"],
-    "maxDurationMillis": 1500,
-    "recentWindowSeconds": 3600
+    "maxEventDurationMillis": 1500,
+    "runIntervalSeconds": 60
   }'
+
+curl http://localhost:8086/internal/demo/generate-unified-events/status
+
+curl -X POST http://localhost:8086/internal/demo/generate-unified-events/stop
 ```
 
 ### Access Grafana

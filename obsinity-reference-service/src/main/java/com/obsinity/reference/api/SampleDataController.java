@@ -16,9 +16,13 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,6 +42,12 @@ public class SampleDataController {
         t.setDaemon(true);
         return t;
     });
+    private final ExecutorService demoExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "demo-unified-generator");
+        t.setDaemon(true);
+        return t;
+    });
+    private final AtomicReference<UnifiedDemoRunner> unifiedDemoRunner = new AtomicReference<>();
     private final Random random = new Random();
 
     @PostMapping("/generate-latency")
@@ -69,7 +79,50 @@ public class SampleDataController {
     @PostMapping("/generate-unified-events")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public Map<String, Object> generateUnifiedEvents(@RequestBody(required = false) UnifiedEventRequest maybe) {
+        return startUnifiedEvents(maybe);
+    }
+
+    private Map<String, Object> startUnifiedEvents(UnifiedEventRequest maybe) {
         UnifiedEventRequest req = UnifiedEventRequest.defaults(maybe);
+        int intervalSeconds = resolveRunIntervalSeconds(req);
+        UnifiedDemoRunner existing = unifiedDemoRunner.get();
+        if (existing != null && !existing.task().isDone()) {
+            return buildUnifiedRunnerStatus(existing, true);
+        }
+        AtomicBoolean stopSignal = new AtomicBoolean(false);
+        AtomicReference<Instant> lastRunAt = new AtomicReference<>();
+        AtomicReference<Map<String, Object>> lastResult = new AtomicReference<>();
+        Instant startedAt = Instant.now();
+        Future<?> task =
+                demoExecutor.submit(() -> runUnifiedLoop(req, intervalSeconds, stopSignal, lastRunAt, lastResult));
+        UnifiedDemoRunner runner =
+                new UnifiedDemoRunner(req, intervalSeconds, startedAt, stopSignal, task, lastRunAt, lastResult);
+        unifiedDemoRunner.set(runner);
+        return buildUnifiedRunnerStatus(runner, true);
+    }
+
+    @PostMapping("/generate-unified-events/stop")
+    public Map<String, Object> stopUnifiedEvents() {
+        UnifiedDemoRunner runner = unifiedDemoRunner.get();
+        if (runner == null) {
+            return Map.of("running", false);
+        }
+        runner.stopSignal().set(true);
+        runner.task().cancel(true);
+        return buildUnifiedRunnerStatus(runner, false);
+    }
+
+    @GetMapping("/generate-unified-events/status")
+    public Map<String, Object> unifiedEventsStatus() {
+        UnifiedDemoRunner runner = unifiedDemoRunner.get();
+        if (runner == null) {
+            return Map.of("running", false);
+        }
+        boolean running = !runner.task().isDone();
+        return buildUnifiedRunnerStatus(runner, running);
+    }
+
+    private Map<String, Object> generateUnifiedEventsOnce(UnifiedEventRequest req) {
         Instant now = Instant.now();
         List<String> statuses = req.statuses();
         List<String> channels = req.channels();
@@ -78,7 +131,7 @@ public class SampleDataController {
         Map<String, String> lastStatusByProfile = new HashMap<>();
 
         int unifiedEventCount = resolveUnifiedEventCount(req);
-        long windowSeconds = resolveRecentWindowSeconds(req);
+        long windowSeconds = resolveGenerationWindowSeconds(req);
         Instant windowStart = now.minusSeconds(windowSeconds);
         long strideSeconds = Math.max(1L, windowSeconds / Math.max(1, unifiedEventCount));
         Instant cursor = windowStart;
@@ -116,7 +169,7 @@ public class SampleDataController {
                 for (long i = 0; i < eventsPerInterval && emitted < remaining; i++) {
                     String profileId =
                             String.format("%s-profile-%04d", runPrefix, (int) ((emitted + i) % profiles) + 1);
-                    String status = pickRandomStateDifferent(lastStatusByProfile.get(profileId), statuses);
+                    String status = pickRandomStatus(statuses);
                     lastStatusByProfile.put(profileId, status);
                     String channel = pickRandomValue(channels, "web");
                     String region = pickRandomValue(regions, "us-east");
@@ -528,7 +581,8 @@ public class SampleDataController {
             List<String> tiers,
             Integer maxEventDurationMillis,
             String recentWindow,
-            Long recentWindowSeconds) {
+            Long recentWindowSeconds,
+            Integer runIntervalSeconds) {
         static UnifiedEventRequest defaults(UnifiedEventRequest maybe) {
             if (maybe == null) {
                 return new UnifiedEventRequest(
@@ -555,6 +609,7 @@ public class SampleDataController {
                         List.of("FREE", "PLUS", "PRO"),
                         1500,
                         "1h",
+                        null,
                         null);
             }
             return new UnifiedEventRequest(
@@ -591,7 +646,10 @@ public class SampleDataController {
                     emptyToDefault(maybe.recentWindow, "1h"),
                     maybe.recentWindowSeconds == null || maybe.recentWindowSeconds <= 0
                             ? null
-                            : maybe.recentWindowSeconds);
+                            : maybe.recentWindowSeconds,
+                    maybe.runIntervalSeconds == null || maybe.runIntervalSeconds <= 0
+                            ? null
+                            : maybe.runIntervalSeconds);
         }
 
         private static String emptyToDefault(String value, String fallback) {
@@ -617,4 +675,63 @@ public class SampleDataController {
         Duration windowDuration = DurationParser.parse(req.recentWindow());
         return Math.max(1L, windowDuration.getSeconds());
     }
+
+    private int resolveRunIntervalSeconds(UnifiedEventRequest req) {
+        if (req.runIntervalSeconds() != null && req.runIntervalSeconds() > 0) {
+            return req.runIntervalSeconds();
+        }
+        long windowSeconds = resolveRecentWindowSeconds(req);
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(5L, windowSeconds / 6L));
+    }
+
+    private long resolveGenerationWindowSeconds(UnifiedEventRequest req) {
+        if (req.runIntervalSeconds() != null && req.runIntervalSeconds() > 0) {
+            return req.runIntervalSeconds();
+        }
+        return 10L;
+    }
+
+    private void runUnifiedLoop(
+            UnifiedEventRequest req,
+            int intervalSeconds,
+            AtomicBoolean stopSignal,
+            AtomicReference<Instant> lastRunAt,
+            AtomicReference<Map<String, Object>> lastResult) {
+        while (!stopSignal.get()) {
+            lastRunAt.set(Instant.now());
+            lastResult.set(generateUnifiedEventsOnce(req));
+            try {
+                Thread.sleep(Math.max(1L, intervalSeconds) * 1000L);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+    }
+
+    private Map<String, Object> buildUnifiedRunnerStatus(UnifiedDemoRunner runner, boolean running) {
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("running", running);
+        response.put("intervalSeconds", runner.intervalSeconds());
+        response.put("startedAt", runner.startedAt().toString());
+        Instant lastRun = runner.lastRunAt().get();
+        if (lastRun != null) {
+            response.put("lastRunAt", lastRun.toString());
+        }
+        Map<String, Object> lastResult = runner.lastResult().get();
+        if (lastResult != null) {
+            response.put("lastResult", lastResult);
+        }
+        response.put("request", runner.request());
+        return response;
+    }
+
+    private record UnifiedDemoRunner(
+            UnifiedEventRequest request,
+            int intervalSeconds,
+            Instant startedAt,
+            AtomicBoolean stopSignal,
+            Future<?> task,
+            AtomicReference<Instant> lastRunAt,
+            AtomicReference<Map<String, Object>> lastResult) {}
 }

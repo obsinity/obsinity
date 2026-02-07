@@ -23,10 +23,16 @@ Quick start:
 # Start the demo stack with Grafana
 docker-compose -f docker-compose.demo.yml up -d
 
-# Generate demo data
+# Start background demo generation
 curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
   -H "Content-Type: application/json" \
-  -d '{"duration": "2m", "eventsPerSecond": 500, "events": 60000, "recentWindow": "1h", "recentWindowSeconds": 10800}'
+  -d '{"duration": "2m", "eventsPerSecond": 500, "events": 60000, "recentWindow": "1h", "recentWindowSeconds": 10800, "runIntervalSeconds": 60}'
+
+Note: demo generation is real-time; timestamps are clustered around "now".
+
+curl http://localhost:8086/internal/demo/generate-unified-events/status
+
+curl -X POST http://localhost:8086/internal/demo/generate-unified-events/stop
 
 # Open Grafana
 open http://localhost:3086

@@ -31,7 +31,7 @@ This will start:
 Use the Insomnia collection or curl to generate test data:
 
 ```bash
-# Generate unified demo events (profile updates + HTTP requests + histograms)
+# Start background demo generation (profile updates + HTTP requests + histograms)
 curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
   -H "Content-Type: application/json" \
   -d '{
@@ -47,8 +47,17 @@ curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
     "tiers": ["FREE", "PLUS", "PRO"],
     "maxEventDurationMillis": 1500,
     "recentWindow": "1h",
-    "recentWindowSeconds": 10800
+    "recentWindowSeconds": 10800,
+    "runIntervalSeconds": 60
   }'
+```
+
+Check status and stop when needed:
+
+```bash
+curl http://localhost:8086/internal/demo/generate-unified-events/status
+
+curl -X POST http://localhost:8086/internal/demo/generate-unified-events/stop
 ```
 
 ### 3. Access Grafana
@@ -212,7 +221,8 @@ curl http://localhost:8086/api/catalog/event-type
 ### No Data in Panels
 1. Verify demo data has been generated
 2. Check the time range (default: last 1 hour)
-3. Ensure the demo generation covers your time range (`recentWindowSeconds` overrides `recentWindow`)
+3. Demo generation is real-time; timestamps are clustered around "now"
+4. Verify the generator is running via `/internal/demo/generate-unified-events/status`
 
 ### Infinity Plugin Not Installed
 If you see datasource errors, manually install:
@@ -259,10 +269,10 @@ Key endpoints used in dashboards:
 
 ### Scenario 1: Profile Update Storm
 ```bash
-# Generate profile updates over 10 minutes
+# Run a tight loop to simulate a bursty feed
 curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
   -H "Content-Type: application/json" \
-  -d '{"duration": "10m", "eventsPerSecond": 20, "recentWindow": "10m"}'
+  -d '{"events": 500, "runIntervalSeconds": 5}'
 ```
 
 Watch the state transitions and counters panels update in real-time.

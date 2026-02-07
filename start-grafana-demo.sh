@@ -75,23 +75,6 @@ for i in {1..30}; do
 done
 
 echo ""
-echo "Generating demo data..."
-curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
-  -H "Content-Type: application/json" \
-  -d '{
-    "serviceKey": "payments",
-    "eventType": "user_profile.updated",
-    "events": 1000,
-    "profilePool": 100,
-    "statuses": ["NEW", "ACTIVE", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED"],
-    "channels": ["web", "mobile", "partner"],
-    "regions": ["us-east", "us-west", "eu-central"],
-    "tiers": ["FREE", "PLUS", "PRO"],
-    "maxDurationMillis": 1500,
-    "recentWindowSeconds": 3600
-  }' 2>/dev/null
-
-echo ""
 echo "=========================================="
 echo "Demo stack is ready!"
 echo "=========================================="

@@ -117,7 +117,7 @@ Starts: PostgreSQL + Obsinity Server + Demo Client + **Grafana** (ports 8086, 80
 # Start the demo stack (includes Grafana)
 docker-compose -f docker-compose.demo.yml up -d
 
-# Generate demo data
+# Start background demo generation
 curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
   -H "Content-Type: application/json" \
   -d '{
@@ -133,8 +133,13 @@ curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
     "tiers": ["FREE", "PLUS", "PRO"],
     "maxEventDurationMillis": 1500,
     "recentWindow": "1h",
-    "recentWindowSeconds": 10800
+    "recentWindowSeconds": 10800,
+    "runIntervalSeconds": 60
   }'
+
+curl http://localhost:8086/internal/demo/generate-unified-events/status
+
+curl -X POST http://localhost:8086/internal/demo/generate-unified-events/stop
 
 # Access Grafana at http://localhost:3086
 # Login: admin/admin
@@ -156,7 +161,7 @@ All panels query the Obsinity REST API (not the database directly), demonstratin
 
 Notes:
 - `events` overrides `duration` x `eventsPerSecond`.
-- `recentWindowSeconds` overrides `recentWindow`.
+- Demo generation is real-time; timestamps are clustered around "now".
 
 ### Documentation
 
