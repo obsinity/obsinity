@@ -1,6 +1,6 @@
 # State Extractors: Turning Events into State Counts and Transitions
 
-Obsinity treats **all incoming data as generic events**. Higher-level behavior—like **state counts** and **state transitions**—is *layered on top* of those events via configuration. This document explains how state extraction works and why we apply this pattern broadly.
+Obsinity treats **all incoming data as generic events**. Higher-level behavior—like **state counts** and **state transitions**—are *layered on top* of those events via configuration. This document explains how state extraction works and why we apply this pattern broadly.
 
 ## Core Idea
 
