@@ -207,6 +207,126 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 35
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "9.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "marcusolsson-json-datasource",
+            "uid": "obsinity-api"
+          },
+          "refId": "A",
+          "queryType": "json",
+          "method": "POST",
+          "path": "/api/query/state-transitions",
+          "body": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"fromStates\":[\"(none)\"],\"toStates\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"ARCHIVED\",\"UPGRADED\"],\"interval\":\"5s\",\"start\":\"${__from:date:iso}\",\"end\":\"${__to:date:iso}\",\"limits\":{\"offset\":0,\"limit\":100}}",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cacheDurationSeconds": 0,
+          "fields": [
+            {
+              "name": "time",
+              "jsonPath": "$[*].from",
+              "type": "time",
+              "language": "jsonpath"
+            },
+            {
+              "name": "fromState",
+              "jsonPath": "$[*].fromState",
+              "type": "string",
+              "language": "jsonpath"
+            },
+            {
+              "name": "toState",
+              "jsonPath": "$[*].toState",
+              "type": "string",
+              "language": "jsonpath"
+            },
+            {
+              "name": "count",
+              "jsonPath": "$[*].count",
+              "type": "number",
+              "language": "jsonpath"
+            }
+          ],
+          "urlPath": "/api/query/state-transitions"
+        }
+      ],
+      "title": "State Transitions Over Time (1m intervals)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "obsinity-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -305,126 +425,6 @@
         }
       ],
       "title": "UserProfile State Count Time Series (1m intervals)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "marcusolsson-json-datasource",
-        "uid": "obsinity-api"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "bars",
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "normal"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 24,
-        "x": 0,
-        "y": 44
-      },
-      "id": 5,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "table",
-          "placement": "right"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "pluginVersion": "9.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "marcusolsson-json-datasource",
-            "uid": "obsinity-api"
-          },
-          "refId": "A",
-          "queryType": "json",
-          "method": "POST",
-          "path": "/api/query/state-transitions",
-          "body": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"fromStates\":[\"(none)\"],\"toStates\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"ARCHIVED\",\"UPGRADED\"],\"interval\":\"5s\",\"start\":\"${__from:date:iso}\",\"end\":\"${__to:date:iso}\",\"limits\":{\"offset\":0,\"limit\":100}}",
-          "headers": [
-            {
-              "key": "Content-Type",
-              "value": "application/json"
-            }
-          ],
-          "cacheDurationSeconds": 0,
-          "fields": [
-            {
-              "name": "time",
-              "jsonPath": "$[*].from",
-              "type": "time",
-              "language": "jsonpath"
-            },
-            {
-              "name": "fromState",
-              "jsonPath": "$[*].fromState",
-              "type": "string",
-              "language": "jsonpath"
-            },
-            {
-              "name": "toState",
-              "jsonPath": "$[*].toState",
-              "type": "string",
-              "language": "jsonpath"
-            },
-            {
-              "name": "count",
-              "jsonPath": "$[*].count",
-              "type": "number",
-              "language": "jsonpath"
-            }
-          ],
-          "urlPath": "/api/query/state-transitions"
-        }
-      ],
-      "title": "State Transitions Over Time (5s intervals)",
       "type": "timeseries"
     },
     {
@@ -656,7 +656,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 35
+        "y": 44
       },
       "id": 8,
       "options": {
@@ -1207,6 +1207,6 @@
   "timezone": "utc",
   "title": "Obsinity Demo - Overview",
   "uid": "obsinity-demo-overview",
-  "version": 43,
+  "version": 46,
   "weekStart": ""
 }

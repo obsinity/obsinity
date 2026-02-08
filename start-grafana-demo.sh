@@ -41,16 +41,25 @@ if $CLEAN_MODE; then
 
     # Explicitly remove named database volumes to guarantee a fresh start.
     if command -v docker &> /dev/null; then
-        for VOLUME in obsinity_pg_demo obsinity_pg; do
+        for VOLUME in obsinity_pg_demo obsinity_pg grafana_data; do
+        if docker volume inspect "${VOLUME}" >/dev/null 2>&1; then
+            docker volume rm -f "${VOLUME}" >/dev/null 2>&1 || true
+            echo "✓ Removed volume ${VOLUME}"
+        fi
+    done
+    fi
+else
+    (cd obsinity-reference-service && ${COMPOSE_CMD} down --remove-orphans 2>/dev/null) || true
+    ${COMPOSE_CMD} -f docker-compose.demo.yml down --remove-orphans || true
+    if command -v docker &> /dev/null; then
+        PROJECT_NAME="$(basename "$(pwd)")"
+        for VOLUME in grafana_data "${PROJECT_NAME}_grafana_data"; do
             if docker volume inspect "${VOLUME}" >/dev/null 2>&1; then
                 docker volume rm -f "${VOLUME}" >/dev/null 2>&1 || true
                 echo "✓ Removed volume ${VOLUME}"
             fi
         done
     fi
-else
-    (cd obsinity-reference-service && ${COMPOSE_CMD} down --remove-orphans 2>/dev/null) || true
-    ${COMPOSE_CMD} -f docker-compose.demo.yml down --remove-orphans || true
 fi
 
 echo "✓ Existing containers stopped"
