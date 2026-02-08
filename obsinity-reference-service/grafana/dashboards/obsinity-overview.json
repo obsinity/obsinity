@@ -591,6 +591,120 @@
         "x": 0,
         "y": 34
       },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "pluginVersion": "9.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "marcusolsson-json-datasource",
+            "uid": "obsinity-api"
+          },
+          "refId": "A",
+          "queryType": "json",
+          "method": "POST",
+          "path": "/api/grafana/state-count-timeseries",
+          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"maxDataPoints\": 360, \"bucket\": \"15m\", \"serviceKey\": \"payments\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"states\": [\"ACTIVE\", \"SUSPENDED\", \"ARCHIVED\"]}",
+          "cacheDurationSeconds": 0,
+          "fields": [
+            {
+              "name": "time",
+              "jsonPath": "$[*].time",
+              "type": "time",
+              "language": "jsonpath"
+            },
+            {
+              "name": "ACTIVE",
+              "jsonPath": "$[*].ACTIVE",
+              "type": "number",
+              "language": "jsonpath"
+            },
+            {
+              "name": "SUSPENDED",
+              "jsonPath": "$[*].SUSPENDED",
+              "type": "number",
+              "language": "jsonpath"
+            },
+            {
+              "name": "ARCHIVED",
+              "jsonPath": "$[*].ARCHIVED",
+              "type": "number",
+              "language": "jsonpath"
+            }
+          ],
+          "urlPath": "/api/grafana/state-count-timeseries"
+        }
+      ],
+      "title": "UserProfile State Count Time Series (15m intervals)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "obsinity-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 43
+      },
       "id": 5,
       "options": {
         "legend": {
@@ -663,120 +777,6 @@
         }
       ],
       "title": "State Transitions Over Time (15m intervals)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "marcusolsson-json-datasource",
-        "uid": "obsinity-api"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 24,
-        "x": 0,
-        "y": 43
-      },
-      "id": 4,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "pluginVersion": "9.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "marcusolsson-json-datasource",
-            "uid": "obsinity-api"
-          },
-          "refId": "A",
-          "queryType": "json",
-          "method": "POST",
-          "path": "/api/grafana/state-count-timeseries",
-          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"maxDataPoints\": 360, \"bucket\": \"15m\", \"serviceKey\": \"payments\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"states\": [\"ACTIVE\", \"SUSPENDED\", \"ARCHIVED\"]}",
-          "cacheDurationSeconds": 0,
-          "fields": [
-            {
-              "name": "time",
-              "jsonPath": "$[*].time",
-              "type": "time",
-              "language": "jsonpath"
-            },
-            {
-              "name": "ACTIVE",
-              "jsonPath": "$[*].ACTIVE",
-              "type": "number",
-              "language": "jsonpath"
-            },
-            {
-              "name": "SUSPENDED",
-              "jsonPath": "$[*].SUSPENDED",
-              "type": "number",
-              "language": "jsonpath"
-            },
-            {
-              "name": "ARCHIVED",
-              "jsonPath": "$[*].ARCHIVED",
-              "type": "number",
-              "language": "jsonpath"
-            }
-          ],
-          "urlPath": "/api/grafana/state-count-timeseries"
-        }
-      ],
-      "title": "UserProfile State Count Time Series (15m intervals)",
       "type": "timeseries"
     }
   ],
