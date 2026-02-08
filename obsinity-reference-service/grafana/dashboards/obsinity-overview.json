@@ -21,415 +21,6 @@
     {
       "datasource": {
         "type": "marcusolsson-json-datasource",
-        "uid": "obsinity-api",
-        "name": "Obsinity API"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 17
-      },
-      "id": 2,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "pluginVersion": "9.0.0",
-      "targets": [
-        {
-          "refId": "A",
-          "queryType": "json",
-          "method": "POST",
-          "path": "/api/grafana/state-counts",
-          "body": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"UPGRADED\",\"ARCHIVED\"]}",
-          "cacheDurationSeconds": 0,
-          "fields": [
-            {
-              "name": "state",
-              "jsonPath": "$[*].state",
-              "type": "string",
-              "language": "jsonpath"
-            },
-            {
-              "name": "count",
-              "jsonPath": "$[*].count",
-              "type": "number",
-              "language": "jsonpath"
-            }
-          ],
-          "urlPath": "/api/grafana/state-counts"
-        }
-      ],
-      "title": "UserProfile State Counts by Status",
-      "type": "barchart"
-    },
-    {
-      "datasource": {
-        "type": "marcusolsson-json-datasource",
-        "uid": "obsinity-api",
-        "name": "Obsinity API"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 17
-      },
-      "id": 3,
-      "options": {
-        "orientation": "horizontal",
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "pluginVersion": "9.0.0",
-      "targets": [
-        {
-          "refId": "A",
-          "queryType": "json",
-          "method": "POST",
-          "path": "/api/grafana/state-counts",
-          "body": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\"]}",
-          "cacheDurationSeconds": 0,
-          "fields": [
-            {
-              "name": "state",
-              "jsonPath": "$[*].state",
-              "type": "string",
-              "language": "jsonpath"
-            },
-            {
-              "name": "count",
-              "jsonPath": "$[*].count",
-              "type": "number",
-              "language": "jsonpath"
-            }
-          ],
-          "urlPath": "/api/grafana/state-counts"
-        }
-      ],
-      "title": "UserProfile State Counts - Key Statuses",
-      "type": "barchart"
-    },
-    {
-      "datasource": {
-        "type": "marcusolsson-json-datasource",
-        "uid": "obsinity-api"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "bars",
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "normal"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 24,
-        "x": 0,
-        "y": 35
-      },
-      "id": 5,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "table",
-          "placement": "right"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "pluginVersion": "9.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "marcusolsson-json-datasource",
-            "uid": "obsinity-api"
-          },
-          "refId": "A",
-          "queryType": "json",
-          "method": "POST",
-          "path": "/api/query/state-transitions",
-          "body": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"fromStates\":[\"(none)\"],\"toStates\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"ARCHIVED\",\"UPGRADED\"],\"interval\":\"5s\",\"start\":\"${__from:date:iso}\",\"end\":\"${__to:date:iso}\",\"limits\":{\"offset\":0,\"limit\":100}}",
-          "headers": [
-            {
-              "key": "Content-Type",
-              "value": "application/json"
-            }
-          ],
-          "cacheDurationSeconds": 0,
-          "fields": [
-            {
-              "name": "time",
-              "jsonPath": "$[*].from",
-              "type": "time",
-              "language": "jsonpath"
-            },
-            {
-              "name": "fromState",
-              "jsonPath": "$[*].fromState",
-              "type": "string",
-              "language": "jsonpath"
-            },
-            {
-              "name": "toState",
-              "jsonPath": "$[*].toState",
-              "type": "string",
-              "language": "jsonpath"
-            },
-            {
-              "name": "count",
-              "jsonPath": "$[*].count",
-              "type": "number",
-              "language": "jsonpath"
-            }
-          ],
-          "urlPath": "/api/query/state-transitions"
-        }
-      ],
-      "title": "State Transitions Over Time (1m intervals)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "marcusolsson-json-datasource",
-        "uid": "obsinity-api"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 24,
-        "x": 0,
-        "y": 26
-      },
-      "id": 4,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "pluginVersion": "9.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "marcusolsson-json-datasource",
-            "uid": "obsinity-api"
-          },
-          "refId": "A",
-          "queryType": "json",
-          "method": "POST",
-          "path": "/api/grafana/state-count-timeseries",
-          "body": "{\"range\":{\"fromMs\":\"${__from}\",\"toMs\":\"${__to}\"},\"maxDataPoints\":360,\"bucket\":\"1m\",\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"ARCHIVED\"]}",
-          "cacheDurationSeconds": 0,
-          "fields": [
-            {
-              "name": "time",
-              "jsonPath": "$[*].time",
-              "type": "time",
-              "language": "jsonpath"
-            },
-            {
-              "name": "ACTIVE",
-              "jsonPath": "$[*].ACTIVE",
-              "type": "number",
-              "language": "jsonpath"
-            },
-            {
-              "name": "SUSPENDED",
-              "jsonPath": "$[*].SUSPENDED",
-              "type": "number",
-              "language": "jsonpath"
-            },
-            {
-              "name": "ARCHIVED",
-              "jsonPath": "$[*].ARCHIVED",
-              "type": "number",
-              "language": "jsonpath"
-            }
-          ],
-          "urlPath": "/api/grafana/state-count-timeseries"
-        }
-      ],
-      "title": "UserProfile State Count Time Series (1m intervals)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "marcusolsson-json-datasource",
         "uid": "obsinity-api"
       },
       "fieldConfig": {
@@ -537,7 +128,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 9
+        "y": 0
       },
       "id": 6,
       "options": {
@@ -598,244 +189,6 @@
         }
       ],
       "title": "HTTP Request Latency - Checkout API (percentiles)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "marcusolsson-json-datasource",
-        "uid": "obsinity-api"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "Count",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "normal"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 44
-      },
-      "id": 8,
-      "options": {
-        "legend": {
-          "calcs": [
-            "sum"
-          ],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "pluginVersion": "9.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "marcusolsson-json-datasource",
-            "uid": "obsinity-api"
-          },
-          "refId": "A",
-          "queryType": "json",
-          "method": "POST",
-          "path": "/api/grafana/event-counts",
-          "body": "{\"range\":{\"fromMs\":\"${__from}\",\"toMs\":\"${__to}\"},\"maxDataPoints\":60,\"bucket\":\"5m\",\"serviceKey\":\"payments\",\"eventType\":\"http_request\",\"filters\":{\"http.method\":[\"GET\"],\"http.status\":[\"200\",\"500\"]}}",
-          "headers": [
-            {
-              "key": "Content-Type",
-              "value": "application/json"
-            }
-          ],
-          "cacheDurationSeconds": 0,
-          "fields": [
-            {
-              "name": "time",
-              "jsonPath": "$[*].from",
-              "type": "time",
-              "language": "jsonpath"
-            },
-            {
-              "name": "http.status",
-              "jsonPath": "$[*][\"http.status\"]",
-              "type": "string",
-              "language": "jsonpath"
-            },
-            {
-              "name": "count",
-              "jsonPath": "$[*].count",
-              "type": "number",
-              "language": "jsonpath"
-            }
-          ],
-          "urlPath": "/api/grafana/event-counts"
-        }
-      ],
-      "title": "HTTP Requests by Status Code (5m rollup)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "marcusolsson-json-datasource",
-        "uid": "obsinity-api"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "Count",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "normal"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 53
-      },
-      "id": 9,
-      "options": {
-        "legend": {
-          "calcs": [
-            "sum"
-          ],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "pluginVersion": "9.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "marcusolsson-json-datasource",
-            "uid": "obsinity-api"
-          },
-          "refId": "A",
-          "queryType": "json",
-          "method": "POST",
-          "path": "/api/grafana/event-counts",
-          "body": "{\"range\":{\"fromMs\":\"${__from}\",\"toMs\":\"${__to}\"},\"maxDataPoints\":120,\"bucket\":\"1h\",\"serviceKey\":\"payments\",\"eventType\":\"user_profile.updated\",\"filters\":{\"user.status\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"UPGRADED\",\"ARCHIVED\"],\"dimensions.channel\":[\"web\",\"mobile\",\"partner\"]}}",
-          "headers": [
-            {
-              "key": "Content-Type",
-              "value": "application/json"
-            }
-          ],
-          "cacheDurationSeconds": 0,
-          "fields": [
-            {
-              "name": "time",
-              "jsonPath": "$[*].from",
-              "type": "time",
-              "language": "jsonpath"
-            },
-            {
-              "name": "user.status",
-              "jsonPath": "$[*][\"user.status\"]",
-              "type": "string",
-              "language": "jsonpath"
-            },
-            {
-              "name": "dimensions.channel",
-              "jsonPath": "$[*][\"dimensions.channel\"]",
-              "type": "string",
-              "language": "jsonpath"
-            },
-            {
-              "name": "count",
-              "jsonPath": "$[*].count",
-              "type": "number",
-              "language": "jsonpath"
-            }
-          ],
-          "urlPath": "/api/grafana/event-counts"
-        }
-      ],
-      "title": "Profile Updates by Status and Channel (1h rollup)",
       "type": "timeseries"
     },
     {
@@ -1008,7 +361,8 @@
     {
       "datasource": {
         "type": "marcusolsson-json-datasource",
-        "uid": "obsinity-api"
+        "uid": "obsinity-api",
+        "name": "Obsinity API"
       },
       "fieldConfig": {
         "defaults": {
@@ -1016,19 +370,19 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisLabel": "Latency (ms)",
+            "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 20,
+            "fillOpacity": 10,
             "gradientMode": "none",
             "hideFrom": {
               "tooltip": false,
               "viz": false,
               "legend": false
             },
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -1052,98 +406,30 @@
                 "value": null
               },
               {
-                "color": "yellow",
-                "value": 500
-              },
-              {
                 "color": "red",
-                "value": 1000
+                "value": 80
               }
             ]
           },
-          "unit": "ms"
+          "unit": "short"
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "p50"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "green",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "p90"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "yellow",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "p95"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "p99"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "red",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
-        "h": 9,
-        "w": 24,
+        "h": 8,
+        "w": 12,
         "x": 0,
-        "y": 61
+        "y": 18
       },
-      "id": 12,
+      "id": 2,
       "options": {
         "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "displayMode": "table",
+          "calcs": [],
+          "displayMode": "list",
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "single"
         }
       },
       "pluginVersion": "9.0.0",
@@ -1151,8 +437,183 @@
         {
           "refId": "A",
           "queryType": "json",
-          "method": "GET",
-          "path": "/api/grafana/static",
+          "method": "POST",
+          "path": "/api/grafana/state-counts",
+          "body": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"NEW\",\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"UPGRADED\",\"ARCHIVED\"]}",
+          "cacheDurationSeconds": 0,
+          "fields": [
+            {
+              "name": "state",
+              "jsonPath": "$[*].state",
+              "type": "string",
+              "language": "jsonpath"
+            },
+            {
+              "name": "count",
+              "jsonPath": "$[*].count",
+              "type": "number",
+              "language": "jsonpath"
+            }
+          ],
+          "urlPath": "/api/grafana/state-counts"
+        }
+      ],
+      "title": "UserProfile State Counts by Status",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "obsinity-api",
+        "name": "Obsinity API"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 26
+      },
+      "id": 3,
+      "options": {
+        "orientation": "horizontal",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "pluginVersion": "9.0.0",
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "json",
+          "method": "POST",
+          "path": "/api/grafana/state-counts",
+          "body": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"SUSPENDED\",\"BLOCKED\"]}",
+          "cacheDurationSeconds": 0,
+          "fields": [
+            {
+              "name": "state",
+              "jsonPath": "$[*].state",
+              "type": "string",
+              "language": "jsonpath"
+            },
+            {
+              "name": "count",
+              "jsonPath": "$[*].count",
+              "type": "number",
+              "language": "jsonpath"
+            }
+          ],
+          "urlPath": "/api/grafana/state-counts"
+        }
+      ],
+      "title": "UserProfile State Counts - Key Statuses",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "obsinity-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "pluginVersion": "9.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "marcusolsson-json-datasource",
+            "uid": "obsinity-api"
+          },
+          "refId": "A",
+          "queryType": "json",
+          "method": "POST",
+          "path": "/api/grafana/state-transitions",
+          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"maxDataPoints\": 360, \"bucket\": \"15m\", \"serviceKey\": \"payments\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"fromStates\": [\"(none)\"], \"toStates\": [\"NEW\", \"ACTIVE\", \"SUSPENDED\", \"BLOCKED\", \"ARCHIVED\", \"UPGRADED\"]}",
           "cacheDurationSeconds": 0,
           "fields": [
             {
@@ -1162,28 +623,160 @@
               "language": "jsonpath"
             },
             {
-              "name": "p50",
-              "jsonPath": "$[*].p50",
+              "name": "(none) -> NEW",
+              "jsonPath": "$[*]['(none) -> NEW']",
               "type": "number",
               "language": "jsonpath"
             },
             {
-              "name": "p90",
-              "jsonPath": "$[*].p90",
+              "name": "(none) -> ACTIVE",
+              "jsonPath": "$[*]['(none) -> ACTIVE']",
               "type": "number",
               "language": "jsonpath"
             },
             {
-              "name": "p99",
-              "jsonPath": "$[*].p99",
+              "name": "(none) -> SUSPENDED",
+              "jsonPath": "$[*]['(none) -> SUSPENDED']",
+              "type": "number",
+              "language": "jsonpath"
+            },
+            {
+              "name": "(none) -> BLOCKED",
+              "jsonPath": "$[*]['(none) -> BLOCKED']",
+              "type": "number",
+              "language": "jsonpath"
+            },
+            {
+              "name": "(none) -> ARCHIVED",
+              "jsonPath": "$[*]['(none) -> ARCHIVED']",
+              "type": "number",
+              "language": "jsonpath"
+            },
+            {
+              "name": "(none) -> UPGRADED",
+              "jsonPath": "$[*]['(none) -> UPGRADED']",
               "type": "number",
               "language": "jsonpath"
             }
           ],
-          "urlPath": "/api/grafana/static"
+          "urlPath": "/api/grafana/state-transitions"
         }
       ],
-      "title": "Static Latency Percentiles (24h)",
+      "title": "State Transitions Over Time (15m intervals)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "obsinity-api"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 43
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "pluginVersion": "9.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "marcusolsson-json-datasource",
+            "uid": "obsinity-api"
+          },
+          "refId": "A",
+          "queryType": "json",
+          "method": "POST",
+          "path": "/api/grafana/state-count-timeseries",
+          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"maxDataPoints\": 360, \"bucket\": \"15m\", \"serviceKey\": \"payments\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"states\": [\"ACTIVE\", \"SUSPENDED\", \"ARCHIVED\"]}",
+          "cacheDurationSeconds": 0,
+          "fields": [
+            {
+              "name": "time",
+              "jsonPath": "$[*].time",
+              "type": "time",
+              "language": "jsonpath"
+            },
+            {
+              "name": "ACTIVE",
+              "jsonPath": "$[*].ACTIVE",
+              "type": "number",
+              "language": "jsonpath"
+            },
+            {
+              "name": "SUSPENDED",
+              "jsonPath": "$[*].SUSPENDED",
+              "type": "number",
+              "language": "jsonpath"
+            },
+            {
+              "name": "ARCHIVED",
+              "jsonPath": "$[*].ARCHIVED",
+              "type": "number",
+              "language": "jsonpath"
+            }
+          ],
+          "urlPath": "/api/grafana/state-count-timeseries"
+        }
+      ],
+      "title": "UserProfile State Count Time Series (15m intervals)",
       "type": "timeseries"
     }
   ],

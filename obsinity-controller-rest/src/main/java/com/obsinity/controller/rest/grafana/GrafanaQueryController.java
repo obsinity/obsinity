@@ -48,11 +48,19 @@ public class GrafanaQueryController {
             Duration.ofDays(7));
     private static final List<Duration> STATE_BUCKETS =
             List.of(Duration.ofMinutes(1), Duration.ofMinutes(5), Duration.ofHours(1), Duration.ofDays(1));
+    private static final List<Duration> TRANSITION_BUCKETS = List.of(
+            Duration.ofSeconds(5),
+            Duration.ofMinutes(1),
+            Duration.ofMinutes(5),
+            Duration.ofHours(1),
+            Duration.ofDays(1),
+            Duration.ofDays(7));
 
     private final HistogramQueryService histogramQueryService;
     private final StateCountTimeseriesQueryService stateCountTimeseriesQueryService;
     private final StateCountQueryService stateCountQueryService;
     private final CounterQueryService counterQueryService;
+    private final com.obsinity.service.core.state.query.StateTransitionQueryService stateTransitionQueryService;
     private final ObjectMapper objectMapper;
 
     public GrafanaQueryController(
@@ -60,11 +68,13 @@ public class GrafanaQueryController {
             StateCountTimeseriesQueryService stateCountTimeseriesQueryService,
             StateCountQueryService stateCountQueryService,
             CounterQueryService counterQueryService,
+            com.obsinity.service.core.state.query.StateTransitionQueryService stateTransitionQueryService,
             ObjectMapper objectMapper) {
         this.histogramQueryService = histogramQueryService;
         this.stateCountTimeseriesQueryService = stateCountTimeseriesQueryService;
         this.stateCountQueryService = stateCountQueryService;
         this.counterQueryService = counterQueryService;
+        this.stateTransitionQueryService = stateTransitionQueryService;
         this.objectMapper = objectMapper;
     }
 
@@ -133,6 +143,62 @@ public class GrafanaQueryController {
         return rowsOnly(runEventCount(query.range(), query.request(), query.query()));
     }
 
+    @PostMapping(path = "/state-transitions", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public List<Map<String, Object>> stateTransitions(@RequestBody JsonNode requestBody) {
+        GrafanaStateTransitionRequest request = parseStateTransitionRequest(requestBody);
+        GrafanaRangeResolver.ResolvedRange range = GrafanaRangeResolver.resolve(request.range());
+        String bucket = GrafanaBucketResolver.resolveBucket(
+                request.bucket(),
+                request.intervalMs(),
+                request.maxDataPoints(),
+                range.fromMs(),
+                range.toMs(),
+                TRANSITION_BUCKETS);
+        int limit = resolveLimit(range, bucket, request.maxDataPoints());
+
+        java.time.Instant start = range.from();
+        java.time.Instant end = range.to();
+        if (!end.isAfter(start)) {
+            Duration step = DurationParser.parse(bucket);
+            end = start.plus(step.isZero() ? Duration.ofMinutes(1) : step);
+        }
+
+        com.obsinity.service.core.state.query.StateTransitionQueryRequest payload =
+                new com.obsinity.service.core.state.query.StateTransitionQueryRequest(
+                        request.serviceKey(),
+                        request.objectType(),
+                        request.attribute(),
+                        request.fromStates(),
+                        request.toStates(),
+                        bucket,
+                        start.toString(),
+                        end.toString(),
+                        new com.obsinity.service.core.state.query.StateTransitionQueryRequest.Limits(0, limit),
+                        ResponseFormat.ROW);
+
+        com.obsinity.service.core.state.query.StateTransitionQueryResult result =
+                stateTransitionQueryService.runQuery(payload);
+
+        List<String> transitionLabels = buildTransitionLabels(request.fromStates(), request.toStates());
+        Map<String, Map<String, Object>> rowsByTime = new LinkedHashMap<>();
+        for (com.obsinity.service.core.state.query.StateTransitionQueryWindow window : result.windows()) {
+            String time = window.start();
+            Map<String, Object> row = rowsByTime.computeIfAbsent(time, key -> {
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("time", key);
+                for (String label : transitionLabels) {
+                    map.put(label, 0L);
+                }
+                return map;
+            });
+            for (com.obsinity.service.core.state.query.StateTransitionQueryWindow.Entry entry : window.transitions()) {
+                String label = entry.fromState() + " -> " + entry.toState();
+                row.put(label, entry.count());
+            }
+        }
+        return rowsByTime.values().stream().toList();
+    }
+
     @ExceptionHandler({IllegalArgumentException.class, DateTimeParseException.class})
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, Object> handleBadRequest(Exception ex) {
@@ -198,6 +264,50 @@ public class GrafanaQueryController {
                 }
             }
         }
+    }
+
+    private GrafanaStateTransitionRequest parseStateTransitionRequest(JsonNode requestBody) {
+        if (requestBody == null || requestBody.isNull()) {
+            throw new IllegalArgumentException("Grafana state transition payload is required");
+        }
+        if (requestBody.isObject()) {
+            ObjectNode root = ((ObjectNode) requestBody).deepCopy();
+            coerceLong(root, "intervalMs");
+            coerceInteger(root, "maxDataPoints");
+            JsonNode rangeNode = root.get("range");
+            if (rangeNode instanceof ObjectNode range) {
+                coerceLong(range, "fromMs");
+                coerceLong(range, "toMs");
+            }
+            return objectMapper.convertValue(root, GrafanaStateTransitionRequest.class);
+        }
+        return objectMapper.convertValue(requestBody, GrafanaStateTransitionRequest.class);
+    }
+
+    private record GrafanaStateTransitionRequest(
+            GrafanaQueryModels.Range range,
+            Long intervalMs,
+            Integer maxDataPoints,
+            String bucket,
+            String serviceKey,
+            String objectType,
+            String attribute,
+            List<String> fromStates,
+            List<String> toStates) {}
+
+    private List<String> buildTransitionLabels(List<String> fromStates, List<String> toStates) {
+        if (fromStates == null || fromStates.isEmpty() || toStates == null || toStates.isEmpty()) {
+            return List.of();
+        }
+        List<String> labels = new ArrayList<>();
+        for (String from : fromStates) {
+            if (from == null) continue;
+            for (String to : toStates) {
+                if (to == null) continue;
+                labels.add(from + " -> " + to);
+            }
+        }
+        return labels;
     }
 
     private GrafanaResult runHistogram(

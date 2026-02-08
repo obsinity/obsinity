@@ -36,10 +36,8 @@ resources:
       sdk_version: 0.1.0
       cloud_provider: local
       cloud_region: local-dev
-      grafana_from_ms: "1769793268718"
-      grafana_to_ms: "1769796868718"
-      grafana_from_iso: "2026-01-30T17:14:28Z"
-      grafana_to_iso: "2026-01-30T18:14:28Z"
+      grafana_from_iso: "{% now 'iso-8601', 'utc', -3600000 %}"
+      grafana_to_iso: "{% now 'iso-8601', 'utc' %}"
 
       # Event defaults
       event_name: http_request
@@ -71,6 +69,15 @@ resources:
     name: obsinity.org
     data:
       base_url: https://data.obsinity.org
+    _type: environment
+
+  - _id: env_local
+    parentId: env_48ee75400dc54513958ace253d876e61
+    modified: 1769900002000
+    created: 1769900002000
+    name: local
+    data:
+      base_url: http://localhost:8086
     _type: environment
 
   - _id: env_spitfire_dublinux_lan
@@ -140,6 +147,33 @@ resources:
     modified: 1769800000000
     name: Grafana
     _type: request_group
+
+  - _id: req_grafana_state_transitions
+    parentId: fld_grafana
+    created: 1769900001000
+    modified: 1769900001000
+    name: Grafana → State Transitions Timeseries
+    method: POST
+    url: "{{ base_url }}/api/grafana/state-transitions"
+    headers:
+      - name: Content-Type
+        value: application/json
+      - name: Accept
+        value: application/json
+    body:
+      mimeType: application/json
+      text: |-
+        {
+          "range": {"from": "{{ grafana_from_iso }}", "to": "{{ grafana_to_iso }}"},
+          "maxDataPoints": 360,
+          "bucket": "1m",
+          "serviceKey": "payments",
+          "objectType": "UserProfile",
+          "attribute": "user.status",
+          "fromStates": ["(none)"],
+          "toStates": ["NEW","ACTIVE","SUSPENDED","BLOCKED","ARCHIVED","UPGRADED"]
+        }
+    _type: request
 
   - _id: fld_demo
     parentId: wrk_68f2907246df440f96e2f024b4a89fee
@@ -1481,7 +1515,7 @@ resources:
       mimeType: application/json
       text: |
         {
-          "serviceKey": "payments",
+          "serviceKey": "{{ service_id }}",
           "eventType": "user_profile.updated",
           "counterName": "user_profile_updates_by_status",
           "interval": "1m",
