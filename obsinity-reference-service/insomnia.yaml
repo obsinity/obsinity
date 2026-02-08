@@ -73,6 +73,15 @@ resources:
       base_url: https://data.obsinity.org
     _type: environment
 
+  - _id: env_spitfire_dublinux_lan
+    parentId: env_48ee75400dc54513958ace253d876e61
+    modified: 1769900000000
+    created: 1769900000000
+    name: spitfire
+    data:
+      base_url: http://spitfire.dublinux.lan:8086
+    _type: environment
+
   # ===================== Cookie Jar =====================
   - _id: jar_a149c3669a9047f3aef00b245c81d669
     parentId: wrk_68f2907246df440f96e2f024b4a89fee
