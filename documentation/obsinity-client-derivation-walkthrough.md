@@ -68,31 +68,30 @@ flowchart LR
 
 # 2. Configuration
 
-## 2.1 State Model – Order Lifecycle
+> **Note:** Event and metric names in Obsinity configs use `snake_case` (e.g., `order_created`, `payment_completed`).
+
+### 2.1 State Model – Order Lifecycle
 
 ```yaml
 stateModels:
-  - name: order-lifecycle
-    entityKey: entityId
+  - name: order_lifecycle
+    entityKey: entity_id
     initialState: CREATED
-
     transitions:
       - from: CREATED
-        event: OrderProcessingStarted
+        event: order_processing_started
         to: PROCESSING
-
       - from: PROCESSING
-        event: PaymentCompleted
+        event: payment_completed
         to: COMPLETED
         terminal: true
-
       - from: PROCESSING
-        event: PaymentFailed
+        event: payment_failed
         to: FAILED
         terminal: true
 ```
 
-### Semantics
+#### Semantics
 
 * State derived from events
 * Terminal states prevent further transitions
@@ -100,26 +99,26 @@ stateModels:
 
 ---
 
-## 2.2 Metrics Configuration
+### 2.2 Metrics Configuration
 
 ```yaml
 metrics:
-  - name: payment-success-count
-    sourceEvent: PaymentCompleted
+  - name: payment_success_count
+    sourceEvent: payment_completed
     aggregation: count
     bucket: 1m
 
-  - name: payment-failure-count
-    sourceEvent: PaymentFailed
+  - name: payment_failure_count
+    sourceEvent: payment_failed
     aggregation: count
     bucket: 1m
 
-  - name: payment-success-rate
+  - name: payment_success_rate
     type: ratio
-    numerator: payment-success-count
+    numerator: payment_success_count
     denominator:
-      - payment-success-count
-      - payment-failure-count
+      - payment_success_count
+      - payment_failure_count
 ```
 
 ---
@@ -131,28 +130,28 @@ Five events across ~3 minutes.
 ```json
 [
   {
-    "eventName": "OrderCreated",
-    "entityId": "order-123",
+    "event_name": "order_created",
+    "entity_id": "order-123",
     "timestamp": "2026-02-11T10:00:04Z"
   },
   {
-    "eventName": "OrderProcessingStarted",
-    "entityId": "order-123",
+    "event_name": "order_processing_started",
+    "entity_id": "order-123",
     "timestamp": "2026-02-11T10:01:01Z"
   },
   {
-    "eventName": "PaymentFailed",
-    "entityId": "order-123",
+    "event_name": "payment_failed",
+    "entity_id": "order-123",
     "timestamp": "2026-02-11T10:01:38Z"
   },
   {
-    "eventName": "PaymentCompleted",
-    "entityId": "order-124",
+    "event_name": "payment_completed",
+    "entity_id": "order-124",
     "timestamp": "2026-02-11T10:02:08Z"
   },
   {
-    "eventName": "PaymentCompleted",
-    "entityId": "order-123",
+    "event_name": "payment_completed",
+    "entity_id": "order-123",
     "timestamp": "2026-02-11T10:02:55Z",
     "note": "Late arrival (ingested at 10:03:15Z)"
   }
@@ -332,7 +331,7 @@ No separate funnel system required.
 
 Configuration defines behavior.
 
-AI-assisted configuration must be:
+All configuration must be:
 
 * Human reviewed
 * Tested against realistic event streams
@@ -351,4 +350,3 @@ Derived systems are powerful but correctness depends on configuration accuracy.
 > Queries expose derived signals over any time window.
 > Late events preserve correctness.
 
----
