@@ -36,7 +36,7 @@ It also highlights:
 ```mermaid
 flowchart LR
   A[Client App] --> B[Emit Events]
-  B --> C[Transport\nHTTP / Kafka / RMQ]
+  B --> C[Transport HTTP Kafka RMQ]
   C --> D[Obsinity Ingest]
   D --> E[(Event Store)]
   E --> F[Derivation Engine]
@@ -45,9 +45,8 @@ flowchart LR
   F --> H[State Models]
   F --> I[Snapshots]
 
-  %% Planned features
-  F --> J[Alerts (Planned)]
-  F --> K[Forwarding (Planned)]
+  F --> J[Alerts - Planned]
+  F --> K[Forwarding - Planned]
 ```
 
 ## Implemented
