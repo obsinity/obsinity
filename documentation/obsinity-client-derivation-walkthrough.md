@@ -70,117 +70,279 @@ flowchart LR
 
 > **Note:** Event and metric names in Obsinity configs use `snake_case` (e.g., `order_created`, `payment_completed`).
 
-### 2.1 State Model – Order Lifecycle
+### 2.1 Event Definitions
 
 ```yaml
-stateModels:
-  - name: order_lifecycle
-    entityKey: entity_id
-    initialState: CREATED
-    transitions:
-      - from: CREATED
-        event: order_processing_started
-        to: PROCESSING
-      - from: PROCESSING
-        event: payment_completed
-        to: COMPLETED
-        terminal: true
-      - from: PROCESSING
-        event: payment_failed
-        to: FAILED
-        terminal: true
+---
+apiVersion: obsinity/v1
+kind: Event
+metadata:
+  service: payments
+  name: order_created
+  displayName: Order Created
+  labels:
+    category: order
+spec:
+  retention:
+    ttl: "30d"
+  schema:
+    type: object
+    properties:
+      order:
+        type: object
+        properties:
+          order_id: { type: string, index: true }
+          customer_id: { type: string, index: true }
+          status: { type: string, index: true }
+---
+apiVersion: obsinity/v1
+kind: Event
+metadata:
+  service: payments
+  name: payment_completed
+  displayName: Payment Completed
+  labels:
+    category: payment
+spec:
+  retention:
+    ttl: "30d"
+  schema:
+    type: object
+    properties:
+      payment:
+        type: object
+        properties:
+          order_id: { type: string, index: true }
+          amount: { type: number }
+          status: { type: string, index: true }
+---
+apiVersion: obsinity/v1
+kind: Event
+metadata:
+  service: payments
+  name: payment_failed
+  displayName: Payment Failed
+  labels:
+    category: payment
+spec:
+  retention:
+    ttl: "30d"
+  schema:
+    type: object
+    properties:
+      payment:
+        type: object
+        properties:
+          order_id: { type: string, index: true }
+          reason: { type: string, index: true }
+          status: { type: string, index: true }
+```
+
+---
+
+### 2.2 State Extractors
+
+```yaml
+service: payments
+stateExtractors:
+  - rawType: order_created
+    objectType: Order
+    objectIdField: order.order_id
+    stateAttributes:
+      - order.status
+  - rawType: payment_completed
+    objectType: Order
+    objectIdField: payment.order_id
+    stateAttributes:
+      - payment.status
+  - rawType: payment_failed
+    objectType: Order
+    objectIdField: payment.order_id
+    stateAttributes:
+      - payment.status
 ```
 
 #### Semantics
 
 * State derived from events
-* Terminal states prevent further transitions
-* Invalid transitions may return: `REJECTED`
+* State extractors map event fields to object state
+* Object state tracked by objectIdField
 
 ---
 
-### 2.2 Metrics Configuration
+### 2.3 Metrics Configuration
 
 ```yaml
-metrics:
-  - name: payment_success_count
-    sourceEvent: payment_completed
-    aggregation: count
-    bucket: 1m
-
-  - name: payment_failure_count
-    sourceEvent: payment_failed
-    aggregation: count
-    bucket: 1m
-
-  - name: payment_success_rate
-    type: ratio
-    numerator: payment_success_count
-    denominator:
-      - payment_success_count
-      - payment_failure_count
+---
+apiVersion: obsinity/v1
+kind: MetricCounter
+metadata:
+  service: payments
+  event: payment_completed
+  name: payment_success_count
+  displayName: Payment Success Count
+  labels:
+    category: payment
+spec:
+  sourceEvent:
+    service: payments
+    name: payment_completed
+  key:
+    dimensions:
+      - payment.status
+  rollup:
+    windowing:
+      granularities: ["1m", "5m", "1h", "1d", "7d"]
+    operation: count
+  attributeMapping:
+    status: payment.status
+---
+apiVersion: obsinity/v1
+kind: MetricCounter
+metadata:
+  service: payments
+  event: payment_failed
+  name: payment_failure_count
+  displayName: Payment Failure Count
+  labels:
+    category: payment
+spec:
+  sourceEvent:
+    service: payments
+    name: payment_failed
+  key:
+    dimensions:
+      - payment.status
+  rollup:
+    windowing:
+      granularities: ["1m", "5m", "1h", "1d", "7d"]
+    operation: count
+  attributeMapping:
+    status: payment.status
 ```
 
 ---
 
 # 3. Event Stream Example
 
-Five events across ~3 minutes.
+Five events across ~3 minutes, published using `/events/publish` endpoint.
 
 ```json
 [
   {
-    "event_name": "order_created",
-    "entity_id": "order-123",
-    "timestamp": "2026-02-11T10:00:04Z"
+    "resource": {
+      "service": { "name": "payments" }
+    },
+    "event": { "name": "order_created" },
+    "time": {
+      "startedAt": "2026-02-11T10:00:04Z",
+      "endedAt": "2026-02-11T10:00:04Z"
+    },
+    "attributes": {
+      "order": {
+        "order_id": "order-123",
+        "customer_id": "cust-456",
+        "status": "CREATED"
+      }
+    }
   },
   {
-    "event_name": "order_processing_started",
-    "entity_id": "order-123",
-    "timestamp": "2026-02-11T10:01:01Z"
+    "resource": {
+      "service": { "name": "payments" }
+    },
+    "event": { "name": "order_processing_started" },
+    "time": {
+      "startedAt": "2026-02-11T10:01:01Z",
+      "endedAt": "2026-02-11T10:01:01Z"
+    },
+    "attributes": {
+      "order": {
+        "order_id": "order-123",
+        "status": "PROCESSING"
+      }
+    }
   },
   {
-    "event_name": "payment_failed",
-    "entity_id": "order-123",
-    "timestamp": "2026-02-11T10:01:38Z"
+    "resource": {
+      "service": { "name": "payments" }
+    },
+    "event": { "name": "payment_failed" },
+    "time": {
+      "startedAt": "2026-02-11T10:01:38Z",
+      "endedAt": "2026-02-11T10:01:38Z"
+    },
+    "attributes": {
+      "payment": {
+        "order_id": "order-123",
+        "reason": "insufficient_funds",
+        "status": "FAILED"
+      }
+    }
   },
   {
-    "event_name": "payment_completed",
-    "entity_id": "order-124",
-    "timestamp": "2026-02-11T10:02:08Z"
+    "resource": {
+      "service": { "name": "payments" }
+    },
+    "event": { "name": "payment_completed" },
+    "time": {
+      "startedAt": "2026-02-11T10:02:08Z",
+      "endedAt": "2026-02-11T10:02:08Z"
+    },
+    "attributes": {
+      "payment": {
+        "order_id": "order-124",
+        "amount": 99.99,
+        "status": "COMPLETED"
+      }
+    }
   },
   {
-    "event_name": "payment_completed",
-    "entity_id": "order-123",
-    "timestamp": "2026-02-11T10:02:55Z",
+    "resource": {
+      "service": { "name": "payments" }
+    },
+    "event": { "name": "payment_completed" },
+    "time": {
+      "startedAt": "2026-02-11T10:02:55Z",
+      "endedAt": "2026-02-11T10:02:55Z"
+    },
+    "attributes": {
+      "payment": {
+        "order_id": "order-123",
+        "amount": 149.99,
+        "status": "COMPLETED"
+      }
+    },
     "note": "Late arrival (ingested at 10:03:15Z)"
   }
 ]
 ```
 
+**Note:** Attributes can also be sent in flat dotted notation (e.g., `"payment.order_id": "order-123"`) instead of nested objects.
+
 ---
 
 # 4. Derived State Transitions
 
-## 4.1 order-123
+State is extracted from events using the state extractors defined in section 2.2. Each event updates the state attributes of the Order object identified by `order_id`.
 
-| Event                   | From → To            | Result        |
-| ----------------------- | -------------------- | ------------- |
-| OrderProcessingStarted  | CREATED → PROCESSING | OK            |
-| PaymentFailed           | PROCESSING → FAILED  | OK (terminal) |
-| PaymentCompleted (late) | FAILED → COMPLETED   | REJECTED      |
+## 4.1 order-123 State Evolution
 
-Since FAILED is terminal, the late success does not alter state.
+| Event                  | State Attribute      | Value       | Notes                                  |
+| ---------------------- | -------------------- | ----------- | -------------------------------------- |
+| order_created          | order.status         | CREATED     | Initial state                          |
+| order_processing_start | order.status         | PROCESSING  | State updated                          |
+| payment_failed         | payment.status       | FAILED      | Payment attempt failed                 |
+| payment_completed (late)| payment.status      | COMPLETED   | Late arrival updates historical state  |
 
-State model enforces lifecycle integrity.
+The late `payment_completed` event updates the state retroactively based on its timestamp.
 
 ---
 
-## 4.2 order-124
+## 4.2 order-124 State Evolution
 
-| Event            | From → To              |
-| ---------------- | ---------------------- |
-| PaymentCompleted | PROCESSING → COMPLETED |
+| Event             | State Attribute | Value     | Notes         |
+| ----------------- | --------------- | --------- | ------------- |
+| payment_completed | payment.status  | COMPLETED | Direct success|
 
 ---
 
@@ -223,9 +385,13 @@ Metrics are not append-only.
 
 ## 5.3 payment-success-rate
 
+Ratios are computed from counter queries:
+
 ```
 success / (success + failure)
 ```
+
+Query both `payment_success_count` and `payment_failure_count` counters, then compute the ratio:
 
 | Bucket | Success | Failure | Rate |
 | ------ | ------- | ------- | ---- |
@@ -233,82 +399,555 @@ success / (success + failure)
 | 10:02  | 2       | 0       | 1.0  |
 | 10:03  | 0       | 0       | null |
 
+**Note:** Ratio computation can be done client-side or via dashboard tooling (e.g., Grafana transformations).
+
 ---
 
 # 6. Query Output Examples
 
-## 6.1 Metric Query (Interval Format)
+## Response Format Overview
+
+### HAL (Hypertext Application Language)
+
+All Obsinity API responses follow the **HAL** standard, providing:
+
+- **Hypermedia controls** via `links` object (HATEOAS)
+- **Self-describing APIs** with embedded navigation
+- **Pagination support** with `next`, `prev`, `first`, `last` links
+
+### Dual Format Support
+
+Obsinity supports two response formats controlled by the `format` query parameter:
+
+1. **Row Format (default)**: Traditional JSON array of objects
+   ```json
+   {
+     "rows": [
+       { "state": "ACTIVE", "count": 100 },
+       { "state": "PENDING", "count": 50 }
+     ]
+   }
+   ```
+
+2. **Columnar Format** (`format: "columnar"`): Apache Arrow-compatible columnar structure
+   ```json
+   {
+     "data": {
+       "schema": {
+         "fields": [
+           { "name": "state", "type": "string" },
+           { "name": "count", "type": "integer" }
+         ]
+       },
+       "data": {
+         "state": ["ACTIVE", "PENDING"],
+         "count": [100, 50]
+       }
+     },
+     "rows": [
+       { "state": "ACTIVE", "count": 100 },
+       { "state": "PENDING", "count": 50 }
+     ]
+   }
+   ```
+
+**Benefits of Columnar Format:**
+- **Efficient serialization** for large datasets
+- **Native Arrow/Parquet compatibility** for data pipelines
+- **Type-safe schema** embedded in response
+- **Reduced payload size** for repeated field names
+- **Both formats included** in response (columnar + rows)
+
+### Grafana-Specific API
+
+Obsinity provides dedicated Grafana endpoints optimized for dashboard queries:
+
+- `/api/grafana/counters` - Counter metrics in Grafana frames format
+- `/api/grafana/histograms` - Histogram percentiles in Grafana frames format
+- `/api/grafana/state-transitions` - State transitions in Grafana frames format
+
+These endpoints return data in Grafana's native data frame format for optimal dashboard performance.
+
+---
+
+## 6.1 Metric Counter Query
+
+Query request to `/api/query/counters`:
 
 ```json
 {
-  "meta": {
-    "timezone": "UTC",
-    "bucket": "1m"
+  "serviceKey": "payments",
+  "eventType": "payment_completed",
+  "counterName": "payment_success_count",
+  "interval": "1m",
+  "key": {
+    "payment.status": ["COMPLETED"]
   },
-  "intervals": [
-    { "start": "10:01", "value": 0 },
-    { "start": "10:02", "value": 2 },
-    { "start": "10:03", "value": 0 }
-  ]
+  "limits": {
+    "offset": 0,
+    "limit": 10
+  }
 }
 ```
 
----
-
-## 6.2 Ratio Query
+Response format (intervals with counts):
 
 ```json
 {
-  "meta": {
-    "formula": "success / (success + failure)"
+  "count": 3,
+  "total": 3,
+  "limit": 10,
+  "offset": 0,
+  "data": [
+    {
+      "windowStart": "2026-02-11T10:01:00Z",
+      "dimensions": { "payment.status": "COMPLETED" },
+      "count": 0
+    },
+    {
+      "windowStart": "2026-02-11T10:02:00Z",
+      "dimensions": { "payment.status": "COMPLETED" },
+      "count": 2
+    },
+    {
+      "windowStart": "2026-02-11T10:03:00Z",
+      "dimensions": { "payment.status": "COMPLETED" },
+      "count": 0
+    }
+  ],
+  "links": {
+    "self": {
+      "href": "/api/query/counters",
+      "method": "POST",
+      "body": {
+        "serviceKey": "payments",
+        "eventType": "payment_completed",
+        "counterName": "payment_success_count",
+        "interval": "1m",
+        "key": { "payment.status": ["COMPLETED"] },
+        "limits": { "offset": 0, "limit": 10 }
+      }
+    }
+  }
+}
+```
+
+**Notes:**
+- HAL `links` object provides API navigation
+- Add `"format": "columnar"` to request for columnar output
+- Columnar format includes both `data` (columnar) and `rows` (traditional) representations
+
+---
+
+## 6.2 State Transition Query
+
+Query request to `/api/query/state-transitions`:
+
+```json
+{
+  "serviceKey": "payments",
+  "objectType": "Order",
+  "attribute": "order.status",
+  "fromStates": ["(none)"],
+  "toStates": ["CREATED", "PROCESSING", "COMPLETED", "FAILED"],
+  "interval": "5s",
+  "start": "2026-02-11T10:00:00Z",
+  "end": "2026-02-11T10:05:00Z",
+  "limits": {
+    "offset": 0,
+    "limit": 20
   },
-  "intervals": [
-    { "start": "10:01", "value": 0.0 },
-    { "start": "10:02", "value": 1.0 },
-    { "start": "10:03", "value": null }
-  ]
+  "format": "columnar"
 }
 ```
 
----
-
-## 6.3 Transition Query
+Response format (columnar with full HAL pagination):
 
 ```json
 {
-  "transitions": [
-    { "entityId": "order-123", "from": "CREATED", "to": "PROCESSING" },
-    { "entityId": "order-123", "from": "PROCESSING", "to": "FAILED" },
-    { "entityId": "order-124", "from": "PROCESSING", "to": "COMPLETED" }
-  ]
+  "count": 20,
+  "total": 480,
+  "limit": 20,
+  "offset": 0,
+  "data": {
+    "schema": {
+      "fields": [
+        { "name": "from", "type": "string" },
+        { "name": "to", "type": "string" },
+        { "name": "fromState", "type": "string" },
+        { "name": "toState", "type": "string" },
+        { "name": "count", "type": "integer" }
+      ]
+    },
+    "data": {
+      "from": [
+        "2026-02-11T10:00:00Z",
+        "2026-02-11T10:00:00Z",
+        "2026-02-11T10:00:05Z",
+        "2026-02-11T10:00:05Z"
+      ],
+      "to": [
+        "2026-02-11T10:00:05Z",
+        "2026-02-11T10:00:05Z",
+        "2026-02-11T10:00:10Z",
+        "2026-02-11T10:00:10Z"
+      ],
+      "fromState": [
+        "(none)",
+        "(none)",
+        "(none)",
+        "(none)"
+      ],
+      "toState": [
+        "CREATED",
+        "PROCESSING",
+        "CREATED",
+        "PROCESSING"
+      ],
+      "count": [
+        5,
+        2,
+        3,
+        1
+      ]
+    }
+  },
+  "rows": [
+    {
+      "from": "2026-02-11T10:00:00Z",
+      "to": "2026-02-11T10:00:05Z",
+      "fromState": "(none)",
+      "toState": "CREATED",
+      "count": 5
+    },
+    {
+      "from": "2026-02-11T10:00:00Z",
+      "to": "2026-02-11T10:00:05Z",
+      "fromState": "(none)",
+      "toState": "PROCESSING",
+      "count": 2
+    },
+    {
+      "from": "2026-02-11T10:00:05Z",
+      "to": "2026-02-11T10:00:10Z",
+      "fromState": "(none)",
+      "toState": "CREATED",
+      "count": 3
+    },
+    {
+      "from": "2026-02-11T10:00:05Z",
+      "to": "2026-02-11T10:00:10Z",
+      "fromState": "(none)",
+      "toState": "PROCESSING",
+      "count": 1
+    }
+  ],
+  "links": {
+    "self": {
+      "href": "/api/query/state-transitions",
+      "method": "POST",
+      "body": {
+        "serviceKey": "payments",
+        "objectType": "Order",
+        "attribute": "order.status",
+        "fromStates": ["(none)"],
+        "toStates": ["CREATED", "PROCESSING", "COMPLETED", "FAILED"],
+        "interval": "5s",
+        "start": "2026-02-11T10:00:00Z",
+        "end": "2026-02-11T10:05:00Z",
+        "limits": { "offset": 0, "limit": 20 },
+        "format": "columnar"
+      }
+    },
+    "first": {
+      "href": "/api/query/state-transitions",
+      "method": "POST",
+      "body": {
+        "serviceKey": "payments",
+        "objectType": "Order",
+        "attribute": "order.status",
+        "fromStates": ["(none)"],
+        "toStates": ["CREATED", "PROCESSING", "COMPLETED", "FAILED"],
+        "interval": "5s",
+        "start": "2026-02-11T10:00:00Z",
+        "end": "2026-02-11T10:05:00Z",
+        "limits": { "offset": 0, "limit": 20 },
+        "format": "columnar"
+      }
+    },
+    "next": {
+      "href": "/api/query/state-transitions",
+      "method": "POST",
+      "body": {
+        "serviceKey": "payments",
+        "objectType": "Order",
+        "attribute": "order.status",
+        "fromStates": ["(none)"],
+        "toStates": ["CREATED", "PROCESSING", "COMPLETED", "FAILED"],
+        "interval": "5s",
+        "start": "2026-02-11T10:00:00Z",
+        "end": "2026-02-11T10:05:00Z",
+        "limits": { "offset": 20, "limit": 20 },
+        "format": "columnar"
+      }
+    },
+    "last": {
+      "href": "/api/query/state-transitions",
+      "method": "POST",
+      "body": {
+        "serviceKey": "payments",
+        "objectType": "Order",
+        "attribute": "order.status",
+        "fromStates": ["(none)"],
+        "toStates": ["CREATED", "PROCESSING", "COMPLETED", "FAILED"],
+        "interval": "5s",
+        "start": "2026-02-11T10:00:00Z",
+        "end": "2026-02-11T10:05:00Z",
+        "limits": { "offset": 460, "limit": 20 },
+        "format": "columnar"
+      }
+    }
+  },
+  "format": "columnar"
 }
 ```
 
+**Notes:**
+- Full HAL pagination: `self`, `first`, `next`, `last` links with complete request bodies
+- `"(none)"` indicates initial state (no previous state)
+- `start` and `end` parameters for time range filtering
+- Columnar format includes both `data` (columnar) and `rows` (traditional) representations
+- `count` shows returned items (20), `total` shows all available items (480)
+- Each link includes the complete query for reproducibility
+- Grafana endpoint: `/api/grafana/state-transitions`
+
 ---
 
-# 7. Watchdog Example (Timeout-Driven Transition)
+## 6.3 State Counts Query
+
+Query request to `/api/query/state-counts` (current state snapshot):
+
+```json
+{
+  "serviceKey": "payments",
+  "objectType": "Order",
+  "attribute": "payment.status",
+  "states": ["NEW", "COMPLETED", "FAILED", "PENDING"],
+  "limits": {
+    "offset": 0,
+    "limit": 20
+  },
+  "format": "columnar"
+}
+```
+
+Response format (columnar with schema):
+
+```json
+{
+  "count": 4,
+  "total": 4,
+  "limit": 20,
+  "offset": 0,
+  "data": {
+    "schema": {
+      "fields": [
+        { "name": "state", "type": "string" },
+        { "name": "count", "type": "integer" }
+      ]
+    },
+    "data": {
+      "state": ["NEW", "COMPLETED", "FAILED", "PENDING"],
+      "count": [10, 25, 5, 8]
+    }
+  },
+  "rows": [
+    { "state": "NEW", "count": 10 },
+    { "state": "COMPLETED", "count": 25 },
+    { "state": "FAILED", "count": 5 },
+    { "state": "PENDING", "count": 8 }
+  ],
+  "links": {
+    "self": {
+      "href": "/api/query/state-counts",
+      "method": "POST",
+      "body": {
+        "serviceKey": "payments",
+        "objectType": "Order",
+        "attribute": "payment.status",
+        "states": ["NEW", "COMPLETED", "FAILED", "PENDING"],
+        "limits": { "offset": 0, "limit": 20 },
+        "format": "columnar"
+      }
+    }
+  },
+  "format": "columnar"
+}
+```
+
+**Notes:**
+- Returns **current** state counts (point-in-time snapshot)
+- No time dimension (unlike state-count-timeseries)
+- Useful for "how many orders are in each state right now?"
+- Columnar format available for efficient data transfer
+
+---
+
+## 6.4 State Count Time Series Query
+
+Query request to `/api/query/state-count-timeseries`:
+
+```json
+{
+  "serviceKey": "payments",
+  "objectType": "Order",
+  "attribute": "payment.status",
+  "states": ["COMPLETED", "FAILED"],
+  "interval": "1m",
+  "limits": {
+    "offset": 0,
+    "limit": 10
+  },
+  "format": "columnar"
+}
+```
+
+Response format (columnar with schema):
+
+```json
+{
+  "count": 10,
+  "total": 30,
+  "limit": 10,
+  "offset": 0,
+  "data": {
+    "schema": {
+      "fields": [
+        { "name": "from", "type": "string" },
+        { "name": "to", "type": "string" },
+        { "name": "state", "type": "string" },
+        { "name": "count", "type": "integer" }
+      ]
+    },
+    "data": {
+      "from": [
+        "2026-02-11T10:01:00Z",
+        "2026-02-11T10:01:00Z",
+        "2026-02-11T10:02:00Z",
+        "2026-02-11T10:02:00Z"
+      ],
+      "to": [
+        "2026-02-11T10:02:00Z",
+        "2026-02-11T10:02:00Z",
+        "2026-02-11T10:03:00Z",
+        "2026-02-11T10:03:00Z"
+      ],
+      "state": [
+        "COMPLETED",
+        "FAILED",
+        "COMPLETED",
+        "FAILED"
+      ],
+      "count": [
+        0,
+        1,
+        2,
+        0
+      ]
+    }
+  },
+  "rows": [
+    {
+      "from": "2026-02-11T10:01:00Z",
+      "to": "2026-02-11T10:02:00Z",
+      "state": "COMPLETED",
+      "count": 0
+    },
+    {
+      "from": "2026-02-11T10:01:00Z",
+      "to": "2026-02-11T10:02:00Z",
+      "state": "FAILED",
+      "count": 1
+    },
+    {
+      "from": "2026-02-11T10:02:00Z",
+      "to": "2026-02-11T10:03:00Z",
+      "state": "COMPLETED",
+      "count": 2
+    },
+    {
+      "from": "2026-02-11T10:02:00Z",
+      "to": "2026-02-11T10:03:00Z",
+      "state": "FAILED",
+      "count": 0
+    }
+  ],
+  "links": {
+    "self": {
+      "href": "/api/query/state-count-timeseries",
+      "method": "POST",
+      "body": {
+        "serviceKey": "payments",
+        "objectType": "Order",
+        "attribute": "payment.status",
+        "states": ["COMPLETED", "FAILED"],
+        "interval": "1m",
+        "limits": { "offset": 0, "limit": 10 },
+        "format": "columnar"
+      }
+    },
+    "next": {
+      "href": "/api/query/state-count-timeseries",
+      "method": "POST",
+      "body": {
+        "serviceKey": "payments",
+        "objectType": "Order",
+        "attribute": "payment.status",
+        "states": ["COMPLETED", "FAILED"],
+        "interval": "1m",
+        "limits": { "offset": 10, "limit": 10 },
+        "format": "columnar"
+      }
+    }
+  },
+  "format": "columnar"
+}
+```
+
+**Notes:**
+- Response includes both `data` (columnar format with schema) and `rows` (row-oriented format)
+- `format: "columnar"` in request enables Apache Arrow-compatible schema + column arrays
+- Pagination via `links.next` with updated offset
+- `count` shows returned items, `total` shows total available items
+
+---
+
+# 7. State Watchdog Example (Timeout-Driven State Change)
 
 ```yaml
 watchdogs:
   - name: processing-timeout
-    stateModel: order-lifecycle
-    appliesWhenState: PROCESSING
+    objectType: Order
+    appliesWhenState:
+      - attribute: order.status
+        value: PROCESSING
     duration: 15m
     onExpiry:
-      toState: ABANDONED
-      emitEvent: OrderAbandoned
-      terminal: true
+      updateState:
+        - attribute: order.status
+          value: ABANDONED
+      emitEvent: order_abandoned
 ```
 
 Behavior:
 
-* Timer starts on PROCESSING
-* Cancelled on COMPLETED/FAILED
+* Timer starts when order.status becomes PROCESSING
+* Cancelled if order.status changes to COMPLETED or FAILED
 * On expiry:
 
     * Emit event
-    * Transition state
-    * Update counts automatically
+    * Update state attribute
+    * Metrics automatically update based on the emitted event
 
 No separate funnel system required.
 
@@ -317,11 +956,11 @@ No separate funnel system required.
 # 8. Key Architectural Properties
 
 1. Events are the primitive.
-2. State is derived.
-3. Metrics are derived.
+2. State is derived from events via state extractors.
+3. Metrics are derived from events via metric definitions.
 4. Ratios are computed from rollups.
-5. Late events correct historical buckets.
-6. Terminal states enforce lifecycle integrity.
+5. Late events correct historical buckets and state.
+6. State extractors track object state over time.
 7. Configuration defines behavior.
 8. Alerts and forwarding are planned extensions.
 
@@ -346,7 +985,7 @@ Derived systems are powerful but correctness depends on configuration accuracy.
 
 > The client emits events.
 > Obsinity stores them durably.
-> Configuration interprets them into state transitions and metric buckets.
+> Configuration interprets them into state attributes and metric buckets.
 > Queries expose derived signals over any time window.
 > Late events preserve correctness.
 
