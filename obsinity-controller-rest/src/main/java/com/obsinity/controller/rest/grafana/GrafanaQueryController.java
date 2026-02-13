@@ -466,8 +466,23 @@ public class GrafanaQueryController {
         StateCountQueryRequest payload = new StateCountQueryRequest(
                 query.serviceKey(), query.objectType(), query.attribute(), query.states(), limits, ResponseFormat.ROW);
         StateCountQueryResult result = stateCountQueryService.runQuery(payload);
-        List<StateCountQueryResult.StateCountEntry> entries =
-                result.states().stream().filter(entry -> entry.count() > 0).toList();
+        List<StateCountQueryResult.StateCountEntry> entries;
+        if (query.states() != null && !query.states().isEmpty()) {
+            Map<String, Long> byState = new LinkedHashMap<>();
+            for (String state : query.states()) {
+                if (state != null && !state.isBlank()) {
+                    byState.put(state, 0L);
+                }
+            }
+            for (StateCountQueryResult.StateCountEntry entry : result.states()) {
+                byState.put(entry.state(), entry.count());
+            }
+            entries = byState.entrySet().stream()
+                    .map(e -> new StateCountQueryResult.StateCountEntry(e.getKey(), e.getValue()))
+                    .toList();
+        } else {
+            entries = result.states();
+        }
         List<Map<String, Object>> rows = entries.stream()
                 .map(entry -> {
                     Map<String, Object> row = new LinkedHashMap<>();
