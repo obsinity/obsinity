@@ -733,7 +733,7 @@
           "queryType": "json",
           "method": "POST",
           "path": "/api/grafana/state-transitions",
-          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"maxDataPoints\": 360, \"bucket\": \"5m\", \"serviceKey\": \"payments\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"fromStates\": [\"(none)\", \"NEW\", \"PENDING_EMAIL\", \"PENDING_KYC\", \"ACTIVE\", \"SUSPENDED\", \"BLOCKED\", \"INACTIVE\", \"UPGRADED\", \"ARCHIVED\"], \"toStates\": [\"NEW\", \"PENDING_EMAIL\", \"PENDING_KYC\", \"ACTIVE\", \"SUSPENDED\", \"BLOCKED\", \"INACTIVE\", \"UPGRADED\", \"ARCHIVED\"]}",
+          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"maxDataPoints\": 360, \"bucket\": \"5m\", \"serviceKey\": \"payments\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"fromStates\": [\"NEW\", \"PENDING_EMAIL\", \"PENDING_KYC\", \"ACTIVE\"], \"toStates\": [\"ACTIVE\", \"PENDING_EMAIL\", \"PENDING_KYC\", \"ABANDONED\", \"SUSPENDED\", \"BLOCKED\", \"INACTIVE\"]}",
           "cacheDurationSeconds": 0,
           "fields": [
             {
@@ -743,38 +743,20 @@
               "language": "jsonpath"
             },
             {
-              "name": "(none) -> NEW",
-              "jsonPath": "$[*]['(none) -> NEW']",
-              "type": "number",
-              "language": "jsonpath"
-            },
-            {
-              "name": "(none) -> ACTIVE",
-              "jsonPath": "$[*]['(none) -> ACTIVE']",
-              "type": "number",
-              "language": "jsonpath"
-            },
-            {
-              "name": "(none) -> PENDING_EMAIL",
-              "jsonPath": "$[*]['(none) -> PENDING_EMAIL']",
-              "type": "number",
-              "language": "jsonpath"
-            },
-            {
-              "name": "(none) -> PENDING_KYC",
-              "jsonPath": "$[*]['(none) -> PENDING_KYC']",
-              "type": "number",
-              "language": "jsonpath"
-            },
-            {
               "name": "NEW -> ACTIVE",
               "jsonPath": "$[*]['NEW -> ACTIVE']",
               "type": "number",
               "language": "jsonpath"
             },
             {
-              "name": "NEW -> INACTIVE",
-              "jsonPath": "$[*]['NEW -> INACTIVE']",
+              "name": "NEW -> PENDING_EMAIL",
+              "jsonPath": "$[*]['NEW -> PENDING_EMAIL']",
+              "type": "number",
+              "language": "jsonpath"
+            },
+            {
+              "name": "NEW -> PENDING_KYC",
+              "jsonPath": "$[*]['NEW -> PENDING_KYC']",
               "type": "number",
               "language": "jsonpath"
             },
@@ -785,8 +767,8 @@
               "language": "jsonpath"
             },
             {
-              "name": "PENDING_EMAIL -> INACTIVE",
-              "jsonPath": "$[*]['PENDING_EMAIL -> INACTIVE']",
+              "name": "PENDING_EMAIL -> ABANDONED",
+              "jsonPath": "$[*]['PENDING_EMAIL -> ABANDONED']",
               "type": "number",
               "language": "jsonpath"
             },
@@ -797,8 +779,8 @@
               "language": "jsonpath"
             },
             {
-              "name": "PENDING_KYC -> INACTIVE",
-              "jsonPath": "$[*]['PENDING_KYC -> INACTIVE']",
+              "name": "PENDING_KYC -> ABANDONED",
+              "jsonPath": "$[*]['PENDING_KYC -> ABANDONED']",
               "type": "number",
               "language": "jsonpath"
             },
@@ -817,42 +799,6 @@
             {
               "name": "ACTIVE -> INACTIVE",
               "jsonPath": "$[*]['ACTIVE -> INACTIVE']",
-              "type": "number",
-              "language": "jsonpath"
-            },
-            {
-              "name": "ACTIVE -> UPGRADED",
-              "jsonPath": "$[*]['ACTIVE -> UPGRADED']",
-              "type": "number",
-              "language": "jsonpath"
-            },
-            {
-              "name": "ACTIVE -> ARCHIVED",
-              "jsonPath": "$[*]['ACTIVE -> ARCHIVED']",
-              "type": "number",
-              "language": "jsonpath"
-            },
-            {
-              "name": "SUSPENDED -> ACTIVE",
-              "jsonPath": "$[*]['SUSPENDED -> ACTIVE']",
-              "type": "number",
-              "language": "jsonpath"
-            },
-            {
-              "name": "BLOCKED -> ACTIVE",
-              "jsonPath": "$[*]['BLOCKED -> ACTIVE']",
-              "type": "number",
-              "language": "jsonpath"
-            },
-            {
-              "name": "INACTIVE -> ACTIVE",
-              "jsonPath": "$[*]['INACTIVE -> ACTIVE']",
-              "type": "number",
-              "language": "jsonpath"
-            },
-            {
-              "name": "UPGRADED -> ARCHIVED",
-              "jsonPath": "$[*]['UPGRADED -> ARCHIVED']",
               "type": "number",
               "language": "jsonpath"
             }
@@ -884,6 +830,6 @@
   "timezone": "utc",
   "title": "Obsinity Demo - Overview",
   "uid": "obsinity-demo-overview",
-  "version": 54,
+  "version": 55,
   "weekStart": ""
 }
