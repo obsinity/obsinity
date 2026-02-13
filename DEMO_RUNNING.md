@@ -91,6 +91,34 @@ curl -X POST http://localhost:8086/api/query/state-counts \
   -d '{"serviceKey":"payments","objectType":"UserProfile","attribute":"user.status","states":["ACTIVE","SUSPENDED"]}'
 ```
 
+## DB-Driven Profile Generator
+
+The reference service now includes an optional DB-driven generator that maintains a persisted profile population and transitions states using age windows and per-run limits.
+
+Enable it in `obsinity-reference-service/src/main/resources/application.yml` (or env overrides):
+
+```yaml
+demo-data:
+  profiles:
+    enabled: true
+    runEvery: 1s
+    targetCount: 100000
+    createPerRun: 100
+    transitionSeed: 12345
+    transitions:
+      NEW:
+        select:
+          minAge: 10s
+          maxAge: 10m
+          limitPerRun: 80
+        next: [ACTIVE, PENDING_EMAIL, PENDING_KYC]
+```
+
+Defaults:
+- `minAge`: `0`
+- `maxAge`: absent
+- `limitPerRun`: `0`
+
 ## Stopping the Demo
 
 ```bash

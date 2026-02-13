@@ -1,5 +1,6 @@
 package com.obsinity.reference.api;
 
+import com.obsinity.reference.demodata.DemoProfileGeneratorProperties;
 import com.obsinity.service.core.counter.DurationParser;
 import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.spi.EventIngestService;
@@ -37,6 +38,7 @@ public class SampleDataController {
 
     private static final int ERROR_FREQUENCY = 20;
     private final EventIngestService ingestService;
+    private final DemoProfileGeneratorProperties profileGeneratorProperties;
     private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "demo-state-generator");
         t.setDaemon(true);
@@ -89,40 +91,105 @@ public class SampleDataController {
         int intervalSeconds = resolveRunIntervalSeconds(req);
         unifiedDemoConfig.set(req);
         unifiedDemoIntervalSeconds.set(intervalSeconds);
-        UnifiedDemoRunner existing = unifiedDemoRunner.get();
-        if (existing != null && !existing.task().isDone()) {
-            return buildUnifiedRunnerStatus(existing, true);
+        if (maybe != null && maybe.hasProfileGeneratorOverrides()) {
+            applyProfileGeneratorOverrides(maybe);
         }
-        AtomicBoolean stopSignal = new AtomicBoolean(false);
-        AtomicReference<Instant> lastRunAt = new AtomicReference<>();
-        AtomicReference<Map<String, Object>> lastResult = new AtomicReference<>();
-        Instant startedAt = Instant.now();
-        Future<?> task = demoExecutor.submit(() -> runUnifiedLoop(stopSignal, lastRunAt, lastResult));
-        UnifiedDemoRunner runner =
-                new UnifiedDemoRunner(req, intervalSeconds, startedAt, stopSignal, task, lastRunAt, lastResult);
-        unifiedDemoRunner.set(runner);
-        return buildUnifiedRunnerStatus(runner, true);
+
+        synchronized (profileGeneratorProperties) {
+            profileGeneratorProperties.setEnabled(true);
+        }
+
+        UnifiedDemoRunner existing = unifiedDemoRunner.get();
+        if (existing == null || existing.task().isDone()) {
+            AtomicBoolean stopSignal = new AtomicBoolean(false);
+            AtomicReference<Instant> lastRunAt = new AtomicReference<>();
+            AtomicReference<Map<String, Object>> lastResult = new AtomicReference<>();
+            Instant startedAt = Instant.now();
+            Future<?> task = demoExecutor.submit(() -> runUnifiedLoop(stopSignal, lastRunAt, lastResult));
+            UnifiedDemoRunner runner =
+                    new UnifiedDemoRunner(req, intervalSeconds, startedAt, stopSignal, task, lastRunAt, lastResult);
+            unifiedDemoRunner.set(runner);
+        }
+        return buildCombinedGeneratorStatus();
+    }
+
+    private Map<String, Object> applyProfileGeneratorOverrides(UnifiedEventRequest request) {
+        synchronized (profileGeneratorProperties) {
+            if (request.runEvery() != null && !request.runEvery().isBlank()) {
+                profileGeneratorProperties.setRunEvery(DurationParser.parse(request.runEvery()));
+            }
+            if (request.targetCount() != null) {
+                profileGeneratorProperties.setTargetCount(request.targetCount());
+            }
+            if (request.createPerRun() != null) {
+                profileGeneratorProperties.setCreatePerRun(request.createPerRun());
+            }
+            if (request.oversampleFactor() != null) {
+                profileGeneratorProperties.setOversampleFactor(request.oversampleFactor());
+            }
+            if (request.maxSelectionPerState() != null) {
+                profileGeneratorProperties.setMaxSelectionPerState(request.maxSelectionPerState());
+            }
+            if (request.initialState() != null && !request.initialState().isBlank()) {
+                profileGeneratorProperties.setInitialState(request.initialState());
+            }
+            profileGeneratorProperties.setEnabled(true);
+        }
+        return buildProfileGeneratorStatus();
     }
 
     @PostMapping("/generate-unified-events/stop")
     public Map<String, Object> stopUnifiedEvents() {
         UnifiedDemoRunner runner = unifiedDemoRunner.get();
-        if (runner == null) {
-            return Map.of("running", false);
+        if (runner != null) {
+            runner.stopSignal().set(true);
+            runner.task().cancel(true);
         }
-        runner.stopSignal().set(true);
-        runner.task().cancel(true);
-        return buildUnifiedRunnerStatus(runner, false);
+        synchronized (profileGeneratorProperties) {
+            profileGeneratorProperties.setEnabled(false);
+        }
+        return buildCombinedGeneratorStatus();
     }
 
     @GetMapping("/generate-unified-events/status")
     public Map<String, Object> unifiedEventsStatus() {
-        UnifiedDemoRunner runner = unifiedDemoRunner.get();
-        if (runner == null) {
-            return Map.of("running", false);
+        return buildCombinedGeneratorStatus();
+    }
+
+    private Map<String, Object> buildProfileGeneratorStatus() {
+        Map<String, Object> response = new LinkedHashMap<>();
+        synchronized (profileGeneratorProperties) {
+            response.put("running", profileGeneratorProperties.isEnabled());
+            response.put("mode", "db-driven");
+            response.put("runEvery", profileGeneratorProperties.getRunEvery().toString());
+            response.put("targetCount", profileGeneratorProperties.getTargetCount());
+            response.put("targetCapped", profileGeneratorProperties.getTargetCount() > 0);
+            response.put("createPerRun", profileGeneratorProperties.getCreatePerRun());
+            response.put("oversampleFactor", profileGeneratorProperties.getOversampleFactor());
+            response.put("maxSelectionPerState", profileGeneratorProperties.getMaxSelectionPerState());
+            response.put("initialState", profileGeneratorProperties.getInitialState());
+            response.put("transitions", profileGeneratorProperties.getTransitions());
         }
-        boolean running = !runner.task().isDone();
-        return buildUnifiedRunnerStatus(runner, running);
+        return response;
+    }
+
+    private Map<String, Object> buildCombinedGeneratorStatus() {
+        Map<String, Object> response = new LinkedHashMap<>(buildProfileGeneratorStatus());
+        UnifiedDemoRunner runner = unifiedDemoRunner.get();
+        boolean httpRunnerRunning = runner != null && !runner.task().isDone();
+        response.put("httpDemoRunnerRunning", httpRunnerRunning);
+        if (runner != null) {
+            response.put("httpDemoRunnerStartedAt", runner.startedAt().toString());
+            Instant lastRun = runner.lastRunAt().get();
+            if (lastRun != null) {
+                response.put("httpDemoLastRunAt", lastRun.toString());
+            }
+            Map<String, Object> lastResult = runner.lastResult().get();
+            if (lastResult != null) {
+                response.put("httpDemoLastResult", lastResult);
+            }
+        }
+        return response;
     }
 
     private Map<String, Object> generateUnifiedEventsOnce(UnifiedEventRequest req) {
@@ -132,36 +199,43 @@ public class SampleDataController {
         List<String> regions = req.regions();
         List<String> tiers = req.tiers();
         Map<String, String> lastStatusByProfile = new HashMap<>();
+        boolean emitProfileEvents;
+        synchronized (profileGeneratorProperties) {
+            emitProfileEvents = !profileGeneratorProperties.isEnabled();
+        }
 
         int unifiedEventCount = resolveUnifiedEventCount(req);
         int profiles = Math.max(1, req.profilePool());
-        String runPrefix = "run-" + UUID.randomUUID().toString().substring(0, 8);
+        // Keep profile ids stable across runs so state transitions are not dominated by "(none) -> X".
+        String runPrefix = req.serviceKey().replaceAll("[^a-zA-Z0-9_-]", "_");
         SampleRequest httpSample = SampleRequest.defaults(null);
 
-        // Seed random initial state per profile
-        for (int profileIndex = 0; profileIndex < profiles; profileIndex++) {
-            String profileId = String.format("%s-profile-%04d", runPrefix, profileIndex + 1);
-            String seedStatus = pickRandomStatus(statuses);
-            lastStatusByProfile.put(profileId, seedStatus);
-            long durationMs = 25L + random.nextInt(Math.max(1, req.maxEventDurationMillis()));
-            Instant seedStart = Instant.now();
-            Instant seedEnd = seedStart.plusMillis(durationMs);
-            ingestService.ingestOne(buildUnifiedEvent(
-                    req.serviceKey(),
-                    req.eventType(),
-                    profileId,
-                    seedStatus,
-                    pickRandomValue(tiers, "FREE"),
-                    pickRandomValue(channels, "web"),
-                    pickRandomValue(regions, "us-east"),
-                    seedStart,
-                    seedEnd,
-                    durationMs));
-            ingestService.ingestOne(buildEvent(httpSample, seedStart, seedEnd, "200"));
+        if (emitProfileEvents) {
+            // Seed random initial state per profile
+            for (int profileIndex = 0; profileIndex < profiles; profileIndex++) {
+                String profileId = String.format("%s-profile-%04d", runPrefix, profileIndex + 1);
+                String seedStatus = pickRandomStatus(statuses);
+                lastStatusByProfile.put(profileId, seedStatus);
+                long durationMs = 25L + random.nextInt(Math.max(1, req.maxEventDurationMillis()));
+                Instant seedStart = Instant.now();
+                Instant seedEnd = seedStart.plusMillis(durationMs);
+                ingestService.ingestOne(buildUnifiedEvent(
+                        req.serviceKey(),
+                        req.eventType(),
+                        profileId,
+                        seedStatus,
+                        pickRandomValue(tiers, "FREE"),
+                        pickRandomValue(channels, "web"),
+                        pickRandomValue(regions, "us-east"),
+                        seedStart,
+                        seedEnd,
+                        durationMs));
+                ingestService.ingestOne(buildEvent(httpSample, seedStart, seedEnd, "200"));
+            }
         }
 
-        long remaining = Math.max(0, unifiedEventCount - profiles);
-        if (remaining > 0) {
+        long remaining = emitProfileEvents ? Math.max(0, unifiedEventCount - profiles) : 0L;
+        if (emitProfileEvents && remaining > 0) {
             long emitted = 0;
             while (emitted < remaining) {
                 String profileId = String.format("%s-profile-%04d", runPrefix, (int) (emitted % profiles) + 1);
@@ -191,19 +265,20 @@ public class SampleDataController {
 
         ingestHistogramEvents(req, unifiedEventCount);
 
+        int generated = emitProfileEvents ? unifiedEventCount + profiles : unifiedEventCount;
         return Map.of(
-                "generated", unifiedEventCount + profiles,
-                "stored", unifiedEventCount + profiles,
-                "service", req.serviceKey(),
-                "eventType", req.eventType(),
+                "generated",
+                generated,
+                "stored",
+                generated,
+                "service",
+                req.serviceKey(),
+                "eventType",
+                req.eventType(),
+                "profileEventsEnabled",
+                emitProfileEvents,
                 "histogramSeed",
-                        Map.of(
-                                "generated",
-                                unifiedEventCount,
-                                "service",
-                                req.serviceKey(),
-                                "eventType",
-                                "http_request"));
+                Map.of("generated", unifiedEventCount, "service", req.serviceKey(), "eventType", "http_request"));
     }
 
     private String pickRandomValue(List<String> values, String fallback) {
@@ -417,13 +492,15 @@ public class SampleDataController {
     }
 
     private EventEnvelope buildEvent(SampleRequest req, Instant start, Instant end, String status) {
+        long durationMillis = Math.max(1L, Duration.between(start, end).toMillis());
         Map<String, Object> resource = new LinkedHashMap<>();
         resource.put("environment", req.environment());
 
         Map<String, Object> http = new LinkedHashMap<>();
         http.put("method", req.httpMethod());
         http.put("route", req.httpRoute());
-        http.put("status", status);
+        http.put("status", toHttpStatus(status));
+        http.put("server", Map.of("duration_ms", durationMillis));
 
         Map<String, Object> api = new LinkedHashMap<>();
         api.put("name", req.apiName());
@@ -451,25 +528,42 @@ public class SampleDataController {
         double[] latencyProfile = {50, 65, 90, 120, 160, 210, 280, 360, 450, 560, 700, 900, 1150, 1400};
         List<String> statusCodes = List.of("200", "500");
         int stored = 0;
+        long runSeed = Instant.now().getEpochSecond();
+        boolean degradedWindow = (runSeed / 30L) % 3L == 1L;
         for (int i = 0; i < sampleCount; i++) {
-            double baseLatency = latencyProfile[i % latencyProfile.length];
-            boolean spike = i % 50 == 0;
+            long sequence = runSeed + i;
+            double baseLatency = latencyProfile[(int) (Math.floorMod(sequence, latencyProfile.length))];
+            boolean spike = sequence % 37 == 0;
             if (spike) {
-                baseLatency = 1600 + (i % 10) * 100;
+                baseLatency = 1400 + (sequence % 12) * 120;
             }
-            double jitterFactor = 0.9 + ((i % 4) * 0.05);
+            if (degradedWindow) {
+                baseLatency *= 1.35;
+            }
+            double jitterFactor = 0.8 + (random.nextDouble() * 0.7);
             long latencyMillis = Math.max(25, Math.round(baseLatency * jitterFactor));
             Instant start = Instant.now();
             Instant end = start.plusMillis(latencyMillis);
             String status = selectStatus(statusCodes, i);
-            stored += ingestService.ingestOne(buildHistogramEvent(req.serviceKey(), start, end, status));
+            String route = (sequence % 3L == 0L) ? "/api/profile" : "/api/checkout";
+            stored += ingestService.ingestOne(buildHistogramEvent(req.serviceKey(), route, start, end, status));
         }
         return stored;
     }
 
-    private EventEnvelope buildHistogramEvent(String serviceKey, Instant start, Instant end, String status) {
+    private EventEnvelope buildHistogramEvent(
+            String serviceKey, String route, Instant start, Instant end, String status) {
+        long durationMillis = Math.max(1L, Duration.between(start, end).toMillis());
         Map<String, Object> resource = Map.of("environment", "demo");
-        Map<String, Object> http = Map.of("method", "GET", "route", "/api/checkout", "status", status);
+        Map<String, Object> http = Map.of(
+                "method",
+                "GET",
+                "route",
+                route,
+                "status",
+                toHttpStatus(status),
+                "server",
+                Map.of("duration_ms", durationMillis));
         Map<String, Object> api = Map.of("name", "checkout", "version", "v1");
         Map<String, Object> attributes = new LinkedHashMap<>();
         attributes.put("http", http);
@@ -487,6 +581,14 @@ public class SampleDataController {
                 .resourceAttributes(resource)
                 .attributes(attributes)
                 .build();
+    }
+
+    private int toHttpStatus(String status) {
+        try {
+            return Integer.parseInt(status);
+        } catch (Exception ignored) {
+            return 200;
+        }
     }
 
     public record SampleRequest(
@@ -569,7 +671,13 @@ public class SampleDataController {
             Integer maxEventDurationMillis,
             String recentWindow,
             Long recentWindowSeconds,
-            Integer runIntervalSeconds) {
+            Integer runIntervalSeconds,
+            String runEvery,
+            Integer targetCount,
+            Integer createPerRun,
+            Integer oversampleFactor,
+            Integer maxSelectionPerState,
+            String initialState) {
         static UnifiedEventRequest defaults(UnifiedEventRequest maybe) {
             if (maybe == null) {
                 return new UnifiedEventRequest(
@@ -595,7 +703,13 @@ public class SampleDataController {
                         List.of("us-east", "us-west", "eu-central"),
                         List.of("FREE", "PLUS", "PRO"),
                         1500,
-                        "1h",
+                        "1s",
+                        null,
+                        1,
+                        null,
+                        null,
+                        null,
+                        null,
                         null,
                         null);
             }
@@ -630,13 +744,43 @@ public class SampleDataController {
                     maybe.maxEventDurationMillis == null || maybe.maxEventDurationMillis <= 0
                             ? 1500
                             : maybe.maxEventDurationMillis,
-                    emptyToDefault(maybe.recentWindow, "1h"),
+                    emptyToDefault(maybe.recentWindow, "1s"),
                     maybe.recentWindowSeconds == null || maybe.recentWindowSeconds <= 0
                             ? null
                             : maybe.recentWindowSeconds,
-                    maybe.runIntervalSeconds == null || maybe.runIntervalSeconds <= 0
-                            ? null
-                            : maybe.runIntervalSeconds);
+                    maybe.runIntervalSeconds == null || maybe.runIntervalSeconds <= 0 ? 1 : maybe.runIntervalSeconds,
+                    maybe.runEvery,
+                    maybe.targetCount,
+                    maybe.createPerRun,
+                    maybe.oversampleFactor,
+                    maybe.maxSelectionPerState,
+                    maybe.initialState);
+        }
+
+        boolean hasProfileGeneratorOverrides() {
+            return runEvery != null
+                    || targetCount != null
+                    || createPerRun != null
+                    || oversampleFactor != null
+                    || maxSelectionPerState != null
+                    || initialState != null;
+        }
+
+        boolean hasLegacyGeneratorOverrides() {
+            return serviceKey != null
+                    || eventType != null
+                    || duration != null
+                    || eventsPerSecond != null
+                    || events != null
+                    || profilePool != null
+                    || statuses != null
+                    || channels != null
+                    || regions != null
+                    || tiers != null
+                    || maxEventDurationMillis != null
+                    || recentWindow != null
+                    || recentWindowSeconds != null
+                    || runIntervalSeconds != null;
         }
 
         private static String emptyToDefault(String value, String fallback) {

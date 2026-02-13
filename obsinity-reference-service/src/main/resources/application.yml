@@ -65,3 +65,40 @@ obsinity:
 logging:
   level:
     root: INFO
+
+demo-data:
+  profiles:
+    enabled: false
+    runEvery: 1m
+    targetCount: 0
+    createPerRun: 1000
+    oversampleFactor: 5
+    maxSelectionPerState: 10000
+    initialState: NEW
+    serviceKey: payments
+    eventType: user_profile.updated
+    transitions:
+      NEW:
+        select:
+          minAge: 10s
+          maxAge: 10m
+          limitPerRun: 80
+        next: [ACTIVE, PENDING_EMAIL, PENDING_KYC]
+      PENDING_EMAIL:
+        select:
+          minAge: 30s
+          maxAge: 30m
+          limitPerRun: 50
+        next: [ACTIVE, ABANDONED]
+      PENDING_KYC:
+        select:
+          minAge: 1m
+          maxAge: 2h
+          limitPerRun: 40
+        next: [ACTIVE, ABANDONED]
+      ACTIVE:
+        select:
+          minAge: 30m
+          maxAge: 7d
+          limitPerRun: 40
+        next: [SUSPENDED, BLOCKED, INACTIVE]

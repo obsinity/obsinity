@@ -186,8 +186,8 @@ resources:
   - _id: req_demo_unified_events
     parentId: fld_demo
     created: 1757433600000
-    modified: 1769900000000
-    name: Start Demo Generator
+    modified: 1770916200000
+    name: Generate Demo Data
     method: POST
     url: "{{ base_url }}/internal/demo/generate-unified-events"
     headers:
@@ -199,16 +199,12 @@ resources:
       mimeType: application/json
       text: |-
         {
-          "serviceKey": "payments",
-          "eventType": "user_profile.updated",
-          "events": 2000,
-          "profilePool": 4000,
-          "statuses": ["NEW", "ACTIVE", "ACTIVE", "ACTIVE", "ACTIVE", "ACTIVE", "ACTIVE", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED", "ARCHIVED"],
-          "channels": ["web", "mobile", "partner"],
-          "regions": ["us-east", "us-west", "eu-central"],
-          "tiers": ["FREE", "PLUS", "PRO"],
-          "maxEventDurationMillis": 1500,
-          "runIntervalSeconds": 60
+          "runEvery": "1m",
+          "targetCount": 0,
+          "createPerRun": 1000,
+          "oversampleFactor": 5,
+          "maxSelectionPerState": 10000,
+          "initialState": "NEW"
         }
     _type: request
 

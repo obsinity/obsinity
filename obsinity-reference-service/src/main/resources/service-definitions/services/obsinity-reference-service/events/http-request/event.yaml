@@ -21,4 +21,5 @@ spec:
         type: object
         properties:
           method: { type: string, index: true }
+          route: { type: string, index: true }
           status: { type: integer, index: true }
