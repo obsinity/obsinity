@@ -7,7 +7,7 @@ spring:
   main:
     banner-mode: "off"
   datasource:
-    url: jdbc:postgresql://obsinity-db:5432/obsinity
+    url: jdbc:postgresql://obsinity-db:5432/obsinity?options=-c%20TimeZone%3DUTC
     username: obsinity
     password: obsinity
   jackson:

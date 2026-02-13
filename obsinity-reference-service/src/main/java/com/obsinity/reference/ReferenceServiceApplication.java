@@ -1,5 +1,6 @@
 package com.obsinity.reference;
 
+import java.util.TimeZone;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -21,7 +22,9 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 public class ReferenceServiceApplication {
 
     public static void main(String[] args) {
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
         long maxMemory = Runtime.getRuntime().maxMemory();
+        log.info("Default JVM timezone: {}", TimeZone.getDefault().getID());
         log.info("Max memory: {} ({} bytes)", formatBytes(maxMemory), maxMemory);
         SpringApplication.run(ReferenceServiceApplication.class, args);
     }
