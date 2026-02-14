@@ -296,4 +296,46 @@ class StateDetectionServiceTest {
                         "BLOCKED",
                         "INACTIVE");
     }
+
+    @Test
+    void processDoesNotCountExplicitTransitionWhenStateNotInHistory() {
+        ConfigLookup lookup = mock(ConfigLookup.class);
+        StateSnapshotRepository snapshotRepository = mock(StateSnapshotRepository.class);
+        ObjectStateCountRepository countRepository = mock(ObjectStateCountRepository.class);
+        StateTransitionBuffer transitionBuffer = mock(StateTransitionBuffer.class);
+        StateDetectionService service =
+                new StateDetectionService(lookup, snapshotRepository, countRepository, transitionBuffer);
+
+        StateExtractorDefinition extractor = new StateExtractorDefinition(
+                "user_profile.updated", "UserProfile", "user.profile_id", List.of("user.status"), List.of("NEW"));
+        UUID serviceId = UUID.randomUUID();
+        when(lookup.stateExtractors(serviceId, "user_profile.updated")).thenReturn(List.of(extractor));
+        when(snapshotRepository.findLatest(serviceId, "UserProfile", "profile-123", "user.status"))
+                .thenReturn("PENDING_EMAIL");
+        when(snapshotRepository.findStateHistoryValues(serviceId, "UserProfile", "profile-123", "user.status", 1000))
+                .thenReturn(List.of("PENDING_EMAIL", "ACTIVE"));
+
+        Instant now = Instant.parse("2025-01-01T00:00:02Z");
+        EventEnvelope envelope = EventEnvelope.builder()
+                .serviceId("payments")
+                .eventType("user_profile.updated")
+                .name("user_profile.updated")
+                .eventId(UUID.randomUUID().toString())
+                .timestamp(now)
+                .ingestedAt(now)
+                .attributes(Map.of("user", Map.of("profile_id", "profile-123", "status", "SUSPENDED")))
+                .build();
+
+        service.process(serviceId, envelope);
+
+        verify(transitionBuffer, never())
+                .increment(
+                        org.mockito.Mockito.any(),
+                        org.mockito.Mockito.anyLong(),
+                        org.mockito.Mockito.eq(serviceId),
+                        org.mockito.Mockito.eq("UserProfile"),
+                        org.mockito.Mockito.eq("user.status"),
+                        org.mockito.Mockito.anyString(),
+                        org.mockito.Mockito.eq("SUSPENDED"));
+    }
 }
