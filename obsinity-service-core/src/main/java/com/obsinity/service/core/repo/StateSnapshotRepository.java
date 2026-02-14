@@ -2,6 +2,9 @@ package com.obsinity.service.core.repo;
 
 import com.obsinity.service.core.counter.CounterGranularity;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -77,6 +80,46 @@ public class StateSnapshotRepository {
                 .stream()
                 .findFirst()
                 .orElse(null);
+    }
+
+    public List<String> findStateHistoryValues(
+            UUID serviceId, String objectType, String objectId, String attribute, int limit) {
+        if (serviceId == null || objectType == null || objectId == null || attribute == null) {
+            return List.of();
+        }
+        int safeLimit = Math.max(1, limit);
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("service_id", serviceId)
+                .addValue("object_type", objectType)
+                .addValue("object_id", objectId)
+                .addValue("attribute", attribute)
+                .addValue("bucket", CounterGranularity.S5.name())
+                .addValue("limit", safeLimit);
+
+        List<String> values = jdbc.query(
+                """
+                select state_value
+                from obsinity.object_state
+                where service_id = :service_id
+                  and object_type = :object_type
+                  and object_id = :object_id
+                  and attribute = :attribute
+                  and bucket = :bucket
+                order by ts desc
+                limit :limit
+                """,
+                params,
+                (rs, rowNum) -> rs.getString(1));
+        if (values.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<String> dedup = new LinkedHashSet<>();
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                dedup.add(value);
+            }
+        }
+        return dedup.isEmpty() ? List.of() : new ArrayList<>(dedup);
     }
 
     public void delete(UUID serviceId, String objectType, String objectId, String attribute) {

@@ -43,6 +43,17 @@ This folder contains draft materials for a unified config model centered on even
 - `state-count`: Increments new state count and decrements previous state count.
 - `state-transition`: Increments transition counts for `from_state -> to_state`.
 
+### Transition Policy (Draft)
+- `transitionPolicy.fromStates` controls which previous states contribute transitions.
+- Tokens:
+  - `"?"`: latest previous state
+  - `"*"`: all previous states
+  - any other value: explicit state name
+- Rules:
+  - missing `transitionPolicy` is equivalent to `fromStates: ["?"]`
+  - empty `fromStates: []` is also equivalent to `["?"]`
+  - if `"*"` is present, it overrides the rest
+
 ### Retention Note (Current Direction)
 - State history is not subject to retention in this draft (`retention: none`).
 - State counts materialization is also not subject to retention in this draft.

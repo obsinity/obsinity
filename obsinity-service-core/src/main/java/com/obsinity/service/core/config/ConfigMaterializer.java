@@ -285,10 +285,11 @@ public class ConfigMaterializer {
             String objectType = safeTrim(cfg.objectType());
             String objectIdField = safeTrim(cfg.objectIdField());
             List<String> attributes = normalizeStateAttributes(cfg.stateAttributes());
+            List<String> transitionFromStates = normalizeTransitionFromStates(cfg.transitionPolicy());
             if (rawType == null || objectType == null || objectIdField == null || attributes.isEmpty()) {
                 continue;
             }
-            out.add(new StateExtractorDefinition(rawType, objectType, objectIdField, attributes));
+            out.add(new StateExtractorDefinition(rawType, objectType, objectIdField, attributes, transitionFromStates));
         }
         return out.isEmpty() ? List.of() : List.copyOf(out);
     }
@@ -305,6 +306,20 @@ public class ConfigMaterializer {
             }
         }
         return cleaned.isEmpty() ? List.of() : List.copyOf(cleaned);
+    }
+
+    private List<String> normalizeTransitionFromStates(StateExtractorConfig.TransitionPolicyConfig policy) {
+        if (policy == null || policy.fromStates() == null || policy.fromStates().isEmpty()) {
+            return List.of("?");
+        }
+        List<String> cleaned = new ArrayList<>();
+        for (String token : policy.fromStates()) {
+            String trimmed = safeTrim(token);
+            if (trimmed != null) {
+                cleaned.add(trimmed);
+            }
+        }
+        return cleaned.isEmpty() ? List.of("?") : List.copyOf(cleaned);
     }
 
     /** Immutable projection so callers do not depend on runtime record constructors. */

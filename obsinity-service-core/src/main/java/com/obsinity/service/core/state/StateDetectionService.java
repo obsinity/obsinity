@@ -9,6 +9,7 @@ import com.obsinity.service.core.repo.StateSnapshotRepository;
 import com.obsinity.service.core.state.transition.StateTransitionBuffer;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -23,6 +24,8 @@ import org.springframework.stereotype.Service;
 public class StateDetectionService {
 
     private static final String NO_STATE_LABEL = "(none)";
+    private static final String TRANSITION_FROM_LATEST = "?";
+    private static final String TRANSITION_FROM_ALL = "*";
 
     private final ConfigLookup configLookup;
     private final StateSnapshotRepository snapshotRepository;
@@ -76,14 +79,18 @@ public class StateDetectionService {
                         envelope.getTimestamp());
                 if (previous != null && !previous.isBlank()) {
                     stateCountRepository.decrement(serviceId, match.extractor().objectType(), attr, previous);
-                    transitionBuffer.increment(
-                            CounterGranularity.S5,
-                            alignedEpoch,
-                            serviceId,
-                            match.extractor().objectType(),
-                            attr,
-                            previous,
-                            value);
+                    List<String> fromStates = resolveTransitionFromStates(
+                            serviceId, match.extractor(), match.objectId(), attr, previous, value);
+                    for (String fromState : fromStates) {
+                        transitionBuffer.increment(
+                                CounterGranularity.S5,
+                                alignedEpoch,
+                                serviceId,
+                                match.extractor().objectType(),
+                                attr,
+                                fromState,
+                                value);
+                    }
                 } else {
                     transitionBuffer.increment(
                             CounterGranularity.S5,
@@ -97,6 +104,55 @@ public class StateDetectionService {
                 stateCountRepository.increment(serviceId, match.extractor().objectType(), attr, value);
             });
         }
+    }
+
+    private List<String> resolveTransitionFromStates(
+            UUID serviceId,
+            StateExtractorDefinition extractor,
+            String objectId,
+            String attribute,
+            String previous,
+            String newValue) {
+        List<String> configured = extractor.transitionFromStates();
+        if (configured == null || configured.isEmpty()) {
+            return List.of(previous);
+        }
+        LinkedHashSet<String> selected = new LinkedHashSet<>();
+        if (configured.contains(TRANSITION_FROM_ALL)) {
+            return snapshotRepository
+                    .findStateHistoryValues(serviceId, extractor.objectType(), objectId, attribute, 1000)
+                    .stream()
+                    .filter(state -> state != null && !state.isBlank())
+                    .filter(state -> !state.equals(newValue))
+                    .toList();
+        }
+
+        List<String> history = null;
+        boolean includeLatest = configured.contains(TRANSITION_FROM_LATEST);
+        boolean hasExplicit = configured.stream().anyMatch(token -> !isControlToken(token));
+        if (hasExplicit) {
+            history = snapshotRepository.findStateHistoryValues(
+                    serviceId, extractor.objectType(), objectId, attribute, 1000);
+        }
+        if (includeLatest && previous != null && !previous.isBlank() && !previous.equals(newValue)) {
+            selected.add(previous);
+        }
+        if (hasExplicit && history != null && !history.isEmpty()) {
+            LinkedHashSet<String> historySet = new LinkedHashSet<>(history);
+            for (String token : configured) {
+                if (isControlToken(token)) {
+                    continue;
+                }
+                if (token != null && !token.isBlank() && !token.equals(newValue) && historySet.contains(token)) {
+                    selected.add(token);
+                }
+            }
+        }
+        return selected.stream().toList();
+    }
+
+    private boolean isControlToken(String token) {
+        return TRANSITION_FROM_LATEST.equals(token) || TRANSITION_FROM_ALL.equals(token);
     }
 
     List<StateMatch> detectMatches(

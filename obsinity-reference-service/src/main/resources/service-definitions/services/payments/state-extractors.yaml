@@ -5,3 +5,5 @@ stateExtractors:
     objectIdField: user.profile_id
     stateAttributes:
       - user.status
+    transitionPolicy:
+      fromStates: ["?", "NEW"]
