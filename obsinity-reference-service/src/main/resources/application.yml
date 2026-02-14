@@ -88,21 +88,39 @@ demo-data:
           maxAge: 2m
           limitPerRun: 1200
         next: [ACTIVE, PENDING_EMAIL, PENDING_KYC]
+        weights:
+          ACTIVE: 60
+          PENDING_EMAIL: 25
+          PENDING_KYC: 15
+        runJitterPercent: 20
       PENDING_EMAIL:
         select:
           minAge: 30s
           maxAge: 2m
           limitPerRun: 50
         next: [ACTIVE, ABANDONED]
+        weights:
+          ACTIVE: 80
+          ABANDONED: 20
+        runJitterPercent: 20
       PENDING_KYC:
         select:
           minAge: 1m
           maxAge: 2m
           limitPerRun: 40
         next: [ACTIVE, ABANDONED]
+        weights:
+          ACTIVE: 75
+          ABANDONED: 25
+        runJitterPercent: 20
       ACTIVE:
         select:
           minAge: 30m
           maxAge: 2m
           limitPerRun: 40
         next: [SUSPENDED, BLOCKED, INACTIVE]
+        weights:
+          SUSPENDED: 15
+          BLOCKED: 10
+          INACTIVE: 75
+        runJitterPercent: 20

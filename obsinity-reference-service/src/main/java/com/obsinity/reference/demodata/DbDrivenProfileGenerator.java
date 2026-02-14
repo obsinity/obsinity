@@ -124,6 +124,7 @@ class DbDrivenProfileGenerator {
             if (rule == null || rule.getNext() == null || rule.getNext().isEmpty()) {
                 continue;
             }
+            WeightedNextStateSelector selector = buildSelector(rule, random);
             DemoProfileGeneratorProperties.Selection selection =
                     rule.getSelect() == null ? new DemoProfileGeneratorProperties.Selection() : rule.getSelect();
             int limitPerRun = Math.max(0, selection.getLimitPerRun());
@@ -160,7 +161,7 @@ class DbDrivenProfileGenerator {
                     continue;
                 }
 
-                String toState = pickNextState(rule.getNext(), random);
+                String toState = selector.pick(random);
                 int rows = repository.casUpdateState(
                         candidate.id(), safeState(fromState), candidate.stateChangedAt(), toState, now);
                 if (rows > 0) {
@@ -177,9 +178,24 @@ class DbDrivenProfileGenerator {
         return updated;
     }
 
-    private String pickNextState(List<String> next, Random random) {
-        int idx = random.nextInt(next.size());
-        return safeState(next.get(idx));
+    private WeightedNextStateSelector buildSelector(DemoProfileGeneratorProperties.TransitionRule rule, Random random) {
+        List<String> states = rule.getNext().stream().map(this::safeState).toList();
+        if (states.isEmpty()) {
+            return new WeightedNextStateSelector(List.of("NEW"), new double[] {1.0});
+        }
+
+        Map<String, Integer> configuredWeights = rule.getWeights() == null ? Map.of() : rule.getWeights();
+        double jitter = Math.max(0d, Math.min(1d, rule.getRunJitterPercent() / 100.0d));
+        double[] cumulative = new double[states.size()];
+        double total = 0d;
+        for (int i = 0; i < states.size(); i++) {
+            String state = states.get(i);
+            int baseWeight = Math.max(1, configuredWeights.getOrDefault(state, 1));
+            double factor = jitter == 0d ? 1d : (1d - jitter) + (random.nextDouble() * (2d * jitter));
+            total += Math.max(0.0001d, baseWeight * factor);
+            cumulative[i] = total;
+        }
+        return new WeightedNextStateSelector(states, cumulative);
     }
 
     private String safeState(String state) {
@@ -231,4 +247,20 @@ class DbDrivenProfileGenerator {
     }
 
     private record TransitionApplied(UUID profileId, String state) {}
+
+    private record WeightedNextStateSelector(List<String> states, double[] cumulative) {
+        String pick(Random random) {
+            if (states.size() == 1) {
+                return states.get(0);
+            }
+            double max = cumulative[cumulative.length - 1];
+            double roll = random.nextDouble() * max;
+            for (int i = 0; i < cumulative.length; i++) {
+                if (roll <= cumulative[i]) {
+                    return states.get(i);
+                }
+            }
+            return states.get(states.size() - 1);
+        }
+    }
 }

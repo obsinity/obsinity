@@ -115,6 +115,8 @@ public class DemoProfileGeneratorProperties {
 
         private Selection select = new Selection();
         private List<String> next = List.of();
+        private Map<String, Integer> weights = new LinkedHashMap<>();
+        private int runJitterPercent;
 
         public Selection getSelect() {
             return select;
@@ -130,6 +132,22 @@ public class DemoProfileGeneratorProperties {
 
         public void setNext(List<String> next) {
             this.next = next == null ? List.of() : List.copyOf(next);
+        }
+
+        public Map<String, Integer> getWeights() {
+            return weights;
+        }
+
+        public void setWeights(Map<String, Integer> weights) {
+            this.weights = weights == null ? new LinkedHashMap<>() : new LinkedHashMap<>(weights);
+        }
+
+        public int getRunJitterPercent() {
+            return runJitterPercent;
+        }
+
+        public void setRunJitterPercent(int runJitterPercent) {
+            this.runJitterPercent = Math.max(0, Math.min(100, runJitterPercent));
         }
     }
 
