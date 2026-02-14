@@ -1,0 +1,111 @@
+apiVersion: obsinity/v1alpha1
+kind: UnifiedServiceConfig
+metadata:
+  service: payments
+  profile: demo
+
+spec:
+  events:
+    - name: user_profile.updated
+      retention:
+        ttl: 30d
+      schema:
+        required:
+          - user.profile_id
+          - user.status
+      processors:
+        - type: index
+          dimensions:
+            - user.profile_id
+            - user.status
+            - dimensions.channel
+            - dimensions.region
+            - user.tier
+        - type: object-state-projection
+          target:
+            objectType: UserProfile
+            objectId: user.profile_id
+          states:
+            - sourceAttribute: user.status
+              name: lifecycle
+          actions:
+            - state-history
+            - state-count
+            - state-transition
+          policies:
+            stateHistory:
+              retention: none
+        - type: counter
+          name: profile_updates_by_status
+          dimensions:
+            - user.status
+            - dimensions.channel
+          rollup:
+            # Example: short-retention operational counter
+            granularities: [5s, 1m, 5m]
+        - type: histogram
+          name: user_profile_update_duration_ms
+          value: timings.duration_ms
+          dimensions:
+            - dimensions.channel
+            - dimensions.region
+          rollup:
+            # Example: includes hourly trend for profile latency
+            granularities: [5s, 1m, 5m, 1h]
+            percentiles: [0.5, 0.9, 0.95, 0.99]
+
+    - name: http_request
+      retention:
+        ttl: 7d
+      schema:
+        required:
+          - http.method
+          - http.route
+          - http.status
+          - http.server.duration_ms
+      processors:
+        - type: index
+          dimensions:
+            - http.method
+            - http.route
+            - http.status
+        - type: counter
+          name: http_requests_by_status_code
+          dimensions:
+            - http.method
+            - http.route
+            - http.status
+          rollup:
+            # Example: very high-volume counter, minimal buckets
+            granularities: [5s, 1m]
+        - type: histogram
+          name: http_request_latency_ms
+          value: http.server.duration_ms
+          dimensions:
+            - http.method
+            - http.route
+          rollup:
+            # Example: full latency view with daily/weekly trend
+            granularities: [5s, 1m, 5m, 1h, 1d, 7d]
+            percentiles: [0.5, 0.9, 0.95, 0.99]
+
+  materializations:
+    - name: user_profile_state_counts
+      kind: timeseries
+      source:
+        kind: object-state-counts
+        objectType: UserProfile
+        attribute: user.status
+      every: 5s
+      buckets: [1m, 5m, 1h, 1d]
+
+    - name: user_profile_state_transitions
+      kind: timeseries
+      source:
+        kind: object-state-transitions
+        objectType: UserProfile
+        attribute: user.status
+      every: 5s
+      buckets: [5s, 1m, 5m, 1h, 1d, 7d]
+      retention:
+        ttl: 730d
