@@ -47,6 +47,25 @@ This folder contains draft materials for a unified config model centered on even
 - State history is not subject to retention in this draft (`retention: none`).
 - State counts materialization is also not subject to retention in this draft.
 
+## Retention Domains (Important)
+- Event retention, state history retention, and materialization retention are different concerns and should be configured independently.
+- Event retention controls how long raw source events remain available.
+- State history retention controls how long per-object lifecycle history is preserved.
+- Materialization retention controls how long derived rollups are kept.
+
+### Operational Consequence
+- If event retention is short, we lose replay/backfill capability.
+- Once source events are expunged, we cannot reliably:
+  - regenerate lost derived metrics,
+  - define new derived metrics and backfill them from historical events.
+
+## Obsinity Positioning (Draft)
+- Obsinity is optimized for long-term event retention and long-term derived metrics.
+- A core capability is defining new derived metrics after ingestion and building them from retained historical events.
+- Some data should support indefinite retention (until explicit deletion), especially:
+  - object state history,
+  - object state counts (unless we intentionally retire those counts).
+
 ## Materializations
 - `kind: timeseries`: Periodic persisted rollups.
 - `source.kind: object-state-counts`: Source stream of current state counts.
