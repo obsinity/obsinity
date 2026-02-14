@@ -22,6 +22,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -53,6 +55,12 @@ public class SampleDataController {
     private final AtomicReference<UnifiedEventRequest> unifiedDemoConfig = new AtomicReference<>();
     private final AtomicReference<Integer> unifiedDemoIntervalSeconds = new AtomicReference<>();
     private final Random random = new Random();
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void startUnifiedDemoOnStartup() {
+        startUnifiedEvents(null);
+        log.info("Auto-started unified demo generator on application startup");
+    }
 
     @PostMapping("/generate-latency")
     @ResponseStatus(HttpStatus.ACCEPTED)
