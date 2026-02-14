@@ -16,6 +16,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -53,6 +55,11 @@ class DbDrivenProfileGenerator {
 
     @Scheduled(fixedDelayString = "#{@demoDataProfileGeneratorProperties.runEvery.toMillis()}")
     public void scheduledRun() {
+        runOnce();
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void startupRun() {
         runOnce();
     }
 

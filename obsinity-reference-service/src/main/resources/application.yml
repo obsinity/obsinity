@@ -61,6 +61,10 @@ obsinity:
       max-batch-size: 5000
       rate:
         s5: 5000
+  stateCounts:
+    timeseries:
+      enabled: true
+      snapshotRateMillis: 5000
 
 logging:
   level:
@@ -68,8 +72,8 @@ logging:
 
 demo-data:
   profiles:
-    enabled: false
-    runEvery: 1m
+    enabled: true
+    runEvery: 5s
     targetCount: 0
     createPerRun: 1000
     oversampleFactor: 5

@@ -525,30 +525,48 @@ public class SampleDataController {
     }
 
     private int ingestHistogramEvents(UnifiedEventRequest req, int sampleCount) {
-        double[] latencyProfile = {50, 65, 90, 120, 160, 210, 280, 360, 450, 560, 700, 900, 1150, 1400};
         List<String> statusCodes = List.of("200", "500");
         int stored = 0;
         long runSeed = Instant.now().getEpochSecond();
-        boolean degradedWindow = (runSeed / 30L) % 3L == 1L;
+        boolean degradedWindow = (runSeed / 60L) % 8L == 3L;
         for (int i = 0; i < sampleCount; i++) {
             long sequence = runSeed + i;
-            double baseLatency = latencyProfile[(int) (Math.floorMod(sequence, latencyProfile.length))];
-            boolean spike = sequence % 37 == 0;
-            if (spike) {
-                baseLatency = 1400 + (sequence % 12) * 120;
-            }
-            if (degradedWindow) {
-                baseLatency *= 1.35;
-            }
-            double jitterFactor = 0.8 + (random.nextDouble() * 0.7);
-            long latencyMillis = Math.max(25, Math.round(baseLatency * jitterFactor));
+            String route = (sequence % 3L == 0L) ? "/api/profile" : "/api/checkout";
+            long latencyMillis = sampleLatencyMillis(sequence, degradedWindow, "/api/profile".equals(route));
             Instant start = Instant.now();
             Instant end = start.plusMillis(latencyMillis);
             String status = selectStatus(statusCodes, i);
-            String route = (sequence % 3L == 0L) ? "/api/profile" : "/api/checkout";
             stored += ingestService.ingestOne(buildHistogramEvent(req.serviceKey(), route, start, end, status));
         }
         return stored;
+    }
+
+    private long sampleLatencyMillis(long sequence, boolean degradedWindow, boolean profileRoute) {
+        double p = random.nextDouble();
+        long latency;
+        if (p < 0.70) {
+            latency = 30L + random.nextInt(55); // p50 region
+        } else if (p < 0.90) {
+            latency = 85L + random.nextInt(140); // p90 region
+        } else if (p < 0.97) {
+            latency = 220L + random.nextInt(320); // p95 region
+        } else if (p < 0.995) {
+            latency = 550L + random.nextInt(900); // p99 region
+        } else {
+            latency = 1600L + random.nextInt(5000); // long tail
+        }
+
+        // Short recurring hot windows to separate high percentiles.
+        if (Math.floorMod(sequence, 1800) < 45) {
+            latency = Math.round(latency * 1.6);
+        }
+        if (degradedWindow) {
+            latency = Math.round(latency * 1.25);
+        }
+        if (profileRoute) {
+            latency = Math.round(latency * 0.85);
+        }
+        return Math.max(25L, latency);
     }
 
     private EventEnvelope buildHistogramEvent(
