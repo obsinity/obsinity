@@ -613,7 +613,7 @@
           "queryType": "json",
           "method": "POST",
           "path": "/api/grafana/state-count-timeseries",
-          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"maxDataPoints\": 360, \"bucket\": \"1m\", \"serviceKey\": \"payments\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"states\": [\"NEW\", \"PENDING_EMAIL\", \"PENDING_KYC\", \"ACTIVE\", \"ABANDONED\", \"INACTIVE\", \"SUSPENDED\", \"BLOCKED\", \"UPGRADED\", \"ARCHIVED\"]}",
+          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"maxDataPoints\": 360, \"bucket\": \"1m\", \"serviceKey\": \"payments\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"states\": [\"NEW\", \"PENDING_EMAIL\", \"PENDING_KYC\", \"ACTIVE\", \"ABANDONED\", \"INACTIVE\"]}",
           "cacheDurationSeconds": 0,
           "fields": [
             {
@@ -625,6 +625,18 @@
             {
               "name": "NEW",
               "jsonPath": "$[*].NEW",
+              "type": "number",
+              "language": "jsonpath"
+            },
+            {
+              "name": "PENDING_EMAIL",
+              "jsonPath": "$[*].PENDING_EMAIL",
+              "type": "number",
+              "language": "jsonpath"
+            },
+            {
+              "name": "PENDING_KYC",
+              "jsonPath": "$[*].PENDING_KYC",
               "type": "number",
               "language": "jsonpath"
             },
@@ -641,14 +653,8 @@
               "language": "jsonpath"
             },
             {
-              "name": "SUSPENDED",
-              "jsonPath": "$[*].SUSPENDED",
-              "type": "number",
-              "language": "jsonpath"
-            },
-            {
-              "name": "BLOCKED",
-              "jsonPath": "$[*].BLOCKED",
+              "name": "INACTIVE",
+              "jsonPath": "$[*].INACTIVE",
               "type": "number",
               "language": "jsonpath"
             }
@@ -836,6 +842,6 @@
   "timezone": "utc",
   "title": "Obsinity Demo - Overview",
   "uid": "obsinity-demo-overview",
-  "version": 61,
+  "version": 62,
   "weekStart": ""
 }
