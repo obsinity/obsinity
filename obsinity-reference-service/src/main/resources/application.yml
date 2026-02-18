@@ -17,6 +17,9 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    default-schema: obsinity
+    schemas: obsinity
+    table: flyway_schema_history
     baseline-on-migrate: true
   sql:
     init:
@@ -87,7 +90,7 @@ demo-data:
           minAge: 10s
           maxAge: 2m
           limitPerRun: 1200
-        next: [PENDING_EMAIL, PENDING_KYC]
+        next: [ACTIVE, PENDING_EMAIL, PENDING_KYC]
         weights:
           ACTIVE: 60
           PENDING_EMAIL: 25
@@ -95,9 +98,8 @@ demo-data:
         runJitterPercent: 20
       PENDING_EMAIL:
         select:
-          minAge: 30s
-          maxAge: 2m
-          limitPerRun: 50
+          minAge: 15s
+          limitPerRun: 4000
         next: [ACTIVE, ABANDONED]
         weights:
           ACTIVE: 80
@@ -105,9 +107,8 @@ demo-data:
         runJitterPercent: 20
       PENDING_KYC:
         select:
-          minAge: 1m
-          maxAge: 2m
-          limitPerRun: 40
+          minAge: 30s
+          limitPerRun: 2500
         next: [ACTIVE, ABANDONED]
         weights:
           ACTIVE: 75
