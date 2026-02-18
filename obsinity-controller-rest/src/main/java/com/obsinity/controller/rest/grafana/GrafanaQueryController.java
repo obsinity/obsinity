@@ -39,6 +39,9 @@ public class GrafanaQueryController {
     private static final String KIND_STATE_COUNT_SNAPSHOT = "state_count_snapshot";
     private static final String KIND_EVENT_COUNT = "event_count";
     private static final String FORMAT_TABLE = "table";
+    private static final int TIMESERIES_POINT_CAP = 360;
+    private static final Duration STATE_TIMESERIES_STEP = Duration.ofMinutes(1);
+    private static final Duration TRANSITION_TIMESERIES_STEP = Duration.ofSeconds(5);
     private static final List<Duration> COUNTER_BUCKETS = List.of(
             Duration.ofSeconds(5),
             Duration.ofMinutes(1),
@@ -46,16 +49,6 @@ public class GrafanaQueryController {
             Duration.ofHours(1),
             Duration.ofDays(1),
             Duration.ofDays(7));
-    private static final List<Duration> STATE_BUCKETS =
-            List.of(Duration.ofMinutes(1), Duration.ofMinutes(5), Duration.ofHours(1), Duration.ofDays(1));
-    private static final List<Duration> TRANSITION_BUCKETS = List.of(
-            Duration.ofSeconds(5),
-            Duration.ofMinutes(1),
-            Duration.ofMinutes(5),
-            Duration.ofHours(1),
-            Duration.ofDays(1),
-            Duration.ofDays(7));
-
     private final HistogramQueryService histogramQueryService;
     private final StateCountTimeseriesQueryService stateCountTimeseriesQueryService;
     private final StateCountQueryService stateCountQueryService;
@@ -147,14 +140,10 @@ public class GrafanaQueryController {
     public List<Map<String, Object>> stateTransitions(@RequestBody JsonNode requestBody) {
         GrafanaStateTransitionRequest request = parseStateTransitionRequest(requestBody);
         GrafanaRangeResolver.ResolvedRange range = GrafanaRangeResolver.resolve(request.range());
-        String bucket = GrafanaBucketResolver.resolveBucket(
-                request.bucket(),
-                request.intervalMs(),
-                request.maxDataPoints(),
-                range.fromMs(),
-                range.toMs(),
-                TRANSITION_BUCKETS);
-        int limit = resolveLimit(range, bucket, request.maxDataPoints());
+        int pointBudget = resolveTimeseriesPointBudget(request.maxDataPoints());
+        String bucket = resolveAdaptiveTimeseriesBucket(
+                request.bucket(), request.intervalMs(), range, pointBudget, TRANSITION_TIMESERIES_STEP);
+        int limit = Math.min(pointBudget, resolveLimit(range, bucket, pointBudget));
 
         java.time.Instant start = range.from();
         java.time.Instant end = range.to();
@@ -375,14 +364,10 @@ public class GrafanaQueryController {
 
     private GrafanaResult runStateCount(
             GrafanaRangeResolver.ResolvedRange range, GrafanaQueryRequest request, GrafanaSubQuery query) {
-        String bucket = GrafanaBucketResolver.resolveBucket(
-                query.bucket(),
-                request.intervalMs(),
-                request.maxDataPoints(),
-                range.fromMs(),
-                range.toMs(),
-                STATE_BUCKETS);
-        int limit = resolveLimit(range, bucket, request.maxDataPoints());
+        int pointBudget = resolveTimeseriesPointBudget(request.maxDataPoints());
+        String bucket = resolveAdaptiveTimeseriesBucket(
+                query.bucket(), request.intervalMs(), range, pointBudget, STATE_TIMESERIES_STEP);
+        int limit = Math.min(pointBudget, resolveLimit(range, bucket, pointBudget));
         java.time.Instant start = range.from();
         java.time.Instant end = range.to();
         if (!end.isAfter(start)) {
@@ -622,6 +607,45 @@ public class GrafanaQueryController {
             limit = Math.max(limit, minPoints);
         }
         return (int) Math.min(Integer.MAX_VALUE, Math.max(1L, limit));
+    }
+
+    private int resolveTimeseriesPointBudget(Integer maxDataPoints) {
+        if (maxDataPoints == null || maxDataPoints <= 0) {
+            return TIMESERIES_POINT_CAP;
+        }
+        return Math.min(TIMESERIES_POINT_CAP, maxDataPoints);
+    }
+
+    private String resolveAdaptiveTimeseriesBucket(
+            String requestedBucket,
+            Long intervalMs,
+            GrafanaRangeResolver.ResolvedRange range,
+            int pointBudget,
+            Duration minimumStep) {
+        long bucketMs = minimumStep.toMillis();
+        if (intervalMs != null && intervalMs > 0) {
+            bucketMs = Math.max(bucketMs, intervalMs);
+        }
+        if (requestedBucket != null && !requestedBucket.isBlank()) {
+            bucketMs = Math.max(bucketMs, DurationParser.parse(requestedBucket).toMillis());
+        }
+
+        long rangeMs = Math.max(0L, range.toMs() - range.fromMs());
+        if (rangeMs > 0 && pointBudget > 0) {
+            long idealMs = (long) Math.ceil((double) rangeMs / (double) pointBudget);
+            bucketMs = Math.max(bucketMs, idealMs);
+        }
+
+        long stepMs = Math.max(1L, minimumStep.toMillis());
+        bucketMs = roundUpToMultiple(bucketMs, stepMs);
+        return GrafanaBucketResolver.toDurationString(bucketMs);
+    }
+
+    private long roundUpToMultiple(long value, long step) {
+        if (step <= 0) {
+            return value;
+        }
+        return ((value + step - 1) / step) * step;
     }
 
     private String toPercentileLabel(double percentile) {
