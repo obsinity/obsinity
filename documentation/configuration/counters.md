@@ -258,6 +258,10 @@ Response snippet:
 }
 ```
 
+Downsampling semantics for state-count timeseries are `downsampleByLatestSnapshot`: when querying intervals wider than
+`1m` (for example `5m` or `1h`), Obsinity reads M1 snapshots and returns the latest snapshot found inside each
+interval window per state. This is an as-of snapshot selection, not a summation across minutes.
+
 Tuning knobs:
 
 - `obsinity.stateCounts.timeseries.enabled` (default `true`) toggles the snapshot job.

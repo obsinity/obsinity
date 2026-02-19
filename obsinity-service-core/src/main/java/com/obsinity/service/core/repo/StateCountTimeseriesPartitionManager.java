@@ -27,8 +27,7 @@ public class StateCountTimeseriesPartitionManager {
 
     private static final Duration WEEK_DURATION = Duration.ofDays(7);
     private static final DateTimeFormatter PARTITION_TS = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
-    private static final Set<CounterBucket> SUPPORTED_BUCKETS =
-            Set.of(CounterBucket.M1, CounterBucket.M5, CounterBucket.H1, CounterBucket.D1);
+    private static final Set<CounterBucket> SUPPORTED_BUCKETS = Set.of(CounterBucket.M1);
 
     private final JdbcTemplate jdbcTemplate;
     private final Clock clock;
