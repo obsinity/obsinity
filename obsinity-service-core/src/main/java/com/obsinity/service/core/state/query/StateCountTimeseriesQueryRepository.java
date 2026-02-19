@@ -92,6 +92,45 @@ public class StateCountTimeseriesQueryRepository {
                 .orElse(null);
     }
 
+    public Instant findEarliestTimestampInRange(
+            UUID serviceId,
+            String objectType,
+            String attribute,
+            List<String> states,
+            CounterBucket bucket,
+            Instant startInclusive,
+            Instant endExclusive) {
+        MapSqlParameterSource params = baseParams(serviceId, objectType, attribute)
+                .addValue("bucket", bucket.label())
+                .addValue("start", java.sql.Timestamp.from(startInclusive))
+                .addValue("end", java.sql.Timestamp.from(endExclusive));
+        StringBuilder sql = new StringBuilder(
+                """
+                SELECT MIN(ts)
+                  FROM obsinity.object_state_count_timeseries
+                 WHERE service_id = :service_id
+                   AND object_type = :object_type
+                   AND attribute = :attribute
+                   AND bucket = :bucket
+                   AND ts >= :start
+                   AND ts < :end
+                """);
+        if (states != null && !states.isEmpty()) {
+            sql.append(" AND state_value IN (:states)");
+            params.addValue("states", states);
+        }
+        return jdbc
+                .query(
+                        sql.toString(),
+                        params,
+                        (rs, rowNum) ->
+                                rs.getTimestamp(1) != null ? rs.getTimestamp(1).toInstant() : null)
+                .stream()
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+    }
+
     private MapSqlParameterSource baseParams(UUID serviceId, String objectType, String attribute) {
         return new MapSqlParameterSource()
                 .addValue("service_id", serviceId)

@@ -66,6 +66,20 @@ public class StateCountTimeseriesQueryService {
         if (!alignedEnd.isAfter(alignedStart)) {
             alignedEnd = alignedStart.plus(requestedInterval);
         }
+        Instant firstInRange = repository.findEarliestTimestampInRange(
+                serviceId,
+                request.objectType(),
+                request.attribute(),
+                request.states(),
+                queryBucket,
+                alignedStart,
+                alignedEnd);
+        if (firstInRange == null) {
+            return new StateCountTimeseriesQueryResult(List.of(), 0, 0, 0, start, end);
+        }
+        if (firstInRange.isAfter(alignedStart)) {
+            alignedStart = firstInRange;
+        }
 
         int offset = request.limits() != null && request.limits().offset() != null
                 ? Math.max(0, request.limits().offset())
@@ -77,19 +91,22 @@ public class StateCountTimeseriesQueryService {
         List<StateCountTimeseriesWindow> windows = new ArrayList<>();
         Duration step = requestedInterval;
         Instant cursor = alignedStart.plus(step.multipliedBy(offset));
-        int intervalsAdded = 0;
+        int emittedWindows = 0;
 
-        while (cursor.isBefore(alignedEnd) && intervalsAdded < limit) {
+        while (cursor.isBefore(alignedEnd) && emittedWindows < limit) {
             Instant next = cursor.plus(step);
             Instant fetchTs = queryBucket.align(cursor);
             List<StateCountTimeseriesQueryRepository.Row> rows = repository.fetchWindow(
                     serviceId, request.objectType(), request.attribute(), request.states(), queryBucket, fetchTs);
-            List<StateCountTimeseriesWindow.Entry> entries = rows.stream()
-                    .map(r -> new StateCountTimeseriesWindow.Entry(r.stateValue(), r.count()))
-                    .toList();
-            windows.add(new StateCountTimeseriesWindow(ISO_INSTANT.format(cursor), ISO_INSTANT.format(next), entries));
+            if (!rows.isEmpty()) {
+                List<StateCountTimeseriesWindow.Entry> entries = rows.stream()
+                        .map(r -> new StateCountTimeseriesWindow.Entry(r.stateValue(), r.count()))
+                        .toList();
+                windows.add(
+                        new StateCountTimeseriesWindow(ISO_INSTANT.format(cursor), ISO_INSTANT.format(next), entries));
+                emittedWindows++;
+            }
             cursor = next;
-            intervalsAdded++;
         }
 
         return new StateCountTimeseriesQueryResult(

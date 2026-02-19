@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -39,7 +40,7 @@ public class GrafanaQueryController {
     private static final String KIND_STATE_COUNT_SNAPSHOT = "state_count_snapshot";
     private static final String KIND_EVENT_COUNT = "event_count";
     private static final String FORMAT_TABLE = "table";
-    private static final int TIMESERIES_POINT_CAP = 360;
+    private static final int DEFAULT_TIMESERIES_POINT_CAP = 1440;
     private static final Duration STATE_TIMESERIES_STEP = Duration.ofMinutes(1);
     private static final Duration TRANSITION_TIMESERIES_STEP = Duration.ofSeconds(5);
     private static final List<Duration> COUNTER_BUCKETS = List.of(
@@ -55,6 +56,7 @@ public class GrafanaQueryController {
     private final CounterQueryService counterQueryService;
     private final com.obsinity.service.core.state.query.StateTransitionQueryService stateTransitionQueryService;
     private final ObjectMapper objectMapper;
+    private final int timeseriesPointCap;
 
     public GrafanaQueryController(
             HistogramQueryService histogramQueryService,
@@ -62,13 +64,15 @@ public class GrafanaQueryController {
             StateCountQueryService stateCountQueryService,
             CounterQueryService counterQueryService,
             com.obsinity.service.core.state.query.StateTransitionQueryService stateTransitionQueryService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            @Value("${obsinity.grafana.timeseries.max-data-points-cap:1440}") int timeseriesPointCap) {
         this.histogramQueryService = histogramQueryService;
         this.stateCountTimeseriesQueryService = stateCountTimeseriesQueryService;
         this.stateCountQueryService = stateCountQueryService;
         this.counterQueryService = counterQueryService;
         this.stateTransitionQueryService = stateTransitionQueryService;
         this.objectMapper = objectMapper;
+        this.timeseriesPointCap = timeseriesPointCap > 0 ? timeseriesPointCap : DEFAULT_TIMESERIES_POINT_CAP;
     }
 
     @PostMapping(path = "/query", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -140,7 +144,7 @@ public class GrafanaQueryController {
     public List<Map<String, Object>> stateTransitions(@RequestBody JsonNode requestBody) {
         GrafanaStateTransitionRequest request = parseStateTransitionRequest(requestBody);
         GrafanaRangeResolver.ResolvedRange range = GrafanaRangeResolver.resolve(request.range());
-        int pointBudget = resolveTimeseriesPointBudget(request.maxDataPoints());
+        int pointBudget = resolveTimeseriesPointBudget(request.maxDataPoints(), range, TRANSITION_TIMESERIES_STEP);
         String bucket = resolveAdaptiveTimeseriesBucket(
                 request.bucket(), request.intervalMs(), range, pointBudget, TRANSITION_TIMESERIES_STEP);
         int limit = Math.min(pointBudget, resolveLimit(range, bucket, pointBudget));
@@ -364,7 +368,7 @@ public class GrafanaQueryController {
 
     private GrafanaResult runStateCount(
             GrafanaRangeResolver.ResolvedRange range, GrafanaQueryRequest request, GrafanaSubQuery query) {
-        int pointBudget = resolveTimeseriesPointBudget(request.maxDataPoints());
+        int pointBudget = resolveTimeseriesPointBudget(request.maxDataPoints(), range, STATE_TIMESERIES_STEP);
         String bucket = resolveAdaptiveTimeseriesBucket(
                 query.bucket(), request.intervalMs(), range, pointBudget, STATE_TIMESERIES_STEP);
         int limit = Math.min(pointBudget, resolveLimit(range, bucket, pointBudget));
@@ -387,15 +391,13 @@ public class GrafanaQueryController {
                 ResponseFormat.ROW);
 
         StateCountTimeseriesQueryResult result = stateCountTimeseriesQueryService.runQuery(payload);
-        List<String> seriesStates = query.states();
-        List<String> resolvedStates = seriesStates == null || seriesStates.isEmpty()
-                ? result.windows().stream()
+        List<String> resolvedStates = query.states() != null && !query.states().isEmpty()
+                ? query.states()
+                : result.windows().stream()
                         .flatMap(window -> window.states().stream())
                         .map(StateCountTimeseriesQueryResult.StateCountTimeseriesWindow.Entry::state)
                         .distinct()
-                        .toList()
-                : seriesStates;
-
+                        .toList();
         Map<String, Map<String, Object>> rowsByTime = new LinkedHashMap<>();
         for (StateCountTimeseriesQueryResult.StateCountTimeseriesWindow window : result.windows()) {
             String time = window.start();
@@ -609,11 +611,18 @@ public class GrafanaQueryController {
         return (int) Math.min(Integer.MAX_VALUE, Math.max(1L, limit));
     }
 
-    private int resolveTimeseriesPointBudget(Integer maxDataPoints) {
-        if (maxDataPoints == null || maxDataPoints <= 0) {
-            return TIMESERIES_POINT_CAP;
+    private int resolveTimeseriesPointBudget(
+            Integer maxDataPoints, GrafanaRangeResolver.ResolvedRange range, Duration minimumStep) {
+        if (maxDataPoints != null && maxDataPoints > 0) {
+            return Math.min(timeseriesPointCap, maxDataPoints);
         }
-        return Math.min(TIMESERIES_POINT_CAP, maxDataPoints);
+        long rangeMs = Math.max(0L, range.toMs() - range.fromMs());
+        long stepMs = Math.max(1L, minimumStep.toMillis());
+        long rangePoints = (long) Math.ceil((double) rangeMs / (double) stepMs);
+        if (rangePoints <= 0) {
+            return 1;
+        }
+        return (int) Math.min(timeseriesPointCap, rangePoints);
     }
 
     private String resolveAdaptiveTimeseriesBucket(

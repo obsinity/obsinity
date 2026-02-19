@@ -26,6 +26,9 @@ spring:
       mode: never
 
 obsinity:
+  grafana:
+    timeseries:
+      max-data-points-cap: 1440
   api:
     hal:
       embedded: data

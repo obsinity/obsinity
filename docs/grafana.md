@@ -8,6 +8,8 @@ Grafana sends time range and interval hints. Obsinity uses:
 - `range.fromMs`/`range.toMs` if present (epoch millis, UTC)
 - otherwise `range.from`/`range.to` (ISO‑8601)
 - `intervalMs` / `maxDataPoints` to pick a bucket when `queries[].bucket` is not provided
+- `maxDataPoints` is optional; when omitted, the API defaults to the range point count and caps it at
+  `obsinity.grafana.timeseries.max-data-points-cap` (default `1440`)
 
 ## Typed Grafana Endpoints
 
@@ -167,4 +169,5 @@ Response:
 - Time values in responses are ISO‑8601 UTC strings.
 - Frame values are columnar arrays aligned to the `fields` order.
 - Bucketing uses `queries[].bucket` if provided; otherwise `intervalMs` or `maxDataPoints` drives bucket selection.
-- Best effort is made to avoid returning more points than `maxDataPoints`.
+- Timeseries responses never exceed the configured cap (`obsinity.grafana.timeseries.max-data-points-cap`, default `1440`).
+- Missing state-count 1m snapshots are omitted from the response instead of being synthesized as zeros.
