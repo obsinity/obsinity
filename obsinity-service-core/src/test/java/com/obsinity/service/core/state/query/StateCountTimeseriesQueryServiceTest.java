@@ -66,7 +66,7 @@ class StateCountTimeseriesQueryServiceTest {
 
         assertTrue(result.windows().isEmpty());
         verify(repository, never())
-                .fetchWindow(any(UUID.class), any(String.class), any(String.class), any(), any(), any());
+                .fetchRowsInRange(any(UUID.class), any(String.class), any(String.class), any(), any(), any(), any());
     }
 
     @Test
@@ -87,20 +87,21 @@ class StateCountTimeseriesQueryServiceTest {
                         eq(Instant.parse("2026-02-18T16:06:00Z"))))
                 .thenReturn(Instant.parse("2026-02-18T16:02:00Z"));
 
-        when(repository.fetchWindow(
+        when(repository.fetchRowsInRange(
                         eq(serviceId),
                         eq("UserProfile"),
                         eq("user.status"),
                         eq(List.of("ACTIVE")),
                         eq(CounterBucket.M1),
+                        any(Instant.class),
                         any(Instant.class)))
                 .thenAnswer(invocation -> {
-                    Instant ts = invocation.getArgument(5, Instant.class);
-                    if (ts.equals(Instant.parse("2026-02-18T16:02:00Z"))) {
-                        return List.of(new StateCountTimeseriesQueryRepository.Row("ACTIVE", 101L));
+                    Instant start = invocation.getArgument(5, Instant.class);
+                    if (start.equals(Instant.parse("2026-02-18T16:02:00Z"))) {
+                        return List.of(new StateCountTimeseriesQueryRepository.Row(start, "ACTIVE", 101L));
                     }
-                    if (ts.equals(Instant.parse("2026-02-18T16:05:00Z"))) {
-                        return List.of(new StateCountTimeseriesQueryRepository.Row("ACTIVE", 105L));
+                    if (start.equals(Instant.parse("2026-02-18T16:05:00Z"))) {
+                        return List.of(new StateCountTimeseriesQueryRepository.Row(start, "ACTIVE", 105L));
                     }
                     return List.of();
                 });
@@ -123,12 +124,13 @@ class StateCountTimeseriesQueryServiceTest {
         assertEquals(105L, result.windows().get(1).states().get(0).count());
 
         verify(repository, Mockito.times(4))
-                .fetchWindow(
+                .fetchRowsInRange(
                         eq(serviceId),
                         eq("UserProfile"),
                         eq("user.status"),
                         eq(List.of("ACTIVE")),
                         eq(CounterBucket.M1),
+                        any(Instant.class),
                         any(Instant.class));
     }
 }

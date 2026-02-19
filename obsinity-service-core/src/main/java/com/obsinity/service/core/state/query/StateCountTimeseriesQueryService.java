@@ -8,7 +8,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -38,9 +40,8 @@ public class StateCountTimeseriesQueryService {
 
         Duration requestedInterval =
                 request.interval() != null ? DurationParser.parse(request.interval()) : CounterBucket.M1.duration();
-        CounterBucket resolvedBucket = resolveBucket(requestedInterval);
-        CounterBucket queryBucket =
-                requestedInterval.equals(resolvedBucket.duration()) ? resolvedBucket : CounterBucket.M1;
+        resolveBucket(requestedInterval);
+        CounterBucket queryBucket = CounterBucket.M1;
 
         Instant earliest =
                 repository.findEarliestTimestamp(serviceId, request.objectType(), request.attribute(), queryBucket);
@@ -95,12 +96,26 @@ public class StateCountTimeseriesQueryService {
 
         while (cursor.isBefore(alignedEnd) && emittedWindows < limit) {
             Instant next = cursor.plus(step);
-            Instant fetchTs = queryBucket.align(cursor);
-            List<StateCountTimeseriesQueryRepository.Row> rows = repository.fetchWindow(
-                    serviceId, request.objectType(), request.attribute(), request.states(), queryBucket, fetchTs);
+            Instant rangeStart = queryBucket.align(cursor);
+            Instant rangeEnd = queryBucket.align(next);
+            if (!rangeEnd.isAfter(rangeStart)) {
+                rangeEnd = rangeStart.plus(queryBucket.duration());
+            }
+            List<StateCountTimeseriesQueryRepository.Row> rows = repository.fetchRowsInRange(
+                    serviceId,
+                    request.objectType(),
+                    request.attribute(),
+                    request.states(),
+                    queryBucket,
+                    rangeStart,
+                    rangeEnd);
             if (!rows.isEmpty()) {
-                List<StateCountTimeseriesWindow.Entry> entries = rows.stream()
-                        .map(r -> new StateCountTimeseriesWindow.Entry(r.stateValue(), r.count()))
+                Map<String, Long> latestPerState = new LinkedHashMap<>();
+                for (StateCountTimeseriesQueryRepository.Row row : rows) {
+                    latestPerState.put(row.stateValue(), row.count());
+                }
+                List<StateCountTimeseriesWindow.Entry> entries = latestPerState.entrySet().stream()
+                        .map(e -> new StateCountTimeseriesWindow.Entry(e.getKey(), e.getValue()))
                         .toList();
                 windows.add(
                         new StateCountTimeseriesWindow(ISO_INSTANT.format(cursor), ISO_INSTANT.format(next), entries));

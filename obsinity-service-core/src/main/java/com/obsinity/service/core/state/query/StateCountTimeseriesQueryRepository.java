@@ -17,22 +17,25 @@ public class StateCountTimeseriesQueryRepository {
         this.jdbc = jdbc;
     }
 
-    public List<Row> fetchWindow(
+    public List<Row> fetchRowsInRange(
             UUID serviceId,
             String objectType,
             String attribute,
             List<String> states,
             CounterBucket bucket,
-            Instant timestamp) {
+            Instant startInclusive,
+            Instant endExclusive) {
         MapSqlParameterSource params = baseParams(serviceId, objectType, attribute)
-                .addValue("ts", java.sql.Timestamp.from(timestamp))
+                .addValue("start", java.sql.Timestamp.from(startInclusive))
+                .addValue("end", java.sql.Timestamp.from(endExclusive))
                 .addValue("bucket", bucket.label());
         StringBuilder sql = new StringBuilder(
                 """
-                SELECT state_value, state_count
+                SELECT ts, state_value, state_count
                   FROM obsinity.object_state_count_timeseries
                  WHERE bucket = :bucket
-                   AND ts = :ts
+                   AND ts >= :start
+                   AND ts < :end
                    AND service_id = :service_id
                    AND object_type = :object_type
                    AND attribute = :attribute
@@ -41,11 +44,12 @@ public class StateCountTimeseriesQueryRepository {
             sql.append(" AND state_value IN (:states)");
             params.addValue("states", states);
         }
-        sql.append(" ORDER BY state_value ASC");
+        sql.append(" ORDER BY ts ASC, state_value ASC");
         return jdbc.query(
                 sql.toString(),
                 params,
-                (rs, rowNum) -> new Row(rs.getString("state_value"), rs.getLong("state_count")));
+                (rs, rowNum) -> new Row(
+                        rs.getTimestamp("ts").toInstant(), rs.getString("state_value"), rs.getLong("state_count")));
     }
 
     public Instant findEarliestTimestamp(UUID serviceId, String objectType, String attribute, CounterBucket bucket) {
@@ -138,5 +142,5 @@ public class StateCountTimeseriesQueryRepository {
                 .addValue("attribute", attribute);
     }
 
-    public record Row(String stateValue, long count) {}
+    public record Row(Instant ts, String stateValue, long count) {}
 }
