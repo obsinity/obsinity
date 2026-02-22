@@ -149,6 +149,70 @@ class RatioQueryServiceTest {
     }
 
     @Test
+    void latestMinuteTransitionsUsesLatestTimestampWithinRequestedRange() {
+        UUID serviceId = UUID.randomUUID();
+        when(servicesCatalogRepository.findIdByServiceKey("payments")).thenReturn(serviceId);
+        Instant latestInRange = Instant.parse("2026-02-22T20:09:00Z");
+        when(stateTransitionQueryRepository.findLatestTimestampInRange(
+                        eq(serviceId),
+                        eq("UserProfile"),
+                        eq("user.status"),
+                        any(),
+                        any(Instant.class),
+                        any(Instant.class)))
+                .thenReturn(latestInRange);
+        when(stateTransitionQueryRepository.sumTransitions(
+                        eq(serviceId), eq("UserProfile"), eq("user.status"), any(), any(), any(), any()))
+                .thenReturn(Map.of(
+                        new StateTransitionQueryRepository.TransitionKey("NEW", "STANDARD"),
+                        92L,
+                        new StateTransitionQueryRepository.TransitionKey("NEW", "CANCELLED"),
+                        8L));
+
+        RatioQueryResult result = service.runAdHocQuery(new AdHocRatioQueryRequest(
+                "payments",
+                "conversion_latest",
+                "transitions",
+                "UserProfile",
+                "user.status",
+                List.of(
+                        new AdHocRatioQueryRequest.Item(null, "NEW->STANDARD", "NEW -> STANDARD"),
+                        new AdHocRatioQueryRequest.Item(null, "NEW->CANCELLED", "NEW -> CANCELLED")),
+                "2026-02-22T19:00:00Z",
+                "2026-02-22T21:00:00Z",
+                "count",
+                true,
+                true,
+                true,
+                2,
+                true,
+                "zeros",
+                "zero"));
+
+        assertEquals(100L, result.total());
+        assertEquals(2, result.slices().size());
+        assertEquals("NEW -> CANCELLED", result.slices().get(1).label());
+        assertEquals(8.0d, result.slices().get(1).percent());
+        verify(stateTransitionQueryRepository)
+                .findLatestTimestampInRange(
+                        eq(serviceId),
+                        eq("UserProfile"),
+                        eq("user.status"),
+                        any(),
+                        any(Instant.class),
+                        any(Instant.class));
+        verify(stateTransitionQueryRepository)
+                .sumTransitions(
+                        eq(serviceId),
+                        eq("UserProfile"),
+                        eq("user.status"),
+                        any(),
+                        eq(latestInRange),
+                        eq(latestInRange.plusSeconds(60)),
+                        any());
+    }
+
+    @Test
     void statesSourceDoesNotHitTransitionRepo() {
         UUID serviceId = UUID.randomUUID();
         when(servicesCatalogRepository.findIdByServiceKey("payments")).thenReturn(serviceId);

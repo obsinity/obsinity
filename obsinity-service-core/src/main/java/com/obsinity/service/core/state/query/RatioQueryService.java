@@ -251,8 +251,8 @@ public class RatioQueryService {
             Instant transitionFrom = from;
             Instant transitionTo = to;
             if (latestMinuteTransitions) {
-                Instant latestTs = stateTransitionQueryRepository.findLatestTimestampForKey(
-                        serviceId, definition.objectType(), definition.attribute(), CounterBucket.M1);
+                Instant latestTs = stateTransitionQueryRepository.findLatestTimestampInRange(
+                        serviceId, definition.objectType(), definition.attribute(), CounterBucket.M1, from, to);
                 if (latestTs == null) {
                     transitionFrom = null;
                     transitionTo = null;
