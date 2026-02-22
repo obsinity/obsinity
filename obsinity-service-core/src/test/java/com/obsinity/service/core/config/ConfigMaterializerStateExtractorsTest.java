@@ -53,14 +53,13 @@ class ConfigMaterializerStateExtractorsTest {
                 Instant.now(),
                 ServiceConfig.EMPTY_DEFAULTS,
                 List.of(),
-                List.of(
-                        new StateExtractorConfig(
-                                "account.updated",
-                                "Account",
-                                "account_id",
-                                List.of("status"),
-                                new StateExtractorConfig.TransitionPolicyConfig(
-                                        List.of("NEW"), List.of("?"), List.of("ACTIVE")))),
+                List.of(new StateExtractorConfig(
+                        "account.updated",
+                        "Account",
+                        "account_id",
+                        List.of("status"),
+                        new StateExtractorConfig.TransitionPolicyConfig(
+                                List.of("NEW"), List.of("?"), List.of("ACTIVE")))),
                 List.of());
 
         ConfigMaterializer.ServiceConfigView view =

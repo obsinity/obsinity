@@ -12,7 +12,7 @@ Obsinity is a modular telemetry system with a PostgreSQL backend, REST controlle
 - **Long-term raw event storage**: `obsinity-service-core` writes every event into partitioned Postgres tables (`events_raw`, `event_attr_index`) with per-service/event TTLs for retention control.
 - **Multi-dimensional search**: `/api/search/events`, `/api/catalog/*`, and `/api/objql/query` expose attribute-level filtering, HAL pagination, and catalog discovery.
 - **Multi-dimensional counters & histograms**: `/api/query/counters` and `/api/histograms/query` serve HAL interval payloads from ingest-time rollups (5s → 7d) with per-metric granularity knobs.
-- **Multi-attribute state snapshots, transitions, and ratios**: `StateDetectionService` + `/api/query/state-counts` (current distribution), `/api/query/state-count-timeseries` (aligned minute snapshots with `1m/5m/1h/1d` rollups and arbitrary whole-minute sampling), `/api/query/state-transitions` (A→B flows), and `/api/query/ratio` (named state/transition/mixed ratio slices for pie charts).
+- **Multi-attribute state snapshots and transitions**: `StateDetectionService` + `/api/query/state-counts` (current distribution), `/api/query/state-count-timeseries` (aligned minute snapshots with `1m/5m/1h/1d` rollups and arbitrary whole-minute sampling), and `/api/query/state-transitions` (A→B flows).
 - **HAL everywhere**: all query endpoints emit HAL responses (complete with `_links` and interval arrays) for easy dashboard integration.
 - **Extremely configurable**: Service configs (JSON/CRD) define indexes, derived fields, metrics, and retention. Pipeline properties (`obsinity.counters.*`, `obsinity.histograms.*`, etc.) tune worker counts, flush rates, and batch sizes.
 - **Runs on stock PostgreSQL**: everything targets vanilla Postgres with Flyway migrations; no exotic extensions are needed.
@@ -156,7 +156,7 @@ curl -X POST http://localhost:8086/internal/demo/generate-unified-events/stop
 - **Profile Update Latency**: Update duration metrics broken down by channel
 - **API Counters**: Request counts by status code, method, and dimensions
 - **Profile Updates by Status/Channel**: Multi-dimensional event counters
-- **Funnel outcomes pie chart**: Named ratio query (`funnel_outcomes`) served by `/api/grafana/ratio`
+- **Funnel outcomes pie chart**: Client-defined ratio query payload served by `/api/grafana/ratio`
 
 All panels query the Obsinity REST API (not the database directly), demonstrating real-world API usage patterns.
 

@@ -311,45 +311,9 @@ Response:
 
 If `states` is omitted, all states are returned (subject to `limit`). Counts are maintained live by the state extractor pipeline, so this endpoint reflects the latest snapshot at query time.
 
-## REST Ratio Query
+## Grafana Ratio Query
 
-Ratio queries are named config objects loaded from service definitions and executed at query time against existing state snapshots and transition counters.
-
-```http
-GET /api/query/ratio?serviceKey=payments&name=funnel_outcomes&from=now-15m&to=now
-```
-
-Example ratio query config:
-
-```yaml
-service: payments
-ratioQueries:
-  - name: funnel_outcomes
-    type: ratio
-    source: transitions # transitions | states | mixed
-    objectType: UserProfile
-    attribute: user.status
-    window:
-      from: -15m
-      to: now
-    items:
-      - transition: "PENDING_KYC->ACTIVE"
-        label: "Success"
-      - transition: "PENDING_KYC->ABANDONED"
-        label: "Failed"
-      - transition: "PENDING_KYC->INACTIVE"
-        label: "Expired"
-    output:
-      format: grafana_pie
-      value: count # count | percent | ratio
-      includeRaw: true
-      includePercent: true
-      includeRatio: true
-      decimals: 2
-    behavior:
-      zeroTotal: zeros # zeros | empty | error
-      missingItem: zero # zero | error
-```
+Ratio queries are currently client-defined ad-hoc payloads sent to `/api/grafana/ratio` (no server-side named ratio config lookup).
 
 Validation rules:
 
@@ -367,7 +331,7 @@ AI assistance note: AI-generated query/config code should always receive human r
 
 | Module | Default port | Purpose / Endpoints |
 | ------ | ------------ | ------------------- |
-| `obsinity-controller-rest` | 8080 (see `application.yml`) | `/events/publish`(single), `/events/publish/batch`, `/api/search/events`, `/api/catalog/*`, `/api/objql/query`, `/api/query/counters`, `/api/histograms/query`, `/api/query/state-transitions`, `/api/query/state-counts`, `/api/query/state-count-timeseries`, `/api/query/ratio`, `/api/grafana/ratio`. |
+| `obsinity-controller-rest` | 8080 (see `application.yml`) | `/events/publish`(single), `/events/publish/batch`, `/api/search/events`, `/api/catalog/*`, `/api/objql/query`, `/api/query/counters`, `/api/histograms/query`, `/api/query/state-transitions`, `/api/query/state-counts`, `/api/query/state-count-timeseries`, `/api/grafana/ratio`. |
 | `obsinity-controller-admin` | 8080 (inherits Spring Boot default when run standalone) | `/api/admin/config/ready`, `/api/admin/config/service` (JSON `ServiceConfig` ingest), `/api/admin/configs/import` (tar/tgz CRD archives). |
 | `obsinity-ingest-rabbitmq` | n/a (worker) | Spring Boot worker that consumes canonical Obsinity payloads from `obsinity.ingest.rmq.queue` (default `obsinity.events`) and pushes them through `EventIngestService`. Enable with `obsinity.ingest.rmq.enabled=true`. |
 | `obsinity-ingest-kafka` | n/a (worker) | Spring Boot worker built on Spring Kafka. Reads from `obsinity.ingest.kafka.topic` using the configured bootstrap servers/group/client IDs and hands each payload to the same ingest pipeline. Enable with `obsinity.ingest.kafka.enabled=true`. |

@@ -433,7 +433,8 @@ public class ConfigMaterializer {
         return cleaned.isEmpty() ? List.of() : List.copyOf(cleaned);
     }
 
-    private TransitionPolicyNormalization normalizeTransitionPolicy(StateExtractorConfig.TransitionPolicyConfig policy) {
+    private TransitionPolicyNormalization normalizeTransitionPolicy(
+            StateExtractorConfig.TransitionPolicyConfig policy) {
         if (policy == null) {
             return new TransitionPolicyNormalization(List.of(), List.of());
         }

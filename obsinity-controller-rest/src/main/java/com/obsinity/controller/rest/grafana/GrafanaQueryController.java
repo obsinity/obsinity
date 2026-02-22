@@ -15,7 +15,6 @@ import com.obsinity.service.core.histogram.HistogramQueryResult;
 import com.obsinity.service.core.histogram.HistogramQueryService;
 import com.obsinity.service.core.histogram.HistogramQueryWindow;
 import com.obsinity.service.core.state.query.AdHocRatioQueryRequest;
-import com.obsinity.service.core.state.query.RatioQueryRequest;
 import com.obsinity.service.core.state.query.RatioQueryResult;
 import com.obsinity.service.core.state.query.RatioQueryService;
 import com.obsinity.service.core.state.query.StateCountQueryRequest;
@@ -232,7 +231,8 @@ public class GrafanaQueryController {
                     request.zeroTotal(),
                     request.missingItem()));
         } else {
-            result = ratioQueryService.runQuery(new RatioQueryRequest(request.serviceKey(), request.name(), from, to));
+            throw new IllegalArgumentException(
+                    "Grafana ratio queries must provide items; named server-side ratios are disabled");
         }
         return result.slices().stream().map(this::toRatioRow).toList();
     }

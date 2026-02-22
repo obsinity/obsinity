@@ -166,8 +166,8 @@ public class StateDetectionService {
                     .toList();
         }
 
-        boolean hasAdditionalExplicit = additionalConfigured != null
-                && additionalConfigured.stream().anyMatch(token -> !isControlToken(token));
+        boolean hasAdditionalExplicit =
+                additionalConfigured != null && additionalConfigured.stream().anyMatch(token -> !isControlToken(token));
         if (hasAdditionalExplicit) {
             history = snapshotRepository.findStateHistoryValues(
                     serviceId, extractor.objectType(), objectId, attribute, 1000);
