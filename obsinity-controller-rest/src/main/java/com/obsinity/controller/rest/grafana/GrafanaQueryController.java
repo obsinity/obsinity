@@ -652,6 +652,7 @@ public class GrafanaQueryController {
             if (time == null) {
                 continue;
             }
+            boolean hasAnyPercentileValue = false;
             Map<String, Object> row = rows.computeIfAbsent(time, t -> {
                 Map<String, Object> map = new LinkedHashMap<>();
                 map.put("time", t);
@@ -671,22 +672,11 @@ public class GrafanaQueryController {
                         continue;
                     }
                     row.put(toPercentileLabel(percentile), value);
+                    hasAnyPercentileValue = true;
                 }
             }
-            if (percentiles != null && !percentiles.isEmpty()) {
-                boolean complete = true;
-                for (Double percentile : percentiles) {
-                    if (percentile == null) {
-                        continue;
-                    }
-                    if (!row.containsKey(toPercentileLabel(percentile))) {
-                        complete = false;
-                        break;
-                    }
-                }
-                if (!complete) {
-                    rows.remove(time);
-                }
+            if (!hasAnyPercentileValue) {
+                rows.remove(time);
             }
         }
         return rows.values().stream().toList();

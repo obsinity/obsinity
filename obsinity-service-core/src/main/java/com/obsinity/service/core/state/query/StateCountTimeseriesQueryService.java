@@ -76,10 +76,11 @@ public class StateCountTimeseriesQueryService {
                 alignedStart,
                 alignedEnd);
         if (firstInRange == null) {
-            return new StateCountTimeseriesQueryResult(List.of(), 0, 0, 0, start, end);
-        }
-        if (firstInRange.isAfter(alignedStart)) {
-            alignedStart = firstInRange;
+            // If states are explicitly requested, emit zero-valued windows across the range
+            // so Grafana can render a continuous line from range start.
+            if (request.states() == null || request.states().isEmpty()) {
+                return new StateCountTimeseriesQueryResult(List.of(), 0, 0, 0, start, end);
+            }
         }
 
         int offset = request.limits() != null && request.limits().offset() != null
@@ -121,6 +122,10 @@ public class StateCountTimeseriesQueryService {
                 lastKnownCounts = new LinkedHashMap<>(countsForWindow);
             } else if (!lastKnownCounts.isEmpty()) {
                 countsForWindow.putAll(lastKnownCounts);
+            } else if (!requestedStates.isEmpty()) {
+                for (String state : requestedStates) {
+                    countsForWindow.put(state, 0L);
+                }
             }
 
             if (!countsForWindow.isEmpty()) {
