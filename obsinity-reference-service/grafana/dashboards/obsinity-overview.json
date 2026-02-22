@@ -522,7 +522,7 @@
           "queryType": "json",
           "method": "POST",
           "path": "/api/grafana/ratio",
-          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"serviceKey\": \"payments\", \"source\": \"transitions\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"items\": [{\"transition\": \"NEW->ACTIVE\", \"label\": \"Success\"}, {\"transition\": \"NEW->ABANDONED\", \"label\": \"Failed\"}, {\"transition\": \"NEW->INACTIVE\", \"label\": \"Expired\"}], \"value\": \"count\", \"includeRaw\": true, \"includePercent\": true, \"includeRatio\": true, \"decimals\": 2, \"zeroTotal\": \"zeros\", \"missingItem\": \"zero\"}",
+          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"serviceKey\": \"payments\", \"source\": \"transitions\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"items\": [{\"transition\": \"NEW->ACTIVE\", \"label\": \"NEW -> ACTIVE\"}, {\"transition\": \"NEW->ABANDONED\", \"label\": \"NEW -> ABANDONED\"}, {\"transition\": \"NEW->INACTIVE\", \"label\": \"NEW -> INACTIVE\"}], \"value\": \"count\", \"includeRaw\": true, \"includePercent\": true, \"includeRatio\": true, \"decimals\": 2, \"zeroTotal\": \"zeros\", \"missingItem\": \"zero\"}",
           "cacheDurationSeconds": 0,
           "fields": [
             {
@@ -611,7 +611,7 @@
           "queryType": "json",
           "method": "POST",
           "path": "/api/grafana/ratio",
-          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"serviceKey\": \"payments\", \"source\": \"transitions\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"items\": [{\"transition\": \"NEW->ACTIVE\", \"label\": \"Success\"}, {\"transition\": \"NEW->ABANDONED\", \"label\": \"Failed\"}, {\"transition\": \"NEW->INACTIVE\", \"label\": \"Expired\"}], \"value\": \"count\", \"includeRaw\": true, \"includePercent\": true, \"includeRatio\": true, \"decimals\": 2, \"zeroTotal\": \"zeros\", \"missingItem\": \"zero\", \"latestMinute\": true}",
+          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"serviceKey\": \"payments\", \"source\": \"transitions\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"items\": [{\"transition\": \"NEW->ACTIVE\", \"label\": \"NEW -> ACTIVE\"}, {\"transition\": \"NEW->ABANDONED\", \"label\": \"NEW -> ABANDONED\"}, {\"transition\": \"NEW->INACTIVE\", \"label\": \"NEW -> INACTIVE\"}], \"value\": \"count\", \"includeRaw\": true, \"includePercent\": true, \"includeRatio\": true, \"decimals\": 2, \"zeroTotal\": \"zeros\", \"missingItem\": \"zero\", \"latestMinute\": true}",
           "cacheDurationSeconds": 0,
           "fields": [
             {
@@ -1026,6 +1026,6 @@
   "timezone": "utc",
   "title": "Obsinity Demo - Overview",
   "uid": "obsinity-demo-overview",
-  "version": 66,
+  "version": 67,
   "weekStart": ""
 }
