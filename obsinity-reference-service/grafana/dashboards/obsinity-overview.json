@@ -791,7 +791,7 @@
           "queryType": "json",
           "method": "POST",
           "path": "/api/grafana/state-count-timeseries",
-          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"maxDataPoints\": 360, \"bucket\": \"1m\", \"serviceKey\": \"payments\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"states\": [\"NEW\", \"PENDING_EMAIL\", \"PENDING_KYC\", \"ACTIVE\", \"ABANDONED\", \"INACTIVE\"]}",
+          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"maxDataPoints\": 1440, \"bucket\": \"1m\", \"serviceKey\": \"payments\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"states\": [\"NEW\", \"PENDING_EMAIL\", \"PENDING_KYC\", \"ACTIVE\", \"ABANDONED\", \"INACTIVE\"]}",
           "cacheDurationSeconds": 0,
           "fields": [
             {
@@ -923,7 +923,7 @@
           "queryType": "json",
           "method": "POST",
           "path": "/api/grafana/state-transitions",
-          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"maxDataPoints\": 360, \"bucket\": \"1m\", \"serviceKey\": \"payments\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"fromStates\": [\"NEW\", \"PENDING_EMAIL\", \"PENDING_KYC\", \"ACTIVE\"], \"toStates\": [\"ACTIVE\", \"PENDING_EMAIL\", \"PENDING_KYC\", \"ABANDONED\", \"SUSPENDED\", \"BLOCKED\", \"INACTIVE\"]}",
+          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"maxDataPoints\": 1440, \"bucket\": \"1m\", \"serviceKey\": \"payments\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"fromStates\": [\"NEW\", \"PENDING_EMAIL\", \"PENDING_KYC\", \"ACTIVE\"], \"toStates\": [\"ACTIVE\", \"PENDING_EMAIL\", \"PENDING_KYC\", \"ABANDONED\", \"SUSPENDED\", \"BLOCKED\", \"INACTIVE\"]}",
           "cacheDurationSeconds": 0,
           "fields": [
             {
@@ -1026,6 +1026,6 @@
   "timezone": "utc",
   "title": "Obsinity Demo - Overview",
   "uid": "obsinity-demo-overview",
-  "version": 67,
+  "version": 68,
   "weekStart": ""
 }
