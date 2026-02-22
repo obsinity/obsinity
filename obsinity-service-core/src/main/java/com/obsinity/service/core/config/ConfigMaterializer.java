@@ -289,11 +289,17 @@ public class ConfigMaterializer {
             String objectType = safeTrim(cfg.objectType());
             String objectIdField = safeTrim(cfg.objectIdField());
             List<String> attributes = normalizeStateAttributes(cfg.stateAttributes());
-            List<String> transitionFromStates = normalizeTransitionFromStates(cfg.transitionPolicy());
+            TransitionPolicyNormalization transitionPolicy = normalizeTransitionPolicy(cfg.transitionPolicy());
             if (rawType == null || objectType == null || objectIdField == null || attributes.isEmpty()) {
                 continue;
             }
-            out.add(new StateExtractorDefinition(rawType, objectType, objectIdField, attributes, transitionFromStates));
+            out.add(new StateExtractorDefinition(
+                    rawType,
+                    objectType,
+                    objectIdField,
+                    attributes,
+                    transitionPolicy.onlyFromStates(),
+                    transitionPolicy.additionalFromStates()));
         }
         return out.isEmpty() ? List.of() : List.copyOf(out);
     }
@@ -427,19 +433,37 @@ public class ConfigMaterializer {
         return cleaned.isEmpty() ? List.of() : List.copyOf(cleaned);
     }
 
-    private List<String> normalizeTransitionFromStates(StateExtractorConfig.TransitionPolicyConfig policy) {
-        if (policy == null || policy.fromStates() == null || policy.fromStates().isEmpty()) {
-            return List.of("?");
+    private TransitionPolicyNormalization normalizeTransitionPolicy(StateExtractorConfig.TransitionPolicyConfig policy) {
+        if (policy == null) {
+            return new TransitionPolicyNormalization(List.of(), List.of());
+        }
+        List<String> only = normalizeTokens(policy.only());
+        List<String> additional = normalizeTokens(policy.additional());
+        // Backward compatibility: legacy fromStates now behaves as additive states.
+        List<String> legacyFromStates = normalizeTokens(policy.fromStates());
+        if (!legacyFromStates.isEmpty()) {
+            List<String> merged = new ArrayList<>(additional);
+            merged.addAll(legacyFromStates);
+            additional = List.copyOf(new java.util.LinkedHashSet<>(merged));
+        }
+        return new TransitionPolicyNormalization(only, additional);
+    }
+
+    private List<String> normalizeTokens(List<String> tokens) {
+        if (tokens == null || tokens.isEmpty()) {
+            return List.of();
         }
         List<String> cleaned = new ArrayList<>();
-        for (String token : policy.fromStates()) {
+        for (String token : tokens) {
             String trimmed = safeTrim(token);
             if (trimmed != null) {
                 cleaned.add(trimmed);
             }
         }
-        return cleaned.isEmpty() ? List.of("?") : List.copyOf(cleaned);
+        return cleaned.isEmpty() ? List.of() : List.copyOf(cleaned);
     }
+
+    private record TransitionPolicyNormalization(List<String> onlyFromStates, List<String> additionalFromStates) {}
 
     /** Immutable projection so callers do not depend on runtime record constructors. */
     public record ServiceConfigView(

@@ -113,12 +113,10 @@ public class StateDetectionService {
             String attribute,
             String previous,
             String newValue) {
-        List<String> configured = extractor.transitionFromStates();
-        if (configured == null || configured.isEmpty()) {
-            return List.of(previous);
-        }
+        List<String> onlyConfigured = extractor.transitionOnlyFromStates();
+        List<String> additionalConfigured = extractor.transitionAdditionalFromStates();
         LinkedHashSet<String> selected = new LinkedHashSet<>();
-        if (configured.contains(TRANSITION_FROM_ALL)) {
+        if (onlyConfigured != null && onlyConfigured.contains(TRANSITION_FROM_ALL)) {
             return snapshotRepository
                     .findStateHistoryValues(serviceId, extractor.objectType(), objectId, attribute, 1000)
                     .stream()
@@ -128,24 +126,66 @@ public class StateDetectionService {
         }
 
         List<String> history = null;
-        boolean includeLatest = configured.contains(TRANSITION_FROM_LATEST);
-        boolean hasExplicit = configured.stream().anyMatch(token -> !isControlToken(token));
-        if (hasExplicit) {
-            history = snapshotRepository.findStateHistoryValues(
-                    serviceId, extractor.objectType(), objectId, attribute, 1000);
+        boolean restrictiveOnly = onlyConfigured != null && !onlyConfigured.isEmpty();
+
+        if (restrictiveOnly) {
+            boolean includeLatest = onlyConfigured.contains(TRANSITION_FROM_LATEST);
+            boolean hasExplicit = onlyConfigured.stream().anyMatch(token -> !isControlToken(token));
+            if (hasExplicit) {
+                history = snapshotRepository.findStateHistoryValues(
+                        serviceId, extractor.objectType(), objectId, attribute, 1000);
+            }
+            if (includeLatest && previous != null && !previous.isBlank() && !previous.equals(newValue)) {
+                selected.add(previous);
+            }
+            if (hasExplicit && history != null && !history.isEmpty()) {
+                LinkedHashSet<String> historySet = new LinkedHashSet<>(history);
+                for (String token : onlyConfigured) {
+                    if (isControlToken(token)) {
+                        continue;
+                    }
+                    if (token != null && !token.isBlank() && !token.equals(newValue) && historySet.contains(token)) {
+                        selected.add(token);
+                    }
+                }
+            }
+            return selected.stream().toList();
         }
-        if (includeLatest && previous != null && !previous.isBlank() && !previous.equals(newValue)) {
+
+        // Default additive behavior: always include the immediate previous state transition.
+        if (previous != null && !previous.isBlank() && !previous.equals(newValue)) {
             selected.add(previous);
         }
-        if (hasExplicit && history != null && !history.isEmpty()) {
-            LinkedHashSet<String> historySet = new LinkedHashSet<>(history);
-            for (String token : configured) {
-                if (isControlToken(token)) {
-                    continue;
+        if (additionalConfigured != null && additionalConfigured.contains(TRANSITION_FROM_ALL)) {
+            return snapshotRepository
+                    .findStateHistoryValues(serviceId, extractor.objectType(), objectId, attribute, 1000)
+                    .stream()
+                    .filter(state -> state != null && !state.isBlank())
+                    .filter(state -> !state.equals(newValue))
+                    .distinct()
+                    .toList();
+        }
+
+        boolean hasAdditionalExplicit = additionalConfigured != null
+                && additionalConfigured.stream().anyMatch(token -> !isControlToken(token));
+        if (hasAdditionalExplicit) {
+            history = snapshotRepository.findStateHistoryValues(
+                    serviceId, extractor.objectType(), objectId, attribute, 1000);
+            if (history != null && !history.isEmpty()) {
+                LinkedHashSet<String> historySet = new LinkedHashSet<>(history);
+                for (String token : additionalConfigured) {
+                    if (isControlToken(token)) {
+                        continue;
+                    }
+                    if (token != null && !token.isBlank() && !token.equals(newValue) && historySet.contains(token)) {
+                        selected.add(token);
+                    }
                 }
-                if (token != null && !token.isBlank() && !token.equals(newValue) && historySet.contains(token)) {
-                    selected.add(token);
-                }
+            }
+        }
+        if (additionalConfigured != null && additionalConfigured.contains(TRANSITION_FROM_LATEST)) {
+            if (previous != null && !previous.isBlank() && !previous.equals(newValue)) {
+                selected.add(previous);
             }
         }
         return selected.stream().toList();

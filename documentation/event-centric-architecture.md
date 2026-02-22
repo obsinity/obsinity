@@ -190,7 +190,7 @@ Purpose: manage object lifecycle state and emit state facts.
     valueFrom: user.status
 
   transitionPolicy:
-    fromStates: ["?", "NEW"]
+    additional: ["NEW"]
 
   emit:
     history:
