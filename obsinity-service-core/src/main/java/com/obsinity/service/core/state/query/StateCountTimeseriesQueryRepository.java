@@ -2,7 +2,9 @@ package com.obsinity.service.core.state.query;
 
 import com.obsinity.service.core.counter.CounterBucket;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -143,4 +145,52 @@ public class StateCountTimeseriesQueryRepository {
     }
 
     public record Row(Instant ts, String stateValue, long count) {}
+
+    public Map<String, Long> fetchLatestCountsInRange(
+            UUID serviceId,
+            String objectType,
+            String attribute,
+            List<String> states,
+            CounterBucket bucket,
+            Instant startInclusive,
+            Instant endExclusive) {
+        MapSqlParameterSource params = baseParams(serviceId, objectType, attribute)
+                .addValue("bucket", bucket.label())
+                .addValue("start", java.sql.Timestamp.from(startInclusive))
+                .addValue("end", java.sql.Timestamp.from(endExclusive));
+        StringBuilder sql = new StringBuilder(
+                """
+                WITH latest_ts AS (
+                    SELECT MAX(ts) AS ts
+                      FROM obsinity.object_state_count_timeseries
+                     WHERE service_id = :service_id
+                       AND object_type = :object_type
+                       AND attribute = :attribute
+                       AND bucket = :bucket
+                       AND ts >= :start
+                       AND ts < :end
+                )
+                SELECT state_value, state_count
+                  FROM obsinity.object_state_count_timeseries
+                 WHERE service_id = :service_id
+                   AND object_type = :object_type
+                   AND attribute = :attribute
+                   AND bucket = :bucket
+                   AND ts = (SELECT ts FROM latest_ts)
+                """);
+        if (states != null && !states.isEmpty()) {
+            sql.append(" AND state_value IN (:states)");
+            params.addValue("states", states);
+        }
+        sql.append(" ORDER BY state_value ASC");
+
+        return jdbc
+                .query(
+                        sql.toString(),
+                        params,
+                        (rs, rowNum) -> Map.entry(rs.getString("state_value"), rs.getLong("state_count")))
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        Map.Entry::getKey, Map.Entry::getValue, (left, right) -> right, LinkedHashMap::new));
+    }
 }

@@ -6,12 +6,14 @@ import com.obsinity.service.core.counter.CounterGranularity;
 import com.obsinity.service.core.model.config.EventConfig;
 import com.obsinity.service.core.model.config.EventIndexConfig;
 import com.obsinity.service.core.model.config.MetricConfig;
+import com.obsinity.service.core.model.config.RatioQueryConfig;
 import com.obsinity.service.core.model.config.ServiceConfig;
 import com.obsinity.service.core.model.config.StateExtractorConfig;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -36,12 +38,14 @@ public class ConfigMaterializer {
             }
         }
         List<StateExtractorDefinition> extractors = materializeStateExtractors(model.stateExtractors());
+        Map<String, RatioQueryDefinition> ratioQueries = materializeRatioQueries(model.ratioQueries());
         return new ServiceConfigView(
                 serviceId,
                 serviceKey,
                 updatedAt != null ? updatedAt : Instant.now(),
                 Map.copyOf(eventTypes),
-                extractors);
+                extractors,
+                ratioQueries);
     }
 
     private EventTypeConfig materializeEvent(EventConfig cfg, String serviceKey, Instant updatedAt) {
@@ -294,6 +298,121 @@ public class ConfigMaterializer {
         return out.isEmpty() ? List.of() : List.copyOf(out);
     }
 
+    private Map<String, RatioQueryDefinition> materializeRatioQueries(List<RatioQueryConfig> configs) {
+        if (configs == null || configs.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, RatioQueryDefinition> out = new LinkedHashMap<>();
+        for (RatioQueryConfig cfg : configs) {
+            if (cfg == null) {
+                continue;
+            }
+            String name = safeTrim(cfg.name());
+            if (name == null) {
+                throw new IllegalArgumentException("ratio query name is required");
+            }
+            String type = safeTrim(cfg.type());
+            if (type != null && !"ratio".equalsIgnoreCase(type)) {
+                throw new IllegalArgumentException("ratio query '" + name + "' has unsupported type: " + type);
+            }
+            RatioQueryDefinition.Source source = RatioQueryDefinition.Source.fromConfigValue(cfg.source());
+            String objectType = safeTrim(cfg.objectType());
+            String attribute = safeTrim(cfg.attribute());
+            if (objectType == null || attribute == null) {
+                throw new IllegalArgumentException("ratio query '" + name + "' requires objectType and attribute");
+            }
+
+            RatioQueryDefinition.Window window = cfg.window() == null
+                    ? new RatioQueryDefinition.Window("-15m", "now")
+                    : new RatioQueryDefinition.Window(
+                            defaultIfBlank(cfg.window().from(), "-15m"),
+                            defaultIfBlank(cfg.window().to(), "now"));
+            RatioQueryDefinition.Output output = cfg.output() == null
+                    ? new RatioQueryDefinition.Output(
+                            RatioQueryDefinition.OutputFormat.GRAFANA_PIE,
+                            RatioQueryDefinition.ValueMode.COUNT,
+                            true,
+                            true,
+                            true,
+                            2)
+                    : new RatioQueryDefinition.Output(
+                            RatioQueryDefinition.OutputFormat.fromConfigValue(
+                                    cfg.output().format()),
+                            RatioQueryDefinition.ValueMode.fromConfigValue(
+                                    cfg.output().value()),
+                            Boolean.TRUE.equals(cfg.output().includeRaw()),
+                            Boolean.TRUE.equals(cfg.output().includePercent()),
+                            Boolean.TRUE.equals(cfg.output().includeRatio()),
+                            cfg.output().decimals() == null
+                                    ? 2
+                                    : Math.max(0, cfg.output().decimals()));
+            RatioQueryDefinition.Behavior behavior = cfg.behavior() == null
+                    ? new RatioQueryDefinition.Behavior(
+                            RatioQueryDefinition.ZeroTotalBehavior.ZEROS, RatioQueryDefinition.MissingItemBehavior.ZERO)
+                    : new RatioQueryDefinition.Behavior(
+                            RatioQueryDefinition.ZeroTotalBehavior.fromConfigValue(
+                                    cfg.behavior().zeroTotal()),
+                            RatioQueryDefinition.MissingItemBehavior.fromConfigValue(
+                                    cfg.behavior().missingItem()));
+
+            List<RatioQueryDefinition.Item> items = materializeRatioItems(name, source, cfg.items());
+            out.put(
+                    name,
+                    new RatioQueryDefinition(name, source, objectType, attribute, window, items, output, behavior));
+        }
+        return out.isEmpty() ? Map.of() : Map.copyOf(out);
+    }
+
+    private List<RatioQueryDefinition.Item> materializeRatioItems(
+            String queryName, RatioQueryDefinition.Source source, List<RatioQueryConfig.Item> items) {
+        if (items == null || items.isEmpty()) {
+            throw new IllegalArgumentException("ratio query '" + queryName + "' items must be non-empty");
+        }
+        List<RatioQueryDefinition.Item> out = new ArrayList<>();
+        for (int i = 0; i < items.size(); i++) {
+            RatioQueryConfig.Item item = items.get(i);
+            if (item == null) {
+                continue;
+            }
+            String state = safeTrim(item.state());
+            String transition = safeTrim(item.transition());
+            String label = safeTrim(item.label());
+            if (source == RatioQueryDefinition.Source.STATES && state == null) {
+                throw new IllegalArgumentException(
+                        "ratio query '" + queryName + "' item " + i + " must provide state for source=states");
+            }
+            if (source == RatioQueryDefinition.Source.TRANSITIONS && transition == null) {
+                throw new IllegalArgumentException("ratio query '" + queryName + "' item " + i
+                        + " must provide transition for source=transitions");
+            }
+            if (source == RatioQueryDefinition.Source.MIXED) {
+                boolean hasState = state != null;
+                boolean hasTransition = transition != null;
+                if (hasState == hasTransition) {
+                    throw new IllegalArgumentException("ratio query '" + queryName + "' item " + i
+                            + " must provide exactly one of state or transition for source=mixed");
+                }
+            }
+            if (state != null && transition != null) {
+                throw new IllegalArgumentException(
+                        "ratio query '" + queryName + "' item " + i + " cannot set both state and transition");
+            }
+            if (label == null) {
+                label = state != null ? state : transition;
+            }
+            out.add(new RatioQueryDefinition.Item(state, transition, label));
+        }
+        if (out.isEmpty()) {
+            throw new IllegalArgumentException("ratio query '" + queryName + "' items must be non-empty");
+        }
+        return List.copyOf(out);
+    }
+
+    private String defaultIfBlank(String value, String fallback) {
+        String trimmed = safeTrim(value);
+        return trimmed == null ? fallback : trimmed;
+    }
+
     private List<String> normalizeStateAttributes(List<String> stateAttributes) {
         if (stateAttributes == null || stateAttributes.isEmpty()) {
             return List.of();
@@ -328,5 +447,6 @@ public class ConfigMaterializer {
             String serviceKey,
             Instant updatedAt,
             Map<String, EventTypeConfig> eventTypes,
-            List<StateExtractorDefinition> stateExtractors) {}
+            List<StateExtractorDefinition> stateExtractors,
+            Map<String, RatioQueryDefinition> ratioQueries) {}
 }

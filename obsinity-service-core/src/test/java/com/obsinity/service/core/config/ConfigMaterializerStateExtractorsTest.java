@@ -29,7 +29,8 @@ class ConfigMaterializerStateExtractorsTest {
                                 " account_id ",
                                 List.of(" status ", "phase", "  "),
                                 new StateExtractorConfig.TransitionPolicyConfig(List.of())),
-                        new StateExtractorConfig(null, "Missing", "id", List.of("state"), null)));
+                        new StateExtractorConfig(null, "Missing", "id", List.of("state"), null)),
+                List.of());
 
         ConfigMaterializer.ServiceConfigView view =
                 materializer.materializeService(service, UUID.randomUUID(), "payments", Instant.now());

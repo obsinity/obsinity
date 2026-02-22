@@ -3,6 +3,7 @@ package com.obsinity.service.core.config;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 
@@ -61,5 +62,31 @@ public class ConfigLookup {
             }
         }
         return matches.isEmpty() ? List.of() : List.copyOf(matches);
+    }
+
+    public Optional<RatioQueryDefinition> ratioQuery(java.util.UUID serviceId, String queryName) {
+        if (serviceId == null || queryName == null || queryName.isBlank()) {
+            return Optional.empty();
+        }
+        var svc = registry.current().services().get(serviceId);
+        if (svc == null) {
+            return Optional.empty();
+        }
+        Map<String, RatioQueryDefinition> ratioQueries = svc.ratioQueries();
+        if (ratioQueries == null || ratioQueries.isEmpty()) {
+            return Optional.empty();
+        }
+        RatioQueryDefinition direct = ratioQueries.get(queryName);
+        if (direct != null) {
+            return Optional.of(direct);
+        }
+        String normalized = queryName.trim().toLowerCase(Locale.ROOT);
+        for (Map.Entry<String, RatioQueryDefinition> entry : ratioQueries.entrySet()) {
+            if (entry.getKey() != null
+                    && entry.getKey().trim().toLowerCase(Locale.ROOT).equals(normalized)) {
+                return Optional.ofNullable(entry.getValue());
+            }
+        }
+        return Optional.empty();
     }
 }

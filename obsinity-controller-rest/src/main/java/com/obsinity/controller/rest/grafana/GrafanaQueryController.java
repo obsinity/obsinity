@@ -14,6 +14,10 @@ import com.obsinity.service.core.histogram.HistogramQueryRequest;
 import com.obsinity.service.core.histogram.HistogramQueryResult;
 import com.obsinity.service.core.histogram.HistogramQueryService;
 import com.obsinity.service.core.histogram.HistogramQueryWindow;
+import com.obsinity.service.core.state.query.AdHocRatioQueryRequest;
+import com.obsinity.service.core.state.query.RatioQueryRequest;
+import com.obsinity.service.core.state.query.RatioQueryResult;
+import com.obsinity.service.core.state.query.RatioQueryService;
 import com.obsinity.service.core.state.query.StateCountQueryRequest;
 import com.obsinity.service.core.state.query.StateCountQueryResult;
 import com.obsinity.service.core.state.query.StateCountQueryService;
@@ -55,6 +59,7 @@ public class GrafanaQueryController {
     private final StateCountQueryService stateCountQueryService;
     private final CounterQueryService counterQueryService;
     private final com.obsinity.service.core.state.query.StateTransitionQueryService stateTransitionQueryService;
+    private final RatioQueryService ratioQueryService;
     private final ObjectMapper objectMapper;
     private final int timeseriesPointCap;
 
@@ -64,6 +69,7 @@ public class GrafanaQueryController {
             StateCountQueryService stateCountQueryService,
             CounterQueryService counterQueryService,
             com.obsinity.service.core.state.query.StateTransitionQueryService stateTransitionQueryService,
+            RatioQueryService ratioQueryService,
             ObjectMapper objectMapper,
             @Value("${obsinity.grafana.timeseries.max-data-points-cap:1440}") int timeseriesPointCap) {
         this.histogramQueryService = histogramQueryService;
@@ -71,6 +77,7 @@ public class GrafanaQueryController {
         this.stateCountQueryService = stateCountQueryService;
         this.counterQueryService = counterQueryService;
         this.stateTransitionQueryService = stateTransitionQueryService;
+        this.ratioQueryService = ratioQueryService;
         this.objectMapper = objectMapper;
         this.timeseriesPointCap = timeseriesPointCap > 0 ? timeseriesPointCap : DEFAULT_TIMESERIES_POINT_CAP;
     }
@@ -192,6 +199,44 @@ public class GrafanaQueryController {
         return rowsByTime.values().stream().toList();
     }
 
+    @PostMapping(path = "/ratio", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public List<Map<String, Object>> ratio(@RequestBody JsonNode requestBody) {
+        GrafanaRatioRequest request = parseRatioRequest(requestBody);
+        String from = request.from();
+        String to = request.to();
+        if ((from == null || from.isBlank() || to == null || to.isBlank()) && request.range() != null) {
+            GrafanaRangeResolver.ResolvedRange range = GrafanaRangeResolver.resolve(request.range());
+            from = range.from().toString();
+            to = range.to().toString();
+        }
+        RatioQueryResult result;
+        if (request.items() != null && !request.items().isEmpty()) {
+            List<AdHocRatioQueryRequest.Item> items = request.items().stream()
+                    .map(item -> new AdHocRatioQueryRequest.Item(item.state(), item.transition(), item.label()))
+                    .toList();
+            result = ratioQueryService.runAdHocQuery(new AdHocRatioQueryRequest(
+                    request.serviceKey(),
+                    request.name(),
+                    request.source(),
+                    request.objectType(),
+                    request.attribute(),
+                    items,
+                    from,
+                    to,
+                    request.value(),
+                    request.includeRaw(),
+                    request.includePercent(),
+                    request.includeRatio(),
+                    request.decimals(),
+                    request.latestMinute(),
+                    request.zeroTotal(),
+                    request.missingItem()));
+        } else {
+            result = ratioQueryService.runQuery(new RatioQueryRequest(request.serviceKey(), request.name(), from, to));
+        }
+        return result.slices().stream().map(this::toRatioRow).toList();
+    }
+
     @ExceptionHandler({IllegalArgumentException.class, DateTimeParseException.class})
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, Object> handleBadRequest(Exception ex) {
@@ -277,6 +322,22 @@ public class GrafanaQueryController {
         return objectMapper.convertValue(requestBody, GrafanaStateTransitionRequest.class);
     }
 
+    private GrafanaRatioRequest parseRatioRequest(JsonNode requestBody) {
+        if (requestBody == null || requestBody.isNull()) {
+            throw new IllegalArgumentException("Grafana ratio payload is required");
+        }
+        if (requestBody.isObject()) {
+            ObjectNode root = ((ObjectNode) requestBody).deepCopy();
+            JsonNode rangeNode = root.get("range");
+            if (rangeNode instanceof ObjectNode range) {
+                coerceLong(range, "fromMs");
+                coerceLong(range, "toMs");
+            }
+            return objectMapper.convertValue(root, GrafanaRatioRequest.class);
+        }
+        return objectMapper.convertValue(requestBody, GrafanaRatioRequest.class);
+    }
+
     private record GrafanaStateTransitionRequest(
             GrafanaQueryModels.Range range,
             Long intervalMs,
@@ -287,6 +348,27 @@ public class GrafanaQueryController {
             String attribute,
             List<String> fromStates,
             List<String> toStates) {}
+
+    private record GrafanaRatioRequest(
+            GrafanaQueryModels.Range range,
+            String serviceKey,
+            String name,
+            String from,
+            String to,
+            String source,
+            String objectType,
+            String attribute,
+            List<GrafanaRatioItem> items,
+            String value,
+            Boolean includeRaw,
+            Boolean includePercent,
+            Boolean includeRatio,
+            Integer decimals,
+            Boolean latestMinute,
+            String zeroTotal,
+            String missingItem) {}
+
+    private record GrafanaRatioItem(String state, String transition, String label) {}
 
     private List<String> buildTransitionLabels(List<String> fromStates, List<String> toStates) {
         if (fromStates == null || fromStates.isEmpty() || toStates == null || toStates.isEmpty()) {
@@ -301,6 +383,22 @@ public class GrafanaQueryController {
             }
         }
         return labels;
+    }
+
+    private Map<String, Object> toRatioRow(RatioQueryResult.RatioSlice slice) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("label", slice.label());
+        row.put("value", slice.value());
+        if (slice.percent() != null) {
+            row.put("percent", slice.percent());
+        }
+        if (slice.ratio() != null) {
+            row.put("ratio", slice.ratio());
+        }
+        if (slice.rawValue() != null) {
+            row.put("rawValue", slice.rawValue());
+        }
+        return row;
     }
 
     private GrafanaResult runHistogram(

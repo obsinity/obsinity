@@ -8,6 +8,8 @@ The Grafana setup provides real-time visualization of:
 - **State Counts**: Current object state distribution (user profiles by status)
 - **State Transitions**: Time-series view of state changes over time
 - **State Count Time Series**: Historical state count snapshots
+- **Conversion Rates (Range Aggregate)**: Ratio slices aggregated across the selected time range
+- **Conversion Rates (Latest Minute)**: Ratio slices from the most recent 1-minute bucket in the selected range
 - **HTTP Request Latency**: Percentile-based latency histograms (p50, p90, p95, p99)
 - **Profile Update Latency**: Update duration metrics by channel
 - **API Counters**: Request counts by status code, method, and other dimensions
@@ -134,6 +136,16 @@ Stacked area chart showing request volume by HTTP status code at 5-minute rollup
 
 Multi-dimensional counter showing profile update events grouped by status and channel at 1-minute intervals.
 
+### 8. Conversion Rates (Range Aggregate) Pie
+**API Endpoint**: `/api/grafana/ratio`
+
+This panel expects the `funnel_outcomes` ratio query to exist in service config (see `service-definitions/services/payments/ratio-queries.yaml`).
+
+### 9. Conversion Rates (Latest Minute) Pie
+**API Endpoint**: `/api/grafana/ratio`
+
+This panel uses the same ratio payload but adds `"latestMinute": true` to select only the most recent minute bucket inside the requested time range.
+
 ## Query Examples
 
 All queries use POST requests with JSON bodies. Here are some examples:
@@ -176,6 +188,22 @@ All queries use POST requests with JSON bodies. Here are some examples:
     "http.method": ["GET"],
     "http.status": ["200", "500"]
   }
+}
+```
+
+### Ratio Query (`/api/grafana/ratio`)
+```json
+{
+  "range": { "fromMs": 1769754000000, "toMs": 1769757600000 },
+  "serviceKey": "payments",
+  "source": "transitions",
+  "objectType": "UserProfile",
+  "attribute": "user.status",
+  "items": [
+    { "transition": "NEW->ACTIVE", "label": "Success" },
+    { "transition": "NEW->ABANDONED", "label": "Failed" },
+    { "transition": "NEW->INACTIVE", "label": "Expired" }
+  ]
 }
 ```
 
