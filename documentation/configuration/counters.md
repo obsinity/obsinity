@@ -260,7 +260,8 @@ Response snippet:
 
 Downsampling semantics for state-count timeseries are `downsampleByLatestSnapshot`: when querying intervals wider than
 `1m` (for example `5m` or `1h`), Obsinity reads M1 snapshots and returns the latest snapshot found inside each
-interval window per state. This is an as-of snapshot selection, not a summation across minutes.
+interval window per state. This is an as-of snapshot selection, not a summation across minutes. If a later interval
+has no snapshot rows, Obsinity carries forward the last known counts to avoid gaps in charts.
 
 Tuning knobs:
 

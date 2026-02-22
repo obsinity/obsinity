@@ -93,6 +93,8 @@ public class StateCountTimeseriesQueryService {
         Duration step = requestedInterval;
         Instant cursor = alignedStart.plus(step.multipliedBy(offset));
         int emittedWindows = 0;
+        List<String> requestedStates = request.states() == null ? List.of() : request.states();
+        Map<String, Long> lastKnownCounts = new LinkedHashMap<>();
 
         while (cursor.isBefore(alignedEnd) && emittedWindows < limit) {
             Instant next = cursor.plus(step);
@@ -102,19 +104,27 @@ public class StateCountTimeseriesQueryService {
                 rangeEnd = rangeStart.plus(queryBucket.duration());
             }
             List<StateCountTimeseriesQueryRepository.Row> rows = repository.fetchRowsInRange(
-                    serviceId,
-                    request.objectType(),
-                    request.attribute(),
-                    request.states(),
-                    queryBucket,
-                    rangeStart,
-                    rangeEnd);
+                    serviceId, request.objectType(), request.attribute(), null, queryBucket, rangeStart, rangeEnd);
+            Map<String, Long> countsForWindow = new LinkedHashMap<>();
             if (!rows.isEmpty()) {
                 Map<String, Long> latestPerState = new LinkedHashMap<>();
                 for (StateCountTimeseriesQueryRepository.Row row : rows) {
                     latestPerState.put(row.stateValue(), row.count());
                 }
-                List<StateCountTimeseriesWindow.Entry> entries = latestPerState.entrySet().stream()
+                if (requestedStates.isEmpty()) {
+                    countsForWindow.putAll(latestPerState);
+                } else {
+                    for (String state : requestedStates) {
+                        countsForWindow.put(state, latestPerState.getOrDefault(state, 0L));
+                    }
+                }
+                lastKnownCounts = new LinkedHashMap<>(countsForWindow);
+            } else if (!lastKnownCounts.isEmpty()) {
+                countsForWindow.putAll(lastKnownCounts);
+            }
+
+            if (!countsForWindow.isEmpty()) {
+                List<StateCountTimeseriesWindow.Entry> entries = countsForWindow.entrySet().stream()
                         .map(e -> new StateCountTimeseriesWindow.Entry(e.getKey(), e.getValue()))
                         .toList();
                 windows.add(
