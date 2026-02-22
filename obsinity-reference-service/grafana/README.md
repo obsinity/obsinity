@@ -144,7 +144,7 @@ This panel expects the `funnel_outcomes` ratio query to exist in service config 
 ### 9. Conversion Rates (Latest Minute) Pie
 **API Endpoint**: `/api/grafana/ratio`
 
-This panel uses the same ratio payload but adds `"latestMinute": true` to select only the most recent minute bucket inside the requested time range.
+This panel uses the same ratio payload but adds `"latestMinute": true` to select the most recent minute bucket available in the database for that service/objectType/attribute key.
 
 ## Query Examples
 
