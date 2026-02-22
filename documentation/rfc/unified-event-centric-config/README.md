@@ -46,7 +46,6 @@ This folder contains draft materials for a unified config model centered on even
 ### Transition Policy (Draft)
 - `transitionPolicy.only` restricts which previous states contribute transitions.
 - `transitionPolicy.additional` adds extra previous states on top of the normal latest previous-state transition.
-- `transitionPolicy.fromStates` is legacy and behaves like `additional`.
 - Tokens:
   - `"?"`: latest previous state
   - `"*"`: all previous states
