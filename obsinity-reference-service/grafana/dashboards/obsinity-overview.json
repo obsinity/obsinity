@@ -439,7 +439,7 @@
           "queryType": "json",
           "method": "POST",
           "path": "/api/grafana/state-counts",
-          "body": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"NEW\",\"PENDING_EMAIL\",\"PENDING_KYC\",\"ACTIVE\",\"ABANDONED\",\"INACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"UPGRADED\",\"ARCHIVED\"]}",
+          "body": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"NEW\",\"PENDING_EMAIL\",\"PENDING_KYC\",\"STANDARD\",\"CANCELLED\",\"ABANDONED\",\"INACTIVE\",\"SUSPENDED\",\"BLOCKED\",\"PREMIUM\",\"ARCHIVED\"]}",
           "cacheDurationSeconds": 0,
           "fields": [
             {
@@ -522,7 +522,7 @@
           "queryType": "json",
           "method": "POST",
           "path": "/api/grafana/ratio",
-          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"serviceKey\": \"payments\", \"source\": \"transitions\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"items\": [{\"transition\": \"NEW->ACTIVE\", \"label\": \"NEW -> ACTIVE\"}, {\"transition\": \"NEW->ABANDONED\", \"label\": \"NEW -> ABANDONED\"}, {\"transition\": \"NEW->INACTIVE\", \"label\": \"NEW -> INACTIVE\"}], \"value\": \"count\", \"includeRaw\": true, \"includePercent\": true, \"includeRatio\": true, \"decimals\": 2, \"zeroTotal\": \"zeros\", \"missingItem\": \"zero\"}",
+          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"serviceKey\": \"payments\", \"source\": \"transitions\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"items\": [{\"transition\": \"NEW->STANDARD\", \"label\": \"NEW -> STANDARD\"}, {\"transition\": \"NEW->ABANDONED\", \"label\": \"NEW -> ABANDONED\"}, {\"transition\": \"NEW->CANCELLED\", \"label\": \"NEW -> CANCELLED\"}], \"value\": \"count\", \"includeRaw\": true, \"includePercent\": true, \"includeRatio\": true, \"decimals\": 2, \"zeroTotal\": \"zeros\", \"missingItem\": \"zero\"}",
           "cacheDurationSeconds": 0,
           "fields": [
             {
@@ -611,7 +611,7 @@
           "queryType": "json",
           "method": "POST",
           "path": "/api/grafana/ratio",
-          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"serviceKey\": \"payments\", \"source\": \"transitions\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"items\": [{\"transition\": \"NEW->ACTIVE\", \"label\": \"NEW -> ACTIVE\"}, {\"transition\": \"NEW->ABANDONED\", \"label\": \"NEW -> ABANDONED\"}, {\"transition\": \"NEW->INACTIVE\", \"label\": \"NEW -> INACTIVE\"}], \"value\": \"count\", \"includeRaw\": true, \"includePercent\": true, \"includeRatio\": true, \"decimals\": 2, \"zeroTotal\": \"zeros\", \"missingItem\": \"zero\", \"latestMinute\": true}",
+          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"serviceKey\": \"payments\", \"source\": \"transitions\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"items\": [{\"transition\": \"NEW->STANDARD\", \"label\": \"NEW -> STANDARD\"}, {\"transition\": \"NEW->ABANDONED\", \"label\": \"NEW -> ABANDONED\"}, {\"transition\": \"NEW->CANCELLED\", \"label\": \"NEW -> CANCELLED\"}], \"value\": \"count\", \"includeRaw\": true, \"includePercent\": true, \"includeRatio\": true, \"decimals\": 2, \"zeroTotal\": \"zeros\", \"missingItem\": \"zero\", \"latestMinute\": true}",
           "cacheDurationSeconds": 0,
           "fields": [
             {
@@ -689,7 +689,7 @@
           "queryType": "json",
           "method": "POST",
           "path": "/api/grafana/state-counts",
-          "body": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"ACTIVE\",\"BLOCKED\",\"INACTIVE\",\"SUSPENDED\",\"ABANDONED\"]}",
+          "body": "{\"serviceKey\":\"payments\",\"objectType\":\"UserProfile\",\"attribute\":\"user.status\",\"states\":[\"STANDARD\",\"BLOCKED\",\"INACTIVE\",\"SUSPENDED\",\"ABANDONED\",\"CANCELLED\"]}",
           "cacheDurationSeconds": 0,
           "fields": [
             {
@@ -791,7 +791,7 @@
           "queryType": "json",
           "method": "POST",
           "path": "/api/grafana/state-count-timeseries",
-          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"maxDataPoints\": 1440, \"bucket\": \"1m\", \"serviceKey\": \"payments\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"states\": [\"NEW\", \"PENDING_EMAIL\", \"PENDING_KYC\", \"ACTIVE\", \"ABANDONED\", \"INACTIVE\"]}",
+          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"maxDataPoints\": 1440, \"bucket\": \"1m\", \"serviceKey\": \"payments\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"states\": [\"NEW\", \"PENDING_EMAIL\", \"PENDING_KYC\", \"STANDARD\", \"CANCELLED\", \"ABANDONED\", \"INACTIVE\"]}",
           "cacheDurationSeconds": 0,
           "fields": [
             {
@@ -819,8 +819,14 @@
               "language": "jsonpath"
             },
             {
-              "name": "ACTIVE",
-              "jsonPath": "$[*].ACTIVE",
+              "name": "STANDARD",
+              "jsonPath": "$[*].STANDARD",
+              "type": "number",
+              "language": "jsonpath"
+            },
+            {
+              "name": "CANCELLED",
+              "jsonPath": "$[*].CANCELLED",
               "type": "number",
               "language": "jsonpath"
             },
@@ -923,7 +929,7 @@
           "queryType": "json",
           "method": "POST",
           "path": "/api/grafana/state-transitions",
-          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"maxDataPoints\": 1440, \"bucket\": \"1m\", \"serviceKey\": \"payments\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"fromStates\": [\"NEW\", \"PENDING_EMAIL\", \"PENDING_KYC\", \"ACTIVE\"], \"toStates\": [\"ACTIVE\", \"PENDING_EMAIL\", \"PENDING_KYC\", \"ABANDONED\", \"SUSPENDED\", \"BLOCKED\", \"INACTIVE\"]}",
+          "body": "{\"range\": {\"fromMs\": \"${__from}\", \"toMs\": \"${__to}\"}, \"maxDataPoints\": 1440, \"bucket\": \"1m\", \"serviceKey\": \"payments\", \"objectType\": \"UserProfile\", \"attribute\": \"user.status\", \"fromStates\": [\"NEW\", \"PENDING_EMAIL\", \"PENDING_KYC\", \"STANDARD\"], \"toStates\": [\"STANDARD\", \"PENDING_EMAIL\", \"PENDING_KYC\", \"CANCELLED\", \"ABANDONED\", \"SUSPENDED\", \"BLOCKED\", \"INACTIVE\"]}",
           "cacheDurationSeconds": 0,
           "fields": [
             {
@@ -933,8 +939,8 @@
               "language": "jsonpath"
             },
             {
-              "name": "NEW -> ACTIVE",
-              "jsonPath": "$[*]['NEW -> ACTIVE']",
+              "name": "NEW -> STANDARD",
+              "jsonPath": "$[*]['NEW -> STANDARD']",
               "type": "number",
               "language": "jsonpath"
             },
@@ -951,14 +957,26 @@
               "language": "jsonpath"
             },
             {
+              "name": "NEW -> CANCELLED",
+              "jsonPath": "$[*]['NEW -> CANCELLED']",
+              "type": "number",
+              "language": "jsonpath"
+            },
+            {
               "name": "NEW -> ABANDONED",
               "jsonPath": "$[*]['NEW -> ABANDONED']",
               "type": "number",
               "language": "jsonpath"
             },
             {
-              "name": "PENDING_EMAIL -> ACTIVE",
-              "jsonPath": "$[*]['PENDING_EMAIL -> ACTIVE']",
+              "name": "PENDING_EMAIL -> STANDARD",
+              "jsonPath": "$[*]['PENDING_EMAIL -> STANDARD']",
+              "type": "number",
+              "language": "jsonpath"
+            },
+            {
+              "name": "PENDING_EMAIL -> CANCELLED",
+              "jsonPath": "$[*]['PENDING_EMAIL -> CANCELLED']",
               "type": "number",
               "language": "jsonpath"
             },
@@ -969,8 +987,14 @@
               "language": "jsonpath"
             },
             {
-              "name": "PENDING_KYC -> ACTIVE",
-              "jsonPath": "$[*]['PENDING_KYC -> ACTIVE']",
+              "name": "PENDING_KYC -> STANDARD",
+              "jsonPath": "$[*]['PENDING_KYC -> STANDARD']",
+              "type": "number",
+              "language": "jsonpath"
+            },
+            {
+              "name": "PENDING_KYC -> CANCELLED",
+              "jsonPath": "$[*]['PENDING_KYC -> CANCELLED']",
               "type": "number",
               "language": "jsonpath"
             },
@@ -981,20 +1005,20 @@
               "language": "jsonpath"
             },
             {
-              "name": "ACTIVE -> SUSPENDED",
-              "jsonPath": "$[*]['ACTIVE -> SUSPENDED']",
+              "name": "STANDARD -> SUSPENDED",
+              "jsonPath": "$[*]['STANDARD -> SUSPENDED']",
               "type": "number",
               "language": "jsonpath"
             },
             {
-              "name": "ACTIVE -> BLOCKED",
-              "jsonPath": "$[*]['ACTIVE -> BLOCKED']",
+              "name": "STANDARD -> BLOCKED",
+              "jsonPath": "$[*]['STANDARD -> BLOCKED']",
               "type": "number",
               "language": "jsonpath"
             },
             {
-              "name": "ACTIVE -> INACTIVE",
-              "jsonPath": "$[*]['ACTIVE -> INACTIVE']",
+              "name": "STANDARD -> INACTIVE",
+              "jsonPath": "$[*]['STANDARD -> INACTIVE']",
               "type": "number",
               "language": "jsonpath"
             }

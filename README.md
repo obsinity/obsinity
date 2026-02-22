@@ -127,7 +127,7 @@ curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
     "eventsPerSecond": 500,
     "events": 60000,
     "profilePool": 100,
-    "statuses": ["NEW", "ACTIVE", "ACTIVE", "ACTIVE", "SUSPENDED", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED", "ARCHIVED", "ARCHIVED"],
+    "statuses": ["NEW", "STANDARD", "STANDARD", "STANDARD", "CANCELLED", "SUSPENDED", "SUSPENDED", "BLOCKED", "PREMIUM", "ARCHIVED", "ARCHIVED", "ARCHIVED"],
     "channels": ["web", "mobile", "partner"],
     "regions": ["us-east", "us-west", "eu-central"],
     "tiers": ["FREE", "PLUS", "PRO"],
@@ -151,7 +151,7 @@ curl -X POST http://localhost:8086/internal/demo/generate-unified-events/stop
 
 - **State Counts**: Current distribution of user profiles by status
 - **State Count Time Series**: Historical state counts at 1-minute intervals
-- **State Transitions**: State change flow visualization (NEW→ACTIVE, ACTIVE→SUSPENDED, etc.)
+- **State Transitions**: State change flow visualization (NEW→STANDARD, STANDARD→SUSPENDED, etc.)
 - **HTTP Request Latency**: Percentile-based latency histograms (p50, p90, p95, p99)
 - **Profile Update Latency**: Update duration metrics broken down by channel
 - **API Counters**: Request counts by status code, method, and dimensions
