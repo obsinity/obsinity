@@ -1,0 +1,153 @@
+sequenceDiagram
+    title Event Ingestion Flow - Obsinity
+
+    actor Client
+    participant Controller as REST/Kafka/RabbitMQ<br/>Controller
+    participant IngestService as JdbcEventIngestService
+    participant EventsDB as events_raw DB
+    participant IndexService as AttributeIndexingService
+    participant CounterIngest as CounterIngestService
+    participant CounterBuffer
+    participant HistogramIngest as HistogramIngestService
+    participant StateDetection as StateDetectionService
+    participant UnconfiguredQueue
+
+    Note over Client,UnconfiguredQueue: Event Reception
+
+    Client->>+Controller: POST /api/events/publish
+    Controller->>+IngestService: ingestOne(EventEnvelope)
+
+    Note over IngestService: Validation & Configuration
+
+    IngestService->>IngestService: Validate serviceId
+    IngestService->>IngestService: Check service configuration
+
+    alt Service Not Configured
+        IngestService->>UnconfiguredQueue: publish(event, "UNCONFIGURED_SERVICE")
+        IngestService-->>Controller: return 0
+        Controller-->>Client: 200 OK (not stored)
+    end
+
+    IngestService->>IngestService: Lookup EventTypeConfig
+
+    alt Event Type Not Configured
+        IngestService->>UnconfiguredQueue: publish(event, "UNCONFIGURED_EVENT_TYPE")
+        IngestService-->>Controller: return 0
+        Controller-->>Client: 200 OK (not stored)
+    end
+
+    Note over IngestService,EventsDB: Event Persistence
+
+    IngestService->>IngestService: Build SQL parameters<br/>(event_id, started_at, attributes, etc.)
+    IngestService->>+EventsDB: INSERT INTO events_raw<br/>ON CONFLICT DO NOTHING
+    EventsDB-->>-IngestService: rows affected (1 or 0)
+
+    alt Event Stored (wrote == 1)
+
+        Note over IngestService,IndexService: Attribute Indexing
+
+        IngestService->>+IndexService: indexEvent(EventForIndex)
+        IndexService->>IndexService: Index attributes for search
+        IndexService-->>-IngestService: indexed
+
+        Note over IngestService: Sub-Events Processing
+
+        IngestService->>IngestService: storeSubEvents(nested events)
+        Note right of IngestService: Recursively stores nested<br/>OTEL events with parent_event_id
+
+        Note over IngestService,CounterBuffer: Counter Processing
+
+        opt countersEnabled && has counter configs
+            IngestService->>+CounterIngest: process(envelope, eventConfig)
+            CounterIngest->>CounterIngest: extractKeyData(counter.keyedKeys)
+            CounterIngest->>CounterIngest: align timestamp to bucket
+            CounterIngest->>+CounterBuffer: increment(granularity, epoch,<br/>counterConfigId, keyHash, delta)
+            CounterBuffer->>CounterBuffer: Atomically increment<br/>in-memory counter map
+            CounterBuffer-->>-CounterIngest: incremented
+            CounterIngest-->>-IngestService: processed
+        end
+
+        Note over IngestService,HistogramIngest: Histogram Processing
+
+        opt histogramsEnabled && has histogram configs
+            IngestService->>+HistogramIngest: process(envelope, eventConfig)
+            HistogramIngest->>HistogramIngest: Extract value & dimensions
+            HistogramIngest->>HistogramIngest: Buffer histogram data
+            HistogramIngest-->>-IngestService: processed
+        end
+
+        Note over IngestService,StateDetection: State Detection
+
+        opt stateExtractorsEnabled
+            IngestService->>+StateDetection: process(serviceId, envelope)
+            StateDetection->>StateDetection: Detect state changes<br/>and transitions
+            StateDetection->>StateDetection: Buffer state counts
+            StateDetection-->>-IngestService: processed
+        end
+
+    end
+
+    IngestService-->>-Controller: return 1 (stored)
+    Controller-->>-Client: 200 OK
+
+    Note over CounterBuffer,CountersDB: Asynchronous Counter Persistence (Every 5 seconds)
+
+    participant FlushService as CounterFlushService<br/>@Scheduled(5s)
+    participant PersistExecutor as CounterPersistExecutor
+    participant PersistService as CounterPersistService
+    participant CountersDB as event_counts DB
+
+    Note over FlushService: 5 seconds later...
+
+    activate FlushService
+    FlushService->>FlushService: flushScheduled()
+
+    loop For each CounterGranularity
+        FlushService->>CounterBuffer: getBuffer(granularity)
+        CounterBuffer-->>FlushService: epochMap
+
+        loop For each completed epoch
+            FlushService->>FlushService: flushEpoch(granularity, epoch, keyCounts)
+            FlushService->>FlushService: Build BatchItems from keyCounts
+            FlushService->>FlushService: Split into chunks (maxBatchSize)
+
+            loop For each chunk
+                FlushService->>+PersistExecutor: submit(Job(granularity, epoch, batch))
+            end
+        end
+
+        FlushService->>CounterBuffer: cleanupOldEntries(granularity)
+    end
+    deactivate FlushService
+
+    Note over PersistExecutor,CountersDB: Counter Persistence Workers
+
+    loop Worker Thread Pool
+        PersistExecutor->>PersistExecutor: drainLoop() - take Job from queue
+        PersistExecutor->>+PersistService: persistBatch(granularity, batch)
+
+        loop For each CounterBucket (5s, 1m, 5m, 1h, 1d, 7d)
+            PersistService->>PersistService: alignBatch(batch, bucket)
+            PersistService->>PersistService: Sort by counterConfigId, keyHash<br/>(reduce deadlocks)
+
+            loop Retry up to 6 times
+                PersistService->>+CountersDB: BATCH INSERT INTO event_counts<br/>ON CONFLICT DO UPDATE<br/>SET counter = counter + EXCLUDED.counter
+
+                alt Success
+                    CountersDB-->>-PersistService: batch updated
+                else Deadlock (40P01)
+                    CountersDB-->>PersistService: SQLException
+                    PersistService->>PersistService: Exponential backoff<br/>(50ms → 5s max)
+                    Note right of PersistService: Wait with jitter, retry
+                end
+            end
+        end
+
+        PersistService-->>-PersistExecutor: batch persisted
+
+        PersistExecutor->>+CounterBuffer: decrement(granularity, epoch, keyHash, delta)
+        CounterBuffer->>CounterBuffer: Remove persisted counts<br/>from in-memory buffer
+        CounterBuffer-->>-PersistExecutor: decremented
+
+        deactivate PersistExecutor
+    end
