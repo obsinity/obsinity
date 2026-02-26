@@ -101,7 +101,8 @@ public class ConfigInitCoordinator {
                                 meta.serviceKey(),
                                 view.updatedAt(),
                                 view.eventTypes(),
-                                view.stateExtractors()));
+                                view.stateExtractors(),
+                                view.ratioQueries()));
             }
 
             RegistrySnapshot snapshot = new RegistrySnapshot(Map.copyOf(merged), Instant.now());

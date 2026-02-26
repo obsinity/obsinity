@@ -170,6 +170,6 @@ Response:
 - Frame values are columnar arrays aligned to the `fields` order.
 - Bucketing uses `queries[].bucket` if provided; otherwise `intervalMs` or `maxDataPoints` drives bucket selection.
 - Timeseries responses never exceed the configured cap (`obsinity.grafana.timeseries.max-data-points-cap`, default `1440`).
-- Missing state-count 1m snapshots are omitted from the response instead of being synthesized as zeros.
+- Missing state-count windows carry forward the last known values to keep visualizations continuous.
 - State-count timeseries downsampling uses `downsampleByLatestSnapshot`: for each requested interval window,
   Obsinity selects the latest available M1 snapshot in that window per state (it does not sum counts across minutes).

@@ -44,15 +44,17 @@ This folder contains draft materials for a unified config model centered on even
 - `state-transition`: Increments transition counts for `from_state -> to_state`.
 
 ### Transition Policy (Draft)
-- `transitionPolicy.fromStates` controls which previous states contribute transitions.
+- `transitionPolicy.only` restricts which previous states contribute transitions.
+- `transitionPolicy.additional` adds extra previous states on top of the normal latest previous-state transition.
 - Tokens:
   - `"?"`: latest previous state
   - `"*"`: all previous states
   - any other value: explicit state name
 - Rules:
-  - missing `transitionPolicy` is equivalent to `fromStates: ["?"]`
-  - empty `fromStates: []` is also equivalent to `["?"]`
-  - if `"*"` is present, it overrides the rest
+  - missing `transitionPolicy` means normal latest previous-state transitions are emitted
+  - `additional` augments that default behavior
+  - `only` disables default behavior and uses only the configured tokens
+  - if `"*"` is present in `only` or `additional`, it overrides the rest for that mode
 
 ### Retention Note (Current Direction)
 - State history is not subject to retention in this draft (`retention: none`).

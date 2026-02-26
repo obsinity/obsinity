@@ -10,4 +10,15 @@ public record StateExtractorDefinition(
         String objectType,
         String objectIdField,
         List<String> stateAttributes,
-        List<String> transitionFromStates) {}
+        List<String> transitionOnlyFromStates,
+        List<String> transitionAdditionalFromStates) {
+
+    public StateExtractorDefinition(
+            String rawType,
+            String objectType,
+            String objectIdField,
+            List<String> stateAttributes,
+            List<String> transitionFromStates) {
+        this(rawType, objectType, objectIdField, stateAttributes, List.of(), transitionFromStates);
+    }
+}

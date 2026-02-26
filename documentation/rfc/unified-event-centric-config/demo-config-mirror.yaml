@@ -33,8 +33,7 @@ spec:
             - state-count
             - state-transition
           transitionPolicy:
-            # [] is equivalent to ["?"] (latest)
-            fromStates: ["?", "NEW"]
+            additional: ["NEW"]
           policies:
             stateHistory:
               retention: none

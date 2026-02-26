@@ -6,6 +6,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.obsinity.service.core.model.config.EventConfig;
 import com.obsinity.service.core.model.config.EventIndexConfig;
 import com.obsinity.service.core.model.config.MetricConfig;
+import com.obsinity.service.core.model.config.RatioQueryConfig;
 import com.obsinity.service.core.model.config.ServiceConfig;
 import com.obsinity.service.core.model.config.StateExtractorConfig;
 import com.obsinity.service.core.support.CrdKeys;
@@ -332,7 +333,9 @@ public class ResourceConfigSource {
         }
 
         List<StateExtractorConfig> mergedExtractors = mergeStateExtractors(a.stateExtractors(), b.stateExtractors());
-        return ServiceConfig.of(a.service(), a.snapshotId(), new ArrayList<>(byKey.values()), mergedExtractors);
+        List<RatioQueryConfig> mergedRatioQueries = mergeRatioQueries(a.ratioQueries(), b.ratioQueries());
+        return ServiceConfig.of(
+                a.service(), a.snapshotId(), new ArrayList<>(byKey.values()), mergedExtractors, mergedRatioQueries);
     }
 
     private static String eventKey(com.obsinity.service.core.model.config.EventConfig e) {
@@ -405,6 +408,35 @@ public class ResourceConfigSource {
     private static String firstNonBlank(String first, String fallback) {
         if (first != null && !first.isBlank()) return first;
         return fallback;
+    }
+
+    private static List<RatioQueryConfig> mergeRatioQueries(
+            List<RatioQueryConfig> first, List<RatioQueryConfig> second) {
+        Map<String, RatioQueryConfig> byName = new LinkedHashMap<>();
+        if (first != null) {
+            for (RatioQueryConfig query : first) {
+                String key = ratioQueryKey(query);
+                if (!key.isEmpty()) {
+                    byName.put(key, query);
+                }
+            }
+        }
+        if (second != null) {
+            for (RatioQueryConfig query : second) {
+                String key = ratioQueryKey(query);
+                if (!key.isEmpty()) {
+                    byName.put(key, query);
+                }
+            }
+        }
+        return byName.isEmpty() ? List.of() : new ArrayList<>(byName.values());
+    }
+
+    private static String ratioQueryKey(RatioQueryConfig cfg) {
+        if (cfg == null || cfg.name() == null || cfg.name().isBlank()) {
+            return "";
+        }
+        return cfg.name().trim().toLowerCase(Locale.ROOT);
     }
 
     @SuppressWarnings("unchecked")

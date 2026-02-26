@@ -260,7 +260,8 @@ Response snippet:
 
 Downsampling semantics for state-count timeseries are `downsampleByLatestSnapshot`: when querying intervals wider than
 `1m` (for example `5m` or `1h`), Obsinity reads M1 snapshots and returns the latest snapshot found inside each
-interval window per state. This is an as-of snapshot selection, not a summation across minutes.
+interval window per state. This is an as-of snapshot selection, not a summation across minutes. If a later interval
+has no snapshot rows, Obsinity carries forward the last known counts to avoid gaps in charts.
 
 Tuning knobs:
 
@@ -310,11 +311,27 @@ Response:
 
 If `states` is omitted, all states are returned (subject to `limit`). Counts are maintained live by the state extractor pipeline, so this endpoint reflects the latest snapshot at query time.
 
+## Grafana Ratio Query
+
+Ratio queries are currently client-defined ad-hoc payloads sent to `/api/grafana/ratio` (no server-side named ratio config lookup).
+
+Validation rules:
+
+- `items` must be non-empty.
+- `source=states` requires each item to set `state`.
+- `source=transitions` requires each item to set `transition` as `FROM->TO`.
+- `source=mixed` requires each item to set exactly one of `state` or `transition`.
+- `label` defaults to `state` or `transition` when omitted.
+
+`grafana_pie` output returns `[{label, value, ...}]` with optional `percent`, `ratio`, and `rawValue`. `value` is controlled by `output.value`.
+
+AI assistance note: AI-generated query/config code should always receive human review, deterministic test coverage, and environment validation before production rollout.
+
 ## Default Controllers & Service Configs
 
 | Module | Default port | Purpose / Endpoints |
 | ------ | ------------ | ------------------- |
-| `obsinity-controller-rest` | 8080 (see `application.yml`) | `/events/publish`(single), `/events/publish/batch`, `/api/search/events`, `/api/catalog/*`, `/api/objql/query`, `/api/query/counters`, `/api/histograms/query`, `/api/query/state-transitions`, `/api/query/state-counts`, `/api/query/state-count-timeseries`. |
+| `obsinity-controller-rest` | 8080 (see `application.yml`) | `/events/publish`(single), `/events/publish/batch`, `/api/search/events`, `/api/catalog/*`, `/api/objql/query`, `/api/query/counters`, `/api/histograms/query`, `/api/query/state-transitions`, `/api/query/state-counts`, `/api/query/state-count-timeseries`, `/api/grafana/ratio`. |
 | `obsinity-controller-admin` | 8080 (inherits Spring Boot default when run standalone) | `/api/admin/config/ready`, `/api/admin/config/service` (JSON `ServiceConfig` ingest), `/api/admin/configs/import` (tar/tgz CRD archives). |
 | `obsinity-ingest-rabbitmq` | n/a (worker) | Spring Boot worker that consumes canonical Obsinity payloads from `obsinity.ingest.rmq.queue` (default `obsinity.events`) and pushes them through `EventIngestService`. Enable with `obsinity.ingest.rmq.enabled=true`. |
 | `obsinity-ingest-kafka` | n/a (worker) | Spring Boot worker built on Spring Kafka. Reads from `obsinity.ingest.kafka.topic` using the configured bootstrap servers/group/client IDs and hands each payload to the same ingest pipeline. Enable with `obsinity.ingest.kafka.enabled=true`. |

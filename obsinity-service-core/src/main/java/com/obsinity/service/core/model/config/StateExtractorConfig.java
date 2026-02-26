@@ -10,5 +10,9 @@ public record StateExtractorConfig(
         List<String> stateAttributes,
         TransitionPolicyConfig transitionPolicy) {
 
-    public record TransitionPolicyConfig(List<String> fromStates) {}
+    public record TransitionPolicyConfig(List<String> fromStates, List<String> only, List<String> additional) {
+        public TransitionPolicyConfig(List<String> fromStates) {
+            this(fromStates, null, null);
+        }
+    }
 }

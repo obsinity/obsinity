@@ -55,7 +55,8 @@ public class ConfigIngestService {
                         meta.serviceKey(),
                         view.updatedAt(),
                         view.eventTypes(),
-                        view.stateExtractors()));
+                        view.stateExtractors(),
+                        view.ratioQueries()));
         registry.swap(new RegistrySnapshot(Map.copyOf(merged), Instant.now()));
 
         Counts counts = countArtifacts(request);

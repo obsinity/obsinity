@@ -33,7 +33,7 @@ curl -X POST http://localhost:8086/internal/demo/generate-unified-events \
     "eventType": "user_profile.updated",
     "events": 1000,
     "profilePool": 100,
-    "statuses": ["NEW", "ACTIVE", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED"],
+    "statuses": ["NEW", "STANDARD", "CANCELLED", "SUSPENDED", "BLOCKED", "PREMIUM", "ARCHIVED"],
     "channels": ["web", "mobile", "partner"],
     "regions": ["us-east", "us-west", "eu-central"],
     "tiers": ["FREE", "PLUS", "PRO"],
@@ -53,9 +53,9 @@ curl -X POST http://localhost:8086/internal/demo/generate-unified-events/stop
 The dashboard includes 9 panels:
 
 1. **Current State Counts** - Distribution of profiles by status
-2. **State Gauge** - Key metrics (ACTIVE, SUSPENDED, BLOCKED)
+2. **State Gauge** - Key metrics (STANDARD, SUSPENDED, BLOCKED)
 3. **State Count Time Series** - Historical state counts (1m intervals)
-4. **State Transitions** - Flow visualization (NEW→ACTIVE, etc.) at 5s intervals
+4. **State Transitions** - Flow visualization (NEW→STANDARD, etc.) at 5s intervals
 5. **HTTP Request Latency** - p50/p90/p95/p99 percentiles for checkout API
 6. **Profile Update Latency** - Duration by channel (web/mobile/partner)
 7. **HTTP Requests by Status** - 200 vs 500 status codes (5m rollup)
@@ -88,7 +88,7 @@ curl http://localhost:8086/actuator/health
 # Test a query endpoint
 curl -X POST http://localhost:8086/api/query/state-counts \
   -H "Content-Type: application/json" \
-  -d '{"serviceKey":"payments","objectType":"UserProfile","attribute":"user.status","states":["ACTIVE","SUSPENDED"]}'
+  -d '{"serviceKey":"payments","objectType":"UserProfile","attribute":"user.status","states":["STANDARD","SUSPENDED"]}'
 ```
 
 ## DB-Driven Profile Generator
@@ -111,7 +111,7 @@ demo-data:
           minAge: 10s
           maxAge: 10m
           limitPerRun: 80
-        next: [ACTIVE, PENDING_EMAIL, PENDING_KYC]
+        next: [STANDARD, PENDING_EMAIL, PENDING_KYC]
 ```
 
 Defaults:

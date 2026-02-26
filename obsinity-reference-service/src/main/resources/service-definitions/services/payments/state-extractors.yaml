@@ -6,4 +6,4 @@ stateExtractors:
     stateAttributes:
       - user.status
     transitionPolicy:
-      fromStates: ["?", "NEW"]
+      additional: ["NEW"]

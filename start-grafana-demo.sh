@@ -4,21 +4,30 @@ set -e
 
 CLEAN_MODE=false
 for arg in "$@"; do
-    if [[ "$arg" == "--clean" ]]; then
-        CLEAN_MODE=true
-        break
-    fi
+    case "$arg" in
+        --clean)
+            CLEAN_MODE=true
+            ;;
+        -h|--help)
+            echo "Usage:"
+            echo "  $0 [--clean]"
+            echo "    --clean  Remove database volumes for a fresh start"
+            exit 0
+            ;;
+        *)
+            echo "ERROR: Unknown argument: $arg"
+            echo "Usage:"
+            echo "  $0 [--clean]"
+            echo "    --clean  Remove database volumes for a fresh start"
+            exit 1
+            ;;
+    esac
 done
 
 echo "=========================================="
 echo "Obsinity Grafana Demo Stack"
 echo "=========================================="
 echo ""
-echo "Usage:"
-echo "  $0 [--clean]"
-echo "    --clean  Remove database volumes for a fresh start"
-echo ""
-
 # Full rebuild to ensure the latest code is packaged into Docker images.
 echo "Running full rebuild (mvn clean verify)..."
 (cd "$(dirname "$0")" && mvn clean verify)

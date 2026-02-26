@@ -9,7 +9,8 @@ public record ServiceConfig(
         Instant createdAt,
         Defaults defaults,
         List<EventConfig> events,
-        List<StateExtractorConfig> stateExtractors) {
+        List<StateExtractorConfig> stateExtractors,
+        List<RatioQueryConfig> ratioQueries) {
 
     public record Defaults(List<String> rollups, String backfillWindow) {}
 
@@ -17,12 +18,23 @@ public record ServiceConfig(
     public static final Defaults EMPTY_DEFAULTS = new Defaults(List.of(), null);
 
     public static ServiceConfig of(String service, String snapshotId, List<EventConfig> events) {
-        return of(service, snapshotId, events, List.of());
+        return of(service, snapshotId, events, List.of(), List.of());
     }
 
     public static ServiceConfig of(
             String service, String snapshotId, List<EventConfig> events, List<StateExtractorConfig> stateExtractors) {
+        return of(service, snapshotId, events, stateExtractors, List.of());
+    }
+
+    public static ServiceConfig of(
+            String service,
+            String snapshotId,
+            List<EventConfig> events,
+            List<StateExtractorConfig> stateExtractors,
+            List<RatioQueryConfig> ratioQueries) {
         List<StateExtractorConfig> safeExtractors = stateExtractors == null ? List.of() : List.copyOf(stateExtractors);
-        return new ServiceConfig(service, snapshotId, Instant.now(), EMPTY_DEFAULTS, events, safeExtractors);
+        List<RatioQueryConfig> safeRatioQueries = ratioQueries == null ? List.of() : List.copyOf(ratioQueries);
+        return new ServiceConfig(
+                service, snapshotId, Instant.now(), EMPTY_DEFAULTS, events, safeExtractors, safeRatioQueries);
     }
 }
