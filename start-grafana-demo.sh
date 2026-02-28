@@ -2,6 +2,11 @@
 
 set -e
 
+# Cron-safe defaults: predictable PATH and stable working directory.
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "${SCRIPT_DIR}"
+
 CLEAN_MODE=false
 for arg in "$@"; do
     case "$arg" in
@@ -30,7 +35,7 @@ echo "=========================================="
 echo ""
 # Full rebuild to ensure the latest code is packaged into Docker images.
 echo "Running full rebuild (mvn clean verify)..."
-(cd "$(dirname "$0")" && mvn clean verify)
+mvn clean verify
 
 # Choose docker compose command (v2 preferred, v1 fallback)
 if command -v docker &> /dev/null && docker compose version &> /dev/null; then
