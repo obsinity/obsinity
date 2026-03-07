@@ -64,7 +64,9 @@ public final class OBJqlCteBuilder {
         // Attribute predicate subqueries as CTEs (supports nested AND/OR via UNION/INTERSECT)
         List<String> attrCtes = new ArrayList<>();
         int[] aiRef = new int[] {0};
+        boolean hasAttrMatch = false;
         if (q.attrExpr() != null) {
+            hasAttrMatch = true;
             // materialize all leaves
             collectLeafCtes(q.attrExpr(), sql, p, aiRef, attrCtes);
             sql.append(", matched AS (\n");
@@ -72,6 +74,7 @@ public final class OBJqlCteBuilder {
             sql.append("\n),\n");
         } else {
             int attrCount = countAttrPreds(q);
+            hasAttrMatch = attrCount > 0;
             for (OBJql.Predicate pred : q.predicates()) {
                 String lhs = pred.lhs().toLowerCase(Locale.ROOT);
                 if (isEnvelopeField(lhs)) continue;
@@ -82,28 +85,23 @@ public final class OBJqlCteBuilder {
                 appendAttrCte(sql, p, cte, path, pred);
                 if (aiRef[0] < attrCount) sql.append(",\n");
             }
-            if (attrCount == 0) {
-                // no attr predicates, synthesize an "all" CTE from base
-                sql.append("a0 AS (SELECT b.event_id FROM base b)\n");
-                attrCtes.add("a0");
-            } else {
+            if (attrCount > 0) {
                 sql.append("\n");
-            }
-
-            // Combine predicate IDs via INTERSECT (all must match)
-            sql.append(", matched AS (\n");
-            for (int i = 0; i < attrCtes.size(); i++) {
-                if (i == 0) {
-                    sql.append("  SELECT event_id FROM ")
-                            .append(attrCtes.get(i))
-                            .append("\n");
-                } else {
-                    sql.append("  INTERSECT SELECT event_id FROM ")
-                            .append(attrCtes.get(i))
-                            .append("\n");
+                // Combine predicate IDs via INTERSECT (all must match)
+                sql.append(", matched AS (\n");
+                for (int i = 0; i < attrCtes.size(); i++) {
+                    if (i == 0) {
+                        sql.append("  SELECT event_id FROM ")
+                                .append(attrCtes.get(i))
+                                .append("\n");
+                    } else {
+                        sql.append("  INTERSECT SELECT event_id FROM ")
+                                .append(attrCtes.get(i))
+                                .append("\n");
+                    }
                 }
+                sql.append("),\n");
             }
-            sql.append("),\n");
         }
 
         // Stable ordering for paging
@@ -116,34 +114,58 @@ public final class OBJqlCteBuilder {
                     default -> "b.started_at " + (asc ? "asc" : "desc") + ", b.event_id";
                 };
 
-        // Join back to base for ordering; compute total count; page
-        sql.append("ordered AS (\n")
-                .append("  SELECT b.event_id, b.started_at\n")
-                .append("  FROM base b\n")
-                .append("  JOIN matched m ON m.event_id = b.event_id\n")
-                .append("  ORDER BY ")
-                .append(order)
-                .append("\n")
-                .append("),\n")
-                .append("page AS (\n")
-                .append("  SELECT event_id FROM ordered OFFSET :off LIMIT :lim\n")
-                .append("),\n")
-                .append("counts AS (\n")
-                .append("  SELECT (SELECT COUNT(*) FROM ordered) AS matched_count\n")
-                .append(")\n");
+        // Only build matched_base when attribute predicates are present.
+        if (hasAttrMatch) {
+            sql.append("matched_base AS (\n")
+                    .append("  SELECT b.event_id, b.started_at\n")
+                    .append("  FROM base b\n")
+                    .append("  JOIN matched m ON m.event_id = b.event_id\n")
+                    .append("),\n")
+                    .append("ordered AS (\n")
+                    .append("  SELECT mb.event_id, mb.started_at\n")
+                    .append("  FROM matched_base mb\n")
+                    .append("  ORDER BY ")
+                    .append(order.replace("b.", "mb.").replace("e.", "mb."))
+                    .append("\n")
+                    .append("),\n")
+                    .append("page AS (\n")
+                    .append("  SELECT event_id FROM ordered OFFSET :off LIMIT :lim\n")
+                    .append("),\n")
+                    .append("counts AS (\n")
+                    .append("  SELECT (SELECT COUNT(*) FROM matched_base) AS matched_count\n")
+                    .append(")\n");
+        } else {
+            sql.append("ordered AS (\n")
+                    .append("  SELECT b.event_id, b.started_at\n")
+                    .append("  FROM base b\n")
+                    .append("  ORDER BY ")
+                    .append(order)
+                    .append("\n")
+                    .append("),\n")
+                    .append("page AS (\n")
+                    .append("  SELECT event_id FROM ordered OFFSET :off LIMIT :lim\n")
+                    .append("),\n")
+                    .append("counts AS (\n")
+                    .append("  SELECT (SELECT COUNT(*) FROM base) AS matched_count\n")
+                    .append(")\n");
+        }
 
         p.put("off", page.offset());
         p.put("lim", page.limit());
 
-        // Final: return the page of events + total rows for UI paging
+        // Final: return the page of events + total rows for UI paging.
+        // Repeat partition/time predicates so Postgres can prune partitions in the final fetch.
         sql.append("SELECT e.*,(SELECT matched_count FROM counts) AS matched_count\n")
                 .append("FROM ")
                 .append(eventsTable)
                 .append(" e\n")
                 .append("JOIN page pg ON pg.event_id = e.event_id\n")
-                .append("ORDER BY ")
-                .append(order.replace("b.", "e."))
-                .append("\n");
+                .append("WHERE e.service_partition_key = :svc\n")
+                .append("  AND e.started_at >= :ts_start AND e.started_at < :ts_end\n");
+        if (q.event() != null && !q.event().isBlank()) {
+            sql.append("  AND e.event_type = :evt\n");
+        }
+        sql.append("ORDER BY ").append(order.replace("b.", "e.")).append("\n");
 
         return new Built(sql.toString(), p);
     }

@@ -33,6 +33,9 @@ obsinity:
     hal:
       embedded: data
       links: links
+  search:
+    explain:
+      enabled: true
   ingest:
     rmq:
       enabled: false
