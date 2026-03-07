@@ -70,6 +70,13 @@ BEGIN
 END $$;
 ```
 
+## Operational Maintenance Note
+- If the database is cleaned/recreated and ingestion restarts from empty, run the `ANALYZE` commands again after data has accumulated.
+- Treat this as ongoing maintenance, not a one-time action:
+  - run after major data reloads/backfills
+  - run after creating new indexes
+  - run periodically for high-churn datasets to keep planner statistics current
+
 ## Outcome
 
 ### Before
