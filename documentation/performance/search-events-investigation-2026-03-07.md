@@ -1,4 +1,4 @@
-# Search Performance Investigation (March 7, 2026)
+# Search Performance Investigation (March 7-8, 2026)
 
 ## Scope
 Investigated slow `/api/search/events` queries for:
@@ -91,13 +91,49 @@ END $$;
   - `limit=20`: about `~109ms`
   - `limit=200`: about `~93ms` to `~104ms`
 
+## March 8 Recurrence (No Code Change Between Runs)
+- A regression reappeared on March 8, 2026, then self-recovered minutes later:
+  - `limit=1000`: `26963 ms`
+  - `limit=200`: `5904 ms`
+  - `limit=20`: `732-770 ms`
+- In the regressed plans, `Rows Removed by Join Filter` reached extremely high values (for example `225,583,000`), indicating the planner had switched back to a pathological nested-loop shape.
+- Later runs returned to the healthy indexed plan (`~96-99 ms`) without application code changes.
+
+Interpretation:
+- PostgreSQL planner behavior changed due to stats/selectivity/cache state, not because query text changed in the app at that moment.
+- This confirmed we needed a stronger plan-shape guardrail, not only manual `ANALYZE`.
+
+## Final Mitigations Implemented
+
+### 4. Forced CTE materialization in search SQL
+- File: `obsinity-service-core/src/main/java/com/obsinity/service/core/objql/OBJqlCteBuilder.java`
+- Changed key CTEs to `MATERIALIZED` (`base`, `matched`, `matched_base`, `ordered`, `page`) to prevent planner inlining/re-evaluation paths that caused explosive join-filter loops.
+
+### 5. Added scheduled automatic ANALYZE
+- File: `obsinity-service-core/src/main/java/com/obsinity/service/core/impl/PartitionMaintenanceService.java`
+- Added maintenance job:
+  - `ANALYZE obsinity.events_raw_default`
+  - `ANALYZE obsinity.event_attr_index_default`
+- Defaults:
+  - scheduled every 5 minutes
+  - enabled on startup
+- Config:
+  - `obsinity.partition.maintenance.autoAnalyze.enabled=true`
+  - `obsinity.partition.maintenance.autoAnalyze.onStartup=true`
+  - `obsinity.partition.maintenance.autoAnalyze.cron=0 */5 * * * *`
+  - `obsinity.partition.maintenance.cron=0 15 2 * * *`
+
 ## Current Interpretation
-- Query path is now healthy and predictable for the investigated payload.
-- Remaining cost is primarily proportional to number of matching events in the rolling 30-minute window (top-N sort over the base candidate set).
+- Query path is now hardened against the observed planner instability.
+- Remaining cost is primarily proportional to number of matching events in the rolling 30-minute window (top-N over the base candidate set), but catastrophic plan flips should be significantly less likely.
 
 ## Validation Checklist
 1. Confirm Flyway `V6` applied in target environment.
-2. Run `ANALYZE` commands above after migration/index build.
-3. Re-run the payload and verify:
+2. Ensure the runtime includes:
+   - `MATERIALIZED` CTE search SQL changes
+   - scheduled auto-`ANALYZE` maintenance job
+3. After clean DB/bootstrap or large reloads, run the manual `ANALYZE` commands above at least once.
+4. Re-run the payload and verify:
    - `Execution Time` remains in expected range.
    - Plans include both `ix_events_raw_default_search_service_event_started_event_id` and `ix_events_raw_default_search_service_event_id`.
+   - SQL logged by EXPLAIN includes `MATERIALIZED` on the key CTEs.
