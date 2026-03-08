@@ -59,6 +59,7 @@
     <maven.enforcer.plugin.version>3.6.1</maven.enforcer.plugin.version>
     <pitest.maven.plugin.version>1.16.2</pitest.maven.plugin.version>
     <pitest.junit5.plugin.version>1.2.1</pitest.junit5.plugin.version>
+    <jacoco.maven.plugin.version>0.8.12</jacoco.maven.plugin.version>
     <junit.platform.launcher.version>1.12.2</junit.platform.launcher.version>
     <spring-boot.version>3.5.5</spring-boot.version>
 
@@ -194,6 +195,13 @@
           <artifactId>spotless-maven-plugin</artifactId>
           <version>${spotless.maven.plugin.version}</version>
         </plugin>
+
+        <!-- JaCoCo -->
+        <plugin>
+          <groupId>org.jacoco</groupId>
+          <artifactId>jacoco-maven-plugin</artifactId>
+          <version>${jacoco.maven.plugin.version}</version>
+        </plugin>
       </plugins>
     </pluginManagement>
 
@@ -229,6 +237,47 @@
             <goals>
               <goal>apply</goal>
             </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+
+      <!-- JaCoCo across modules + aggregate XML/HTML at root -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+            <configuration>
+              <formats>
+                <format>XML</format>
+                <format>HTML</format>
+              </formats>
+            </configuration>
+          </execution>
+          <execution>
+            <id>report-aggregate</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>report-aggregate</goal>
+            </goals>
+            <configuration>
+              <formats>
+                <format>XML</format>
+                <format>HTML</format>
+              </formats>
+            </configuration>
           </execution>
         </executions>
       </plugin>

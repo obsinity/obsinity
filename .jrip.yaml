@@ -1,0 +1,11 @@
+exclude_email_domains:
+  - users.noreply.github.com
+
+author_aliases:
+  - canonical: John Allen
+    aliases:
+      - john.joe.allen@gmail.com
+      - John Allen <john.joe.allen@gmail.com>
+      - John Allen <john.allen@classesarecode.org>
+      - John Allen <john.allen@mastercard.com>
+      - John Allen <john.allen@classesarecode.net>

@@ -145,6 +145,80 @@ curl -X POST http://localhost:8086/internal/demo/generate-unified-events/stop
 # Login: admin/admin
 ```
 
+### Demo Data Query Examples
+
+Use these against the synthetic stream generated above.
+
+```bash
+# 1) Raw event search: latest profile updates
+curl -X POST http://localhost:8086/api/search/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "service": "payments",
+    "event": "user_profile.updated",
+    "period": { "previous": "-30m" },
+    "order": [{ "field": "started_at", "dir": "desc" }],
+    "limit": 20
+  }'
+
+# 2) Raw event search: 5xx http requests only
+curl -X POST http://localhost:8086/api/search/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "service": "payments",
+    "event": "http_request",
+    "period": { "previous": "-30m" },
+    "match": {
+      "and": [
+        { "attribute": "http.status", "op": ">=", "value": 500 }
+      ]
+    },
+    "order": [{ "field": "started_at", "dir": "desc" }],
+    "limit": 50
+  }'
+
+# 3) Counter query: http request counts by status/method
+FROM_MS=$(( $(date +%s) * 1000 - 30 * 60 * 1000 ))
+TO_MS=$(( $(date +%s) * 1000 ))
+
+curl -X POST http://localhost:8086/api/grafana/event-counts \
+  -H "Content-Type: application/json" \
+  -d "$(cat <<JSON
+{
+  "range": { "fromMs": ${FROM_MS}, "toMs": ${TO_MS} },
+  "bucket": "5m",
+  "maxDataPoints": 120,
+  "serviceKey": "payments",
+  "eventType": "http_request",
+  "filters": {
+    "http.method": ["GET"],
+    "http.status": ["200", "500"]
+  }
+}
+JSON
+)"
+
+# 4) Current user state distribution (counts)
+curl -X POST http://localhost:8086/api/query/state-counts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "serviceKey": "payments",
+    "objectType": "UserProfile",
+    "attribute": "user.status"
+  }'
+
+# 5) User status transitions over time
+curl -X POST http://localhost:8086/api/query/state-transitions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "serviceKey": "payments",
+    "objectType": "UserProfile",
+    "attribute": "user.status",
+    "interval": "5s",
+    "period": { "previous": "-15m" }
+  }'
+```
+
 ### Available Dashboards
 
 **Obsinity Demo - Overview** includes:

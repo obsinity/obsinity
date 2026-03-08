@@ -232,6 +232,131 @@ resources:
         value: application/json
     _type: request
 
+  - _id: req_demo_search_profile_updates
+    parentId: fld_demo
+    created: 1772400000000
+    modified: 1772400000000
+    name: Demo Query → Search latest profile updates
+    description: Raw event search for latest synthetic user_profile.updated events.
+    method: POST
+    url: "{{ base_url }}/api/search/events"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "service": "payments",
+          "event": "user_profile.updated",
+          "period": { "previous": "-30m" },
+          "order": [{ "field": "started_at", "dir": "desc" }],
+          "limit": 20
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_demo_search_http_5xx
+    parentId: fld_demo
+    created: 1772400000001
+    modified: 1772400000001
+    name: Demo Query → Search HTTP 5xx
+    description: Raw event search for synthetic http_request failures.
+    method: POST
+    url: "{{ base_url }}/api/search/events"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "service": "payments",
+          "event": "http_request",
+          "period": { "previous": "-30m" },
+          "match": {
+            "and": [
+              { "attribute": "http.status", "op": ">=", "value": 500 }
+            ]
+          },
+          "order": [{ "field": "started_at", "dir": "desc" }],
+          "limit": 50
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_demo_event_counts_http
+    parentId: fld_demo
+    created: 1772400000002
+    modified: 1772400000002
+    name: Demo Query → Event counts (HTTP)
+    description: Count synthetic http_request events by status in the selected time range.
+    method: POST
+    url: "{{ base_url }}/api/grafana/event-counts"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "range": { "from": "{{ grafana_from_iso }}", "to": "{{ grafana_to_iso }}" },
+          "maxDataPoints": 120,
+          "bucket": "5m",
+          "serviceKey": "payments",
+          "eventType": "http_request",
+          "filters": {"http.method": ["GET"], "http.status": ["200", "500"]}
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_demo_state_counts
+    parentId: fld_demo
+    created: 1772400000003
+    modified: 1772400000003
+    name: Demo Query → State counts
+    description: Current synthetic user profile distribution by user.status.
+    method: POST
+    url: "{{ base_url }}/api/query/state-counts"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "serviceKey": "payments",
+          "objectType": "UserProfile",
+          "attribute": "user.status",
+          "states": ["NEW", "ACTIVE", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED"],
+          "limits": { "offset": 0, "limit": 50 }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
+  - _id: req_demo_state_transitions
+    parentId: fld_demo
+    created: 1772400000004
+    modified: 1772400000004
+    name: Demo Query → State transitions
+    description: Synthetic transitions over time for user.status.
+    method: POST
+    url: "{{ base_url }}/api/query/state-transitions"
+    body:
+      mimeType: application/json
+      text: |
+        {
+          "serviceKey": "payments",
+          "objectType": "UserProfile",
+          "attribute": "user.status",
+          "fromStates": ["(none)", "NEW", "ACTIVE", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED"],
+          "toStates": ["NEW", "ACTIVE", "SUSPENDED", "BLOCKED", "UPGRADED", "ARCHIVED"],
+          "interval": "5s",
+          "x-start": "",
+          "x-end": "",
+          "limits": { "offset": 0, "limit": 100 }
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+    _type: request
+
   - _id: fld_state_query
     parentId: wrk_68f2907246df440f96e2f024b4a89fee
     created: 1758900700000
