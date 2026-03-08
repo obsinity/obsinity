@@ -23,6 +23,23 @@ Obsinity is a modular telemetry system with a PostgreSQL backend, REST controlle
 
 Read the full highlight reel in [`documentation/obsinity-highlights.md`](documentation/obsinity-highlights.md).
 
+## Search Maintenance
+
+`PartitionMaintenanceService` now includes automatic planner-stat maintenance for search-heavy tables:
+
+- Scheduled `ANALYZE` (default every 5 minutes) on:
+  - `obsinity.events_raw_default`
+  - `obsinity.event_attr_index_default`
+- Optional startup `ANALYZE` run (enabled by default).
+- Existing partition-maintenance schedule remains in place (default daily at 02:15).
+
+Configuration keys (with defaults):
+
+- `obsinity.partition.maintenance.cron=0 15 2 * * *`
+- `obsinity.partition.maintenance.autoAnalyze.enabled=true`
+- `obsinity.partition.maintenance.autoAnalyze.onStartup=true`
+- `obsinity.partition.maintenance.autoAnalyze.cron=0 */5 * * * *`
+
 ## Planned / Unimplemented Features
 
 These are described in the architecture/design docs but are not yet implemented:
