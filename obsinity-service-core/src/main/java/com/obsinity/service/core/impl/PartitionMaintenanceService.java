@@ -7,6 +7,7 @@ import java.util.Locale;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -27,26 +28,44 @@ public class PartitionMaintenanceService {
     private static final Pattern PARTITION_KEY_RE = Pattern.compile("^[0-9a-f]{16}$");
 
     private final JdbcTemplate jdbc;
+    private final boolean autoAnalyzeEnabled;
+    private final boolean autoAnalyzeOnStartup;
 
     // Tune your window here
     private final int weeksBack = 52;
     private final int weeksAhead = 26;
 
-    public PartitionMaintenanceService(JdbcTemplate jdbc) {
+    public PartitionMaintenanceService(
+            JdbcTemplate jdbc,
+            @Value("${obsinity.partition.maintenance.autoAnalyze.enabled:true}") boolean autoAnalyzeEnabled,
+            @Value("${obsinity.partition.maintenance.autoAnalyze.onStartup:true}") boolean autoAnalyzeOnStartup) {
         this.jdbc = jdbc;
+        this.autoAnalyzeEnabled = autoAnalyzeEnabled;
+        this.autoAnalyzeOnStartup = autoAnalyzeOnStartup;
     }
 
     @EventListener(ApplicationReadyEvent.class)
     public void onStartup() {
         log.info("Ensuring partitions at startup...");
         ensurePartitions();
+        if (autoAnalyzeEnabled && autoAnalyzeOnStartup) {
+            runAutoAnalyze("startup");
+        }
     }
 
     // e.g. run daily at 02:15
-    @Scheduled(cron = "0 15 2 * * *")
+    @Scheduled(cron = "${obsinity.partition.maintenance.cron:0 15 2 * * *}")
     public void scheduled() {
         log.info("Ensuring partitions on schedule...");
         ensurePartitions();
+    }
+
+    @Scheduled(cron = "${obsinity.partition.maintenance.autoAnalyze.cron:0 */5 * * * *}")
+    public void scheduledAutoAnalyze() {
+        if (!autoAnalyzeEnabled) {
+            return;
+        }
+        runAutoAnalyze("schedule");
     }
 
     public void ensurePartitions() {
@@ -78,6 +97,8 @@ public class PartitionMaintenanceService {
                 ensureWeeklyRangePartition("events_raw", partitionKey, cursor, next);
                 ensureWeeklyRangePartition("event_attr_index", partitionKey, cursor, next);
 
+                // For raw events, ensure fast latest-N scans by event type.
+                ensureEventsRawChildIndexes(partitionKey, weekName(cursor), "events_raw");
                 // For the attr index, ensure helpful local indexes on each weekly child
                 ensureAttrIndexChildIndexes(partitionKey, weekName(cursor), "event_attr_index");
                 cursor = next;
@@ -239,6 +260,51 @@ public class PartitionMaintenanceService {
                                 literal("eai_svc_evt_" + servicePartitionKey + "_" + week),
                                 literal("eai_svc_evt_" + servicePartitionKey + "_" + week),
                                 literal(child)));
+    }
+
+    private void ensureEventsRawChildIndexes(String servicePartitionKey, String week, String baseParent) {
+        String child = baseParent + "_s_" + servicePartitionKey + "_w_" + week;
+
+        // event_type + started_at desc + event_id for fast latest-N lookups by type.
+        jdbc.execute(
+                """
+            DO $$
+            BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public' AND c.relname = %s
+              ) THEN
+                BEGIN
+                  EXECUTE format('CREATE INDEX %%I ON %%I(event_type, started_at DESC, event_id)', %s, %s);
+                EXCEPTION
+                  WHEN duplicate_table THEN NULL;
+                  WHEN duplicate_object THEN NULL;
+                END;
+              END IF;
+            END
+            $$;
+            """
+                        .formatted(
+                                literal("er_evt_time_desc_" + servicePartitionKey + "_" + week),
+                                literal("er_evt_time_desc_" + servicePartitionKey + "_" + week),
+                                literal(child)));
+    }
+
+    private void runAutoAnalyze(String reason) {
+        Instant started = Instant.now();
+        try {
+            // Keep planner stats current for search-heavy default partitions.
+            jdbc.execute("ANALYZE obsinity.events_raw_default");
+            jdbc.execute("ANALYZE obsinity.event_attr_index_default");
+            long elapsedMs = Duration.between(started, Instant.now()).toMillis();
+            log.info(
+                    "Auto ANALYZE complete reason={}, elapsedMs={}, tables=[events_raw_default,event_attr_index_default]",
+                    reason,
+                    elapsedMs);
+        } catch (RuntimeException ex) {
+            log.warn("Auto ANALYZE failed reason={}", reason, ex);
+        }
     }
 
     private static String weekName(LocalDate date) {

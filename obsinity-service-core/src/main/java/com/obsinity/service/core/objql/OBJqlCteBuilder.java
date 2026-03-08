@@ -32,7 +32,7 @@ public final class OBJqlCteBuilder {
 
         StringBuilder sql = new StringBuilder(2048);
         // Base filtered IDs (envelope fields only)
-        sql.append("WITH base AS (\n")
+        sql.append("WITH base AS MATERIALIZED (\n")
                 .append("  SELECT e.event_id, e.started_at\n")
                 .append("  FROM ")
                 .append(eventsTable)
@@ -69,7 +69,7 @@ public final class OBJqlCteBuilder {
             hasAttrMatch = true;
             // materialize all leaves
             collectLeafCtes(q.attrExpr(), sql, p, aiRef, attrCtes);
-            sql.append(", matched AS (\n");
+            sql.append(", matched AS MATERIALIZED (\n");
             sql.append(renderSetExpr(q.attrExpr(), attrCtes));
             sql.append("\n),\n");
         } else {
@@ -88,7 +88,7 @@ public final class OBJqlCteBuilder {
             if (attrCount > 0) {
                 sql.append("\n");
                 // Combine predicate IDs via INTERSECT (all must match)
-                sql.append(", matched AS (\n");
+                sql.append(", matched AS MATERIALIZED (\n");
                 for (int i = 0; i < attrCtes.size(); i++) {
                     if (i == 0) {
                         sql.append("  SELECT event_id FROM ")
@@ -116,33 +116,33 @@ public final class OBJqlCteBuilder {
 
         // Only build matched_base when attribute predicates are present.
         if (hasAttrMatch) {
-            sql.append("matched_base AS (\n")
+            sql.append("matched_base AS MATERIALIZED (\n")
                     .append("  SELECT b.event_id, b.started_at\n")
                     .append("  FROM base b\n")
                     .append("  JOIN matched m ON m.event_id = b.event_id\n")
                     .append("),\n")
-                    .append("ordered AS (\n")
+                    .append("ordered AS MATERIALIZED (\n")
                     .append("  SELECT mb.event_id, mb.started_at\n")
                     .append("  FROM matched_base mb\n")
                     .append("  ORDER BY ")
                     .append(order.replace("b.", "mb.").replace("e.", "mb."))
                     .append("\n")
                     .append("),\n")
-                    .append("page AS (\n")
+                    .append("page AS MATERIALIZED (\n")
                     .append("  SELECT event_id FROM ordered OFFSET :off LIMIT :lim\n")
                     .append("),\n")
                     .append("counts AS (\n")
                     .append("  SELECT (SELECT COUNT(*) FROM matched_base) AS matched_count\n")
                     .append(")\n");
         } else {
-            sql.append("ordered AS (\n")
+            sql.append("ordered AS MATERIALIZED (\n")
                     .append("  SELECT b.event_id, b.started_at\n")
                     .append("  FROM base b\n")
                     .append("  ORDER BY ")
                     .append(order)
                     .append("\n")
                     .append("),\n")
-                    .append("page AS (\n")
+                    .append("page AS MATERIALIZED (\n")
                     .append("  SELECT event_id FROM ordered OFFSET :off LIMIT :lim\n")
                     .append("),\n")
                     .append("counts AS (\n")
