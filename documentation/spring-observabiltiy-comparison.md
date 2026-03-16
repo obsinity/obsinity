@@ -1,17 +1,17 @@
-# Obsinity vs Spring Observability
+# Mango4j Flow Framework vs Spring Observability
 
 ## Purpose
 
 This document compares the developer-facing programming model of:
 
-- `obsinity`'s annotation-based flow instrumentation
+- Mango4j Flow framework's annotation-based instrumentation
 - Spring Observability via Micrometer `Observation`
 
-The examples here are based on the actual annotations and demo code in this repository, especially the `demo.*` flows in `obsinity-reference-client-spring`.
+The examples here are based on the actual annotations and demo code in this repository, especially the `demo.*` flows in the Spring reference client.
 
 ## Concept Mapping
 
-| Obsinity | Spring Observability | Meaning |
+| Mango4j Flow framework | Spring Observability | Meaning |
 | --- | --- | --- |
 | `@Flow` | `Observation` | Root unit of work |
 | `@Step` | nested `Observation` | Nested operation inside a unit of work |
@@ -22,13 +22,13 @@ The examples here are based on the actual annotations and demo code in this repo
 
 ## Bootstrapping
 
-### Obsinity
+### Mango4j Flow Framework
 
-`obsinity` enables its AOP-based instrumentation with `@ObsinityApplication`:
+The Mango4j Flow framework is bootstrapped with `@Mango4jApplication`:
 
 ```java
 @SpringBootApplication
-@ObsinityApplication
+@Mango4jApplication
 public class DemoApplication {}
 ```
 
@@ -62,11 +62,11 @@ class CheckoutService {
 }
 ```
 
-The repository already enables `exposeProxy = true` through `@ObsinityApplication`.
+The framework enables `exposeProxy = true` through `@Mango4jApplication`.
 
 ## Root Unit of Work
 
-### Obsinity
+### Mango4j Flow Framework
 
 From the reference client:
 
@@ -110,7 +110,7 @@ class DemoController {
 
 ## Nested Work
 
-### Obsinity
+### Mango4j Flow Framework
 
 Nested work is declared with `@Step` on collaborating beans:
 
@@ -140,7 +140,7 @@ class StockService {
 }
 ```
 
-When `reserveInventory()` runs inside `demo.checkout`, `obsinity` records nested steps automatically.
+When `reserveInventory()` runs inside `demo.checkout`, the Mango4j Flow framework records nested steps automatically.
 
 ### Spring Observability
 
@@ -172,9 +172,9 @@ class CheckoutService {
 
 ## Metadata Model
 
-### Obsinity
+### Mango4j Flow Framework
 
-`obsinity` distinguishes between:
+The Mango4j Flow framework distinguishes between:
 
 - `@PushAttribute("...")` for flow attributes
 - `@PushContextValue("...")` for event context
@@ -197,7 +197,7 @@ This same model is used later by sinks through pull annotations such as `@PullAt
 
 ### Spring Observability
 
-Micrometer exposes key/value pairs and an observation context, but it does not split them into `obsinity`'s attribute vs event-context model by annotation:
+Micrometer exposes key/value pairs and an observation context, but it does not split them into the Mango4j Flow framework's attribute vs event-context model by annotation:
 
 ```java
 class CheckoutService {
@@ -221,7 +221,7 @@ class CheckoutService {
 
 ## Operation Kind
 
-### Obsinity
+### Mango4j Flow Framework
 
 `@Kind` uses the OpenTelemetry `SpanKind` enum directly:
 
@@ -245,7 +245,7 @@ Spring Observability does not have a direct `@Kind` equivalent in the same annot
 
 ## Orphan Steps
 
-### Obsinity
+### Mango4j Flow Framework
 
 If a `@Step` runs without an active `@Flow`, it is auto-promoted into a flow. `@OrphanAlert` controls the log level for that promotion:
 
@@ -260,7 +260,7 @@ class DemoController {
 }
 ```
 
-This is an explicit part of the current `obsinity` API.
+This is an explicit part of the current Mango4j Flow framework API.
 
 ### Spring Observability
 
@@ -268,7 +268,7 @@ There is no direct equivalent. You either create an `Observation` explicitly or 
 
 ## Lifecycle Extensions
 
-### Obsinity
+### Mango4j Flow Framework
 
 Lifecycle handling is annotation-driven. `@FlowSink` marks the sink type and now includes Spring's `@Component`, so an explicit `@Component` is not required.
 
@@ -340,7 +340,7 @@ Filtering and data extraction are usually implemented imperatively inside the ha
 
 ## Practical Difference
 
-`obsinity` is closer to an annotation-first event pipeline:
+The Mango4j Flow framework is closer to an annotation-first event pipeline:
 
 - instrument methods with `@Flow` and `@Step`
 - enrich them with `@PushAttribute`, `@PushContextValue`, and `@Kind`
@@ -354,7 +354,7 @@ Spring Observability is closer to a programmatic observation API:
 
 ## Summary
 
-| Area | Obsinity | Spring Observability |
+| Area | Mango4j Flow framework | Spring Observability |
 | --- | --- | --- |
 | Root instrumentation | `@Flow` | `Observation` |
 | Nested instrumentation | `@Step` | nested `Observation` |
