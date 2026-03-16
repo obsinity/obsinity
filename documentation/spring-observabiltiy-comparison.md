@@ -158,27 +158,26 @@ class AuditHandler
 ### Flow Framework
 
 ```java
-flowRuntime.flow("checkout")
-        .attribute("user.id", userId)
-        .context("cart.size", items)
-        .run(() -> {
-	flowRuntime.step("validate", () -> validate());
-	flowRuntime.step("charge", () -> charge());
-	});
+void checkout() {
+	validate();
+	charge();
+}
 ```
 
 ### Spring Observability
 
 ```java
-Observation.createNotStarted("checkout", registry)
-        .highCardinalityKeyValue("user.id", userId)
-        .observe(() -> {
-	Observation.createNotStarted("validate", registry)
-                    .observe(() -> validate());
+void checkout() {
+	Observation.createNotStarted("checkout", registry)
+		.highCardinalityKeyValue("user.id", userId)
+		.observe(() -> {
+			Observation.createNotStarted("validate", registry)
+				.observe(() -> validate());
 
-	Observation.createNotStarted("charge", registry)
-                    .observe(() -> charge());
-	});
+			Observation.createNotStarted("charge", registry)
+				.observe(() -> charge());
+		});
+}
 ```
 
 ---
