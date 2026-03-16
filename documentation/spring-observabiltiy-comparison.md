@@ -309,9 +309,19 @@ Key extension features present in the current API:
 - lifecycle selection with `@OnFlowStarted`, `@OnFlowCompleted`, `@OnFlowFailure`, and `@OnFlowLifecycle`
 - outcome filtering with `@OnOutcome`
 - name scoping with `@OnFlowScope`
+- exception-type matching on `@OnFlowFailure` parameters, similar in style to Spring `@ControllerAdvice` / `@ExceptionHandler`
 - parameter binding from event data with `@Pull*`
 - preconditions with `@RequiredAttributes` and `@RequiredEventContext`
 - sink-local fallback with `@OnFlowNotMatched`
+
+`@OnFlowFailure` can bind the failure to a specific exception type:
+
+```java
+@OnFlowFailure
+public void onIllegalArg(IllegalArgumentException ex, FlowEvent event) {}
+```
+
+That lets a sink react to `IllegalArgumentException` failures separately from other failures, in much the same way Spring MVC can route exceptions to typed `@ExceptionHandler` methods.
 
 ### Spring Observability
 
@@ -338,6 +348,12 @@ class AuditHandler implements ObservationHandler<Observation.Context> {
 
 Filtering and data extraction are usually implemented imperatively inside the handler instead of declaratively on individual methods.
 
+## Coupling To Emitters
+
+The Mango4j Flow framework is not coupled to a specific emitter or backend contract. It emits flow lifecycle events, and sink behavior is application-specific. A sink can log, persist, publish, transform, or forward events however the application chooses.
+
+Spring Observability is more closely aligned with a specific observation/telemetry pipeline. In practice it is usually married to metrics, tracing, and logging integrations that consume `Observation` data through Micrometer and related emitters/exporters.
+
 ## Practical Difference
 
 The Mango4j Flow framework is closer to an annotation-first event pipeline:
@@ -363,4 +379,5 @@ Spring Observability is closer to a programmatic observation API:
 | Missing parent behavior | orphan `@Step` can auto-promote to flow | no direct equivalent |
 | Lifecycle extension model | declarative sink methods on `@FlowSink` beans | imperative `ObservationHandler` |
 | Sink data binding | `@Pull*`, `@Required*`, throwable injection | manual extraction from context |
+| Backend coupling | sinks are application-specific; no required emitter model | typically aligned to a specific observation/telemetry emitter pipeline |
 | Typical style | annotation-first | API / handler-first |
