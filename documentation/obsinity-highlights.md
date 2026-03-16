@@ -1,4 +1,4 @@
-# Obsinity Highlights
+A# Obsinity Highlights
 
 ## Why Obsinity Is In A Class Of Its Own
 
