@@ -1,6 +1,8 @@
 package com.obsinity.reference.demodata;
 
+import com.obsinity.service.core.config.ConfigLookup;
 import com.obsinity.service.core.model.EventEnvelope;
+import com.obsinity.service.core.repo.ServicesCatalogRepository;
 import com.obsinity.service.core.spi.EventIngestService;
 import java.time.Clock;
 import java.time.Duration;
@@ -13,11 +15,14 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -30,14 +35,26 @@ class DbDrivenProfileGenerator {
     private final RandomProvider randomProvider;
     private final EventIngestService ingestService;
     private final Clock clock;
+    private final Predicate<String> serviceConfigured;
 
     @Autowired
     DbDrivenProfileGenerator(
             DemoProfileGeneratorProperties properties,
             ProfileGeneratorRepository repository,
             RandomProvider randomProvider,
-            EventIngestService ingestService) {
-        this(properties, repository, randomProvider, ingestService, Clock.systemUTC());
+            EventIngestService ingestService,
+            ServicesCatalogRepository servicesCatalogRepository,
+            ConfigLookup configLookup) {
+        this(
+                properties,
+                repository,
+                randomProvider,
+                ingestService,
+                serviceKey -> {
+                    var serviceId = servicesCatalogRepository.findIdByServiceKey(serviceKey);
+                    return configLookup.isServiceConfigured(serviceId);
+                },
+                Clock.systemUTC());
     }
 
     DbDrivenProfileGenerator(
@@ -46,10 +63,21 @@ class DbDrivenProfileGenerator {
             RandomProvider randomProvider,
             EventIngestService ingestService,
             Clock clock) {
+        this(properties, repository, randomProvider, ingestService, serviceKey -> true, clock);
+    }
+
+    DbDrivenProfileGenerator(
+            DemoProfileGeneratorProperties properties,
+            ProfileGeneratorRepository repository,
+            RandomProvider randomProvider,
+            EventIngestService ingestService,
+            Predicate<String> serviceConfigured,
+            Clock clock) {
         this.properties = properties;
         this.repository = repository;
         this.randomProvider = randomProvider;
         this.ingestService = ingestService;
+        this.serviceConfigured = serviceConfigured;
         this.clock = clock;
     }
 
@@ -59,12 +87,18 @@ class DbDrivenProfileGenerator {
     }
 
     @EventListener(ApplicationReadyEvent.class)
+    @Order(Ordered.LOWEST_PRECEDENCE)
     public void startupRun() {
         runOnce();
     }
 
     void runOnce() {
         if (!properties.isEnabled()) {
+            return;
+        }
+        String serviceKey = safeService(properties.getServiceKey(), "payments");
+        if (!serviceConfigured.test(serviceKey)) {
+            log.debug("Demo profile generator skipped because service {} is not configured yet", serviceKey);
             return;
         }
         Instant now = clock.instant();

@@ -28,6 +28,10 @@ public final class OBJqlCteBuilder {
     }
 
     public Built build(OBJql q, OBJqlPage page) {
+        return build(q, page, true);
+    }
+
+    public Built build(OBJql q, OBJqlPage page, boolean includeTotal) {
         Map<String, Object> p = new LinkedHashMap<>();
 
         StringBuilder sql = new StringBuilder(2048);
@@ -91,11 +95,11 @@ public final class OBJqlCteBuilder {
                 sql.append(", matched AS MATERIALIZED (\n");
                 for (int i = 0; i < attrCtes.size(); i++) {
                     if (i == 0) {
-                        sql.append("  SELECT event_id FROM ")
+                        sql.append("  SELECT event_id, started_at FROM ")
                                 .append(attrCtes.get(i))
                                 .append("\n");
                     } else {
-                        sql.append("  INTERSECT SELECT event_id FROM ")
+                        sql.append("  INTERSECT SELECT event_id, started_at FROM ")
                                 .append(attrCtes.get(i))
                                 .append("\n");
                     }
@@ -119,7 +123,7 @@ public final class OBJqlCteBuilder {
             sql.append("matched_base AS MATERIALIZED (\n")
                     .append("  SELECT b.event_id, b.started_at\n")
                     .append("  FROM base b\n")
-                    .append("  JOIN matched m ON m.event_id = b.event_id\n")
+                    .append("  JOIN matched m ON m.event_id = b.event_id AND m.started_at = b.started_at\n")
                     .append("),\n")
                     .append("ordered AS MATERIALIZED (\n")
                     .append("  SELECT mb.event_id, mb.started_at\n")
@@ -129,11 +133,14 @@ public final class OBJqlCteBuilder {
                     .append("\n")
                     .append("),\n")
                     .append("page AS MATERIALIZED (\n")
-                    .append("  SELECT event_id FROM ordered OFFSET :off LIMIT :lim\n")
-                    .append("),\n")
-                    .append("counts AS (\n")
-                    .append("  SELECT (SELECT COUNT(*) FROM matched_base) AS matched_count\n")
+                    .append("  SELECT event_id, started_at FROM ordered OFFSET :off LIMIT :lim\n")
                     .append(")\n");
+            if (includeTotal) {
+                sql.append(",\n")
+                        .append("counts AS (\n")
+                        .append("  SELECT (SELECT COUNT(*) FROM matched_base) AS matched_count\n")
+                        .append(")\n");
+            }
         } else {
             sql.append("ordered AS MATERIALIZED (\n")
                     .append("  SELECT b.event_id, b.started_at\n")
@@ -143,11 +150,14 @@ public final class OBJqlCteBuilder {
                     .append("\n")
                     .append("),\n")
                     .append("page AS MATERIALIZED (\n")
-                    .append("  SELECT event_id FROM ordered OFFSET :off LIMIT :lim\n")
-                    .append("),\n")
-                    .append("counts AS (\n")
-                    .append("  SELECT (SELECT COUNT(*) FROM base) AS matched_count\n")
+                    .append("  SELECT event_id, started_at FROM ordered OFFSET :off LIMIT :lim\n")
                     .append(")\n");
+            if (includeTotal) {
+                sql.append(",\n")
+                        .append("counts AS (\n")
+                        .append("  SELECT (SELECT COUNT(*) FROM base) AS matched_count\n")
+                        .append(")\n");
+            }
         }
 
         p.put("off", page.offset());
@@ -155,11 +165,15 @@ public final class OBJqlCteBuilder {
 
         // Final: return the page of events + total rows for UI paging.
         // Repeat partition/time predicates so Postgres can prune partitions in the final fetch.
-        sql.append("SELECT e.*,(SELECT matched_count FROM counts) AS matched_count\n")
+        sql.append("SELECT e.*");
+        if (includeTotal) {
+            sql.append(",(SELECT matched_count FROM counts) AS matched_count");
+        }
+        sql.append("\n")
                 .append("FROM ")
                 .append(eventsTable)
                 .append(" e\n")
-                .append("JOIN page pg ON pg.event_id = e.event_id\n")
+                .append("JOIN page pg ON pg.event_id = e.event_id AND pg.started_at = e.started_at\n")
                 .append("WHERE e.service_partition_key = :svc\n")
                 .append("  AND e.started_at >= :ts_start AND e.started_at < :ts_end\n");
         if (q.event() != null && !q.event().isBlank()) {
@@ -209,7 +223,7 @@ public final class OBJqlCteBuilder {
     private void render(OBJql.AttrExpr expr, List<String> names, int[] cursor, StringBuilder out) {
         if (expr instanceof OBJql.AttrExpr.Leaf) {
             String cte = names.get(cursor[0]++);
-            out.append("  SELECT event_id FROM ").append(cte);
+            out.append("  SELECT event_id, started_at FROM ").append(cte);
             return;
         }
         out.append("(");
@@ -233,9 +247,9 @@ public final class OBJqlCteBuilder {
             StringBuilder sql, Map<String, Object> p, String cte, String path, OBJql.Predicate pred) {
         // Build per-predicate CTE against the attribute index and restrict to base set via JOIN
         sql.append(cte).append(" AS (\n");
-        sql.append("  SELECT x.event_id\n");
+        sql.append("  SELECT x.event_id, x.started_at\n");
         sql.append("  FROM ").append(attrIndexTable).append(" x\n");
-        sql.append("  JOIN base b ON b.event_id = x.event_id\n");
+        sql.append("  JOIN base b ON b.event_id = x.event_id AND b.started_at = x.started_at\n");
         sql.append("  WHERE x.attr_name = :").append(cte).append("_path\n");
         p.put(cte + "_path", path);
 

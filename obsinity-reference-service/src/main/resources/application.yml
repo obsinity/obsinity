@@ -6,6 +6,8 @@ spring:
     name: obsinity-reference-service
   main:
     banner-mode: "off"
+  jpa:
+    open-in-view: false
   datasource:
     url: jdbc:postgresql://obsinity-db:5432/obsinity?options=-c%20TimeZone%3DUTC
     username: obsinity

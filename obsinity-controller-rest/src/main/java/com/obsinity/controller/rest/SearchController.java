@@ -85,7 +85,8 @@ public class SearchController {
         }
 
         // Execute CTE-backed search (returns full events from events_raw)
-        List<Map<String, Object>> rows = search.query(ast, page);
+        boolean includeTotal = Boolean.TRUE.equals(body.includeTotal);
+        List<Map<String, Object>> rows = search.query(ast, page, includeTotal);
 
         // Post-filter full events using SQL-like ops on JSON paths
         if (body.filter != null) {
@@ -101,7 +102,6 @@ public class SearchController {
             data.add(normalizeRow(row));
         }
 
-        long total = extractTotal(rows, ast, page);
         long count = data.size();
         int limit = page.limit();
         long offset = page.offset();
@@ -109,7 +109,10 @@ public class SearchController {
 
         Map<String, Object> wrapper = new LinkedHashMap<>();
         wrapper.put("count", count);
-        wrapper.put("total", total);
+        Long total = includeTotal ? extractTotal(rows, ast, page) : null;
+        if (includeTotal) {
+            wrapper.put("total", total);
+        }
         wrapper.put("limit", limit);
         wrapper.put("offset", offset);
         wrapper.put("format", format.wireValue());
@@ -135,6 +138,7 @@ public class SearchController {
         public Integer limit; // defaulted by service
         public Long offset; // defaulted by service
         public ResponseFormat format; // row (default) | columnar
+        public Boolean includeTotal; // optional; when true compute exact total count
     }
 
     public static class Period {
@@ -287,7 +291,7 @@ public class SearchController {
         }
         // If this page returned no rows, attempt to fetch first page to read matched_count, else 0
         try {
-            List<Map<String, Object>> first = search.query(ast, OBJqlPage.of(0L, 1));
+            List<Map<String, Object>> first = search.query(ast, OBJqlPage.of(0L, 1), true);
             if (first != null && !first.isEmpty()) {
                 Object mc = first.get(0).get("matched_count");
                 if (mc instanceof Number num) return num.longValue();
@@ -299,17 +303,19 @@ public class SearchController {
     }
 
     private Map<String, Object> buildLinks(
-            SearchBody body, long offset, int limit, long count, long total, ResponseFormat format) {
+            SearchBody body, long offset, int limit, long count, Long total, ResponseFormat format) {
         Map<String, Object> links = new LinkedHashMap<>();
         links.put("self", linkFor(offset, limit, body, format));
         links.put("first", linkFor(0, limit, body, format));
-        long lastOffset = (total <= 0) ? 0 : Math.max(0, ((total - 1) / (long) limit) * (long) limit);
-        links.put("last", linkFor(lastOffset, limit, body, format));
+        if (total != null && total > 0) {
+            long lastOffset = Math.max(0, ((total - 1) / (long) limit) * (long) limit);
+            links.put("last", linkFor(lastOffset, limit, body, format));
+        }
         long prevOffset = Math.max(0, offset - (long) limit);
         if (offset > 0) links.put("prev", linkFor(prevOffset, limit, body, format));
         long nextOffset = offset + (long) limit;
         // Be robust if total is unknown (0): include next when page is full
-        if (total > 0) {
+        if (total != null && total > 0) {
             if (offset + count < total) links.put("next", linkFor(nextOffset, limit, body, format));
         } else if (count >= limit) {
             links.put("next", linkFor(nextOffset, limit, body, format));

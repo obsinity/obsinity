@@ -98,11 +98,20 @@ public class CounterBuffer {
             }
         });
 
-        log.info(
-                "Buffer cleanup granularity={} epochsRemoved={} keysRemoved={} remainingEpochs={}",
-                granularity,
-                removedEpochs.get(),
-                removedKeys.get(),
-                granularityBuffer.size());
+        if (removedEpochs.get() > 0 || removedKeys.get() > 0) {
+            log.info(
+                    "Buffer cleanup granularity={} epochsRemoved={} keysRemoved={} remainingEpochs={}",
+                    granularity,
+                    removedEpochs.get(),
+                    removedKeys.get(),
+                    granularityBuffer.size());
+        } else if (log.isDebugEnabled()) {
+            log.debug(
+                    "Buffer cleanup granularity={} epochsRemoved={} keysRemoved={} remainingEpochs={}",
+                    granularity,
+                    removedEpochs.get(),
+                    removedKeys.get(),
+                    granularityBuffer.size());
+        }
     }
 }

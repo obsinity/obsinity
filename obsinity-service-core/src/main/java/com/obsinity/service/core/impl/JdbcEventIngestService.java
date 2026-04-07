@@ -33,6 +33,7 @@ import org.springframework.stereotype.Service;
 public class JdbcEventIngestService implements EventIngestService {
 
     private static final Logger log = LoggerFactory.getLogger(JdbcEventIngestService.class);
+    private static final Duration UNCONFIGURED_WARNING_THROTTLE = Duration.ofSeconds(30);
 
     private static final String INSERT_SQL =
             """
@@ -65,6 +66,7 @@ public class JdbcEventIngestService implements EventIngestService {
 
     // tiny in-memory cache to avoid re-hashing/upserting each time
     private final Map<String, String> servicePartitionKeyCache = new ConcurrentHashMap<>();
+    private final Map<String, Instant> unconfiguredWarningCache = new ConcurrentHashMap<>();
 
     public JdbcEventIngestService(
             NamedParameterJdbcTemplate jdbc,
@@ -104,7 +106,7 @@ public class JdbcEventIngestService implements EventIngestService {
 
         if (!configLookup.isServiceConfigured(serviceId)) {
             String message = "Service '" + serviceKey + "' is not configured";
-            log.warn(message);
+            logUnconfiguredWarning("service:" + serviceKey, message);
             unconfiguredEventQueue.publish(e, "UNCONFIGURED_SERVICE", message);
             return 0;
         }
@@ -118,7 +120,7 @@ public class JdbcEventIngestService implements EventIngestService {
         var eventConfigOpt = configLookup.get(serviceId, eventType);
         if (eventConfigOpt.isEmpty()) {
             String message = "Event type '" + eventType + "' for service '" + serviceKey + "' is not configured";
-            log.warn(message);
+            logUnconfiguredWarning("event:" + serviceKey + ":" + eventType, message);
             unconfiguredEventQueue.publish(e, "UNCONFIGURED_EVENT_TYPE", message);
             return 0;
         }
@@ -249,6 +251,21 @@ public class JdbcEventIngestService implements EventIngestService {
             stored += ingestOne(e);
         }
         return stored;
+    }
+
+    void logUnconfiguredWarning(String key, String message) {
+        Instant now = Instant.now();
+        Instant previous = unconfiguredWarningCache.putIfAbsent(key, now);
+        if (previous == null) {
+            log.warn(message);
+            return;
+        }
+        if (Duration.between(previous, now).compareTo(UNCONFIGURED_WARNING_THROTTLE) < 0) {
+            return;
+        }
+        if (unconfiguredWarningCache.replace(key, previous, now)) {
+            log.warn("{} (suppressed repeats for {}s)", message, UNCONFIGURED_WARNING_THROTTLE.toSeconds());
+        }
     }
 
     private EventTypeConfig resolveEventConfig(UUID serviceId, String eventType, String serviceKey) {

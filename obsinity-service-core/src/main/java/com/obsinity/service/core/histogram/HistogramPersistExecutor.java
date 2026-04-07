@@ -53,7 +53,9 @@ public class HistogramPersistExecutor {
     public void submit(Job job) {
         try {
             queue.put(new PersistJob(job.granularity(), job.epoch(), job.entries()));
-            log.info("Histogram persist queue depth={}/{}", queue.size(), queueCapacity);
+            if (log.isDebugEnabled()) {
+                log.debug("Histogram persist queue depth={}/{}", queue.size(), queueCapacity);
+            }
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Interrupted while submitting histogram persist job", ie);
@@ -76,7 +78,9 @@ public class HistogramPersistExecutor {
                             Instant.ofEpochSecond(job.epoch()),
                             job.entries().size(),
                             totalSamples);
-                    log.info("Histogram persist queue depth after drain={}/{}", queue.size(), queueCapacity);
+                    if (log.isDebugEnabled()) {
+                        log.debug("Histogram persist queue depth after drain={}/{}", queue.size(), queueCapacity);
+                    }
                 } finally {
                     activeJobs.decrementAndGet();
                 }

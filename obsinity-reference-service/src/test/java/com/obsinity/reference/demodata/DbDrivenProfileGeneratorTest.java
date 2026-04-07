@@ -170,6 +170,25 @@ class DbDrivenProfileGeneratorTest {
         assertEquals("RACE_UPDATED", repo.rows.get(conflictId).state);
     }
 
+    @Test
+    void skipsRunWhenServiceIsNotConfiguredYet() {
+        FakeRepo repo = new FakeRepo();
+        DemoProfileGeneratorProperties props = baseProps();
+        props.setEnabled(true);
+        props.setCreatePerRun(3);
+
+        Instant now = Instant.parse("2026-02-12T12:00:00Z");
+        FakeIngestService ingestService = new FakeIngestService();
+        RandomProvider provider = (instant, runEverySeconds) -> new Random(42L);
+        DbDrivenProfileGenerator generator = new DbDrivenProfileGenerator(
+                props, repo, provider, ingestService, serviceKey -> false, Clock.fixed(now, ZoneOffset.UTC));
+
+        generator.runOnce();
+
+        assertEquals(0, repo.countProfiles());
+        assertEquals(0, ingestService.batchesStored);
+    }
+
     private static DemoProfileGeneratorProperties baseProps() {
         DemoProfileGeneratorProperties props = new DemoProfileGeneratorProperties();
         props.setRunEvery(Duration.ofSeconds(1));
@@ -326,6 +345,8 @@ class DbDrivenProfileGeneratorTest {
 
     static final class FakeIngestService implements EventIngestService {
 
+        int batchesStored;
+
         @Override
         public int ingestOne(EventEnvelope e) {
             return e == null ? 0 : 1;
@@ -333,7 +354,9 @@ class DbDrivenProfileGeneratorTest {
 
         @Override
         public int ingestBatch(List<EventEnvelope> input) {
-            return input == null ? 0 : input.size();
+            int stored = input == null ? 0 : input.size();
+            batchesStored += stored;
+            return stored;
         }
     }
 }
