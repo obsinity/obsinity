@@ -6,8 +6,7 @@ import com.obsinity.service.core.model.config.EventConfig;
 import com.obsinity.service.core.model.config.ServiceConfig;
 import com.obsinity.service.core.model.config.ServiceConfigResponse;
 import com.obsinity.service.core.repo.ServicesCatalogRepository;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
+import com.obsinity.service.core.support.ServicePartitionKey;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
@@ -72,14 +71,11 @@ public class ConfigIngestService {
     }
 
     private ServiceMeta ensureService(String serviceKey) {
+        String partitionKey = ServicePartitionKey.forServiceKey(serviceKey);
+        servicesRepo.upsertService(serviceKey, partitionKey, "registered via config ingest");
         UUID serviceId = servicesRepo.findIdByServiceKey(serviceKey);
         if (serviceId == null) {
-            String partitionKey = partitionKeyFor(serviceKey);
-            servicesRepo.upsertService(serviceKey, partitionKey, "registered via config ingest");
-            serviceId = servicesRepo.findIdByServiceKey(serviceKey);
-            if (serviceId == null) {
-                throw new IllegalStateException("Failed to resolve service id for " + serviceKey);
-            }
+            throw new IllegalStateException("Failed to resolve service id for " + serviceKey);
         }
         return new ServiceMeta(serviceId, serviceKey);
     }
@@ -107,18 +103,6 @@ public class ConfigIngestService {
             }
         }
         return new Counts(events, counters, histograms, indexes);
-    }
-
-    private static String partitionKeyFor(String input) {
-        try {
-            byte[] sha = MessageDigest.getInstance("SHA-256")
-                    .digest(input.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder(16);
-            for (int i = 0; i < 8; i++) sb.append(String.format("%02x", sha[i]));
-            return sb.toString();
-        } catch (Exception e) {
-            throw new IllegalStateException("Unable to hash service key", e);
-        }
     }
 
     private record ServiceMeta(UUID serviceId, String serviceKey) {}

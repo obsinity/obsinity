@@ -1,5 +1,6 @@
 package com.obsinity.service.storage.impl;
 
+import java.sql.Timestamp;
 import java.time.*;
 import java.time.temporal.WeekFields;
 import java.util.List;
@@ -10,6 +11,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -25,7 +28,8 @@ import org.springframework.stereotype.Service;
 public class PartitionMaintenanceService {
 
     private static final Logger log = LoggerFactory.getLogger(PartitionMaintenanceService.class);
-    private static final Pattern PARTITION_KEY_RE = Pattern.compile("^[0-9a-f]{16}$");
+    private static final Pattern PARTITION_KEY_RE = Pattern.compile("^[0-9a-f]{8}$");
+    private static final String SCHEMA = "obsinity";
 
     private final JdbcTemplate jdbc;
     private final boolean autoAnalyzeEnabled;
@@ -45,6 +49,7 @@ public class PartitionMaintenanceService {
     }
 
     @EventListener(ApplicationReadyEvent.class)
+    @Order(Ordered.HIGHEST_PRECEDENCE + 100)
     public void onStartup() {
         log.info("Ensuring partitions at startup...");
         ensurePartitions();
@@ -79,6 +84,8 @@ public class PartitionMaintenanceService {
         WeekFields wf = WeekFields.of(Locale.UK); // ISO weeks; adapt if needed
         LocalDate start = today.minusWeeks(weeksBack).with(wf.dayOfWeek(), 1); // Monday (or your week start)
         LocalDate end = today.plusWeeks(weeksAhead).with(wf.dayOfWeek(), 1);
+        Instant repartitionStart = start.atStartOfDay().toInstant(ZoneOffset.UTC);
+        Instant repartitionEnd = end.plusWeeks(1).atStartOfDay().toInstant(ZoneOffset.UTC);
 
         for (String partitionKey : servicePartitionKeys) {
             if (!PARTITION_KEY_RE.matcher(partitionKey).matches()) {
@@ -103,6 +110,64 @@ public class PartitionMaintenanceService {
                 ensureAttrIndexChildIndexes(partitionKey, weekName(cursor), "event_attr_index");
                 cursor = next;
             }
+
+            backfillDefaultPartitions(partitionKey, repartitionStart, repartitionEnd);
+        }
+    }
+
+    private void backfillDefaultPartitions(String servicePartitionKey, Instant fromIncl, Instant toExcl) {
+        int rawMoved = jdbc.update(
+                """
+                WITH moved_rows AS (
+                  DELETE FROM obsinity.events_raw_default
+                  WHERE service_partition_key = ?
+                    AND started_at >= ?
+                    AND started_at < ?
+                  RETURNING event_id, event_type_id, parent_event_id, service_partition_key, event_type, kind,
+                            attributes, started_at, completed_at, duration_nanos, received_at, trace_id, span_id,
+                            parent_span_id, correlation_id, status
+                )
+                INSERT INTO obsinity.events_raw (
+                  event_id, event_type_id, parent_event_id, service_partition_key, event_type, kind, attributes,
+                  started_at, completed_at, duration_nanos, received_at, trace_id, span_id, parent_span_id,
+                  correlation_id, status
+                )
+                SELECT event_id, event_type_id, parent_event_id, service_partition_key, event_type, kind, attributes,
+                       started_at, completed_at, duration_nanos, received_at, trace_id, span_id, parent_span_id,
+                       correlation_id, status
+                FROM moved_rows
+                """,
+                servicePartitionKey,
+                Timestamp.from(fromIncl),
+                Timestamp.from(toExcl));
+
+        int attrMoved = jdbc.update(
+                """
+                WITH moved_rows AS (
+                  DELETE FROM obsinity.event_attr_index_default
+                  WHERE service_partition_key = ?
+                    AND started_at >= ?
+                    AND started_at < ?
+                  RETURNING service_partition_key, started_at, service_id, event_type_id, event_id, attr_name, attr_value
+                )
+                INSERT INTO obsinity.event_attr_index (
+                  service_partition_key, started_at, service_id, event_type_id, event_id, attr_name, attr_value
+                )
+                SELECT service_partition_key, started_at, service_id, event_type_id, event_id, attr_name, attr_value
+                FROM moved_rows
+                """,
+                servicePartitionKey,
+                Timestamp.from(fromIncl),
+                Timestamp.from(toExcl));
+
+        if (rawMoved > 0 || attrMoved > 0) {
+            log.info(
+                    "Backfilled default partitions servicePartitionKey={} rawMoved={} attrMoved={} window=[{}, {})",
+                    servicePartitionKey,
+                    rawMoved,
+                    attrMoved,
+                    fromIncl,
+                    toExcl);
         }
     }
 
@@ -120,7 +185,7 @@ public class PartitionMaintenanceService {
               IF NOT EXISTS (
                 SELECT 1 FROM pg_class c
                 JOIN pg_namespace n ON n.oid = c.relnamespace
-                WHERE n.nspname = 'public' AND c.relname = %s
+                WHERE n.nspname = %s AND c.relname = %s
               ) THEN
                 BEGIN
                   EXECUTE format(
@@ -136,6 +201,7 @@ public class PartitionMaintenanceService {
             $$;
             """
                         .formatted(
+                                literal(SCHEMA),
                                 literal(childTable),
                                 // params for format: child, parent, 'service_partition_key'
                                 literal(childTable),
@@ -159,7 +225,7 @@ public class PartitionMaintenanceService {
               IF NOT EXISTS (
                 SELECT 1 FROM pg_class c
                 JOIN pg_namespace n ON n.oid = c.relnamespace
-                WHERE n.nspname = 'public' AND c.relname = %s
+                WHERE n.nspname = %s AND c.relname = %s
               ) THEN
                 BEGIN
                   EXECUTE format(
@@ -175,6 +241,7 @@ public class PartitionMaintenanceService {
             $$;
             """
                         .formatted(
+                                literal(SCHEMA),
                                 literal(rangeChild),
                                 // format params: rangeChild, listChild, from, to
                                 literal(rangeChild),
@@ -194,7 +261,7 @@ public class PartitionMaintenanceService {
               IF NOT EXISTS (
                 SELECT 1 FROM pg_class c
                 JOIN pg_namespace n ON n.oid = c.relnamespace
-                WHERE n.nspname = 'public' AND c.relname = %s
+                WHERE n.nspname = %s AND c.relname = %s
               ) THEN
                 BEGIN
                   EXECUTE format('CREATE INDEX %%I ON %%I(attr_name, attr_value)', %s, %s);
@@ -207,6 +274,7 @@ public class PartitionMaintenanceService {
             $$;
             """
                         .formatted(
+                                literal(SCHEMA),
                                 literal("eai_attr_name_val_" + servicePartitionKey + "_" + week),
                                 literal("eai_attr_name_val_" + servicePartitionKey + "_" + week),
                                 literal(child)));
@@ -219,7 +287,7 @@ public class PartitionMaintenanceService {
               IF NOT EXISTS (
                 SELECT 1 FROM pg_class c
                 JOIN pg_namespace n ON n.oid = c.relnamespace
-                WHERE n.nspname = 'public' AND c.relname = %s
+                WHERE n.nspname = %s AND c.relname = %s
               ) THEN
                 BEGIN
                   EXECUTE format('CREATE INDEX %%I ON %%I(started_at DESC)', %s, %s);
@@ -232,6 +300,7 @@ public class PartitionMaintenanceService {
             $$;
             """
                         .formatted(
+                                literal(SCHEMA),
                                 literal("eai_time_desc_" + servicePartitionKey + "_" + week),
                                 literal("eai_time_desc_" + servicePartitionKey + "_" + week),
                                 literal(child)));
@@ -244,7 +313,7 @@ public class PartitionMaintenanceService {
               IF NOT EXISTS (
                 SELECT 1 FROM pg_class c
                 JOIN pg_namespace n ON n.oid = c.relnamespace
-                WHERE n.nspname = 'public' AND c.relname = %s
+                WHERE n.nspname = %s AND c.relname = %s
               ) THEN
                 BEGIN
                   EXECUTE format('CREATE INDEX %%I ON %%I(service_id, event_type_id)', %s, %s);
@@ -257,6 +326,7 @@ public class PartitionMaintenanceService {
             $$;
             """
                         .formatted(
+                                literal(SCHEMA),
                                 literal("eai_svc_evt_" + servicePartitionKey + "_" + week),
                                 literal("eai_svc_evt_" + servicePartitionKey + "_" + week),
                                 literal(child)));
@@ -273,7 +343,7 @@ public class PartitionMaintenanceService {
               IF NOT EXISTS (
                 SELECT 1 FROM pg_class c
                 JOIN pg_namespace n ON n.oid = c.relnamespace
-                WHERE n.nspname = 'public' AND c.relname = %s
+                WHERE n.nspname = %s AND c.relname = %s
               ) THEN
                 BEGIN
                   EXECUTE format('CREATE INDEX %%I ON %%I(event_type, started_at DESC, event_id)', %s, %s);
@@ -286,6 +356,7 @@ public class PartitionMaintenanceService {
             $$;
             """
                         .formatted(
+                                literal(SCHEMA),
                                 literal("er_evt_time_desc_" + servicePartitionKey + "_" + week),
                                 literal("er_evt_time_desc_" + servicePartitionKey + "_" + week),
                                 literal(child)));

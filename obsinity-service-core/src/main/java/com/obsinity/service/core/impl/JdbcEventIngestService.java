@@ -8,9 +8,9 @@ import com.obsinity.service.core.index.AttributeIndexingService;
 import com.obsinity.service.core.model.EventEnvelope;
 import com.obsinity.service.core.spi.EventIngestService;
 import com.obsinity.service.core.state.StateDetectionService;
+import com.obsinity.service.core.support.ServicePartitionKey;
 import com.obsinity.service.core.unconfigured.UnconfiguredEventQueue;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.sql.Types;
 import java.time.Duration;
 import java.time.Instant;
@@ -276,14 +276,15 @@ public class JdbcEventIngestService implements EventIngestService {
     }
 
     private String ensureServiceAndGetPartitionKey(String serviceKey) {
-        String partitionKey = partitionKeyFor(serviceKey);
+        String partitionKey = ServicePartitionKey.forServiceKey(serviceKey);
 
         try {
             jdbc.update(
                     """
                 insert into service_registry (service_key, service_partition_key, description)
                 values (:service_key, :service_partition_key, :description)
-                on conflict (service_key) do nothing
+                on conflict (service_key) do update
+                set service_partition_key = excluded.service_partition_key
                 """,
                     new MapSqlParameterSource()
                             .addValue("service_key", serviceKey)
@@ -302,18 +303,6 @@ public class JdbcEventIngestService implements EventIngestService {
                     (rs, rowNum) -> (UUID) rs.getObject(1));
         } catch (Exception ex) {
             return null;
-        }
-    }
-
-    private static String partitionKeyFor(String s) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest(s.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder(64);
-            for (byte b : hash) sb.append(String.format("%02x", b));
-            return sb.substring(0, 8);
-        } catch (Exception ex) {
-            throw new IllegalStateException("Unable to compute service partition key hash", ex);
         }
     }
 

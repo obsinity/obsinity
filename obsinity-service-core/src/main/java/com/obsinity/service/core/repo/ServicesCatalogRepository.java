@@ -17,7 +17,8 @@ public class ServicesCatalogRepository {
                 """
                 INSERT INTO service_registry (service_key, service_partition_key, description)
                 VALUES (?, ?, ?)
-                ON CONFLICT (service_key) DO NOTHING
+                ON CONFLICT (service_key) DO UPDATE
+                SET service_partition_key = EXCLUDED.service_partition_key
                 """,
                 serviceKey,
                 partitionKey,
@@ -35,7 +36,7 @@ public class ServicesCatalogRepository {
         }
     }
 
-    /** Returns the 8-char partition key for a given service_key, or null if unknown. */
+    /** Returns the canonical 8-char partition key for a given service_key, or null if unknown. */
     public String findPartitionKeyByServiceKey(String serviceKey) {
         try {
             return jdbc.queryForObject(

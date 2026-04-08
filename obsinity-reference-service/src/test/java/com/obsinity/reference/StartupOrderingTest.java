@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.obsinity.reference.api.SampleDataController;
 import com.obsinity.service.core.config.init.ConfigInitCoordinator;
+import com.obsinity.service.storage.impl.PartitionMaintenanceService;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -13,6 +14,8 @@ class StartupOrderingTest {
     @Test
     void runsConfigInitBeforeDemoGeneratorsOnApplicationReady() throws Exception {
         Order configOrder = ConfigInitCoordinator.class.getMethod("onStartup").getAnnotation(Order.class);
+        Order partitionOrder =
+                PartitionMaintenanceService.class.getMethod("onStartup").getAnnotation(Order.class);
         Order sampleOrder = SampleDataController.class
                 .getMethod("startUnifiedDemoOnStartup")
                 .getAnnotation(Order.class);
@@ -21,9 +24,12 @@ class StartupOrderingTest {
                 .getAnnotation(Order.class);
 
         assertThat(configOrder).isNotNull();
+        assertThat(partitionOrder).isNotNull();
         assertThat(sampleOrder).isNotNull();
         assertThat(profileOrder).isNotNull();
         assertThat(configOrder.value()).isEqualTo(Ordered.HIGHEST_PRECEDENCE);
+        assertThat(partitionOrder.value()).isGreaterThan(configOrder.value());
+        assertThat(partitionOrder.value()).isLessThan(sampleOrder.value());
         assertThat(sampleOrder.value()).isEqualTo(Ordered.LOWEST_PRECEDENCE);
         assertThat(profileOrder.value()).isEqualTo(Ordered.LOWEST_PRECEDENCE);
     }

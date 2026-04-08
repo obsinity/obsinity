@@ -7,12 +7,10 @@ import com.obsinity.service.core.config.ConfigRegistry;
 import com.obsinity.service.core.config.RegistrySnapshot;
 import com.obsinity.service.core.model.config.ServiceConfig;
 import com.obsinity.service.core.repo.ServicesCatalogRepository;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
+import com.obsinity.service.core.support.ServicePartitionKey;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 import org.slf4j.Logger;
@@ -135,28 +133,13 @@ public class ConfigInitCoordinator {
 
     private ServiceMeta ensureService(String serviceKey) {
         String key = serviceKey.trim();
+        String partitionKey = ServicePartitionKey.forServiceKey(key);
+        servicesRepo.upsertService(key, partitionKey, "Loaded from service definitions");
         java.util.UUID serviceId = servicesRepo.findIdByServiceKey(key);
         if (serviceId == null) {
-            String partitionKey = partitionKeyFor(key);
-            servicesRepo.upsertService(key, partitionKey, "Loaded from service definitions");
-            serviceId = servicesRepo.findIdByServiceKey(key);
-            if (serviceId == null) {
-                throw new IllegalStateException("Unable to register service " + key);
-            }
+            throw new IllegalStateException("Unable to register service " + key);
         }
         return new ServiceMeta(serviceId, key);
-    }
-
-    private static String partitionKeyFor(String input) {
-        try {
-            byte[] sha = MessageDigest.getInstance("SHA-256")
-                    .digest(input.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder(8 * 2);
-            for (int i = 0; i < 8; i++) sb.append(String.format("%02x", sha[i]));
-            return sb.toString();
-        } catch (Exception e) {
-            throw new IllegalStateException("Unable to compute hash for service key", e);
-        }
     }
 
     private record ServiceMeta(java.util.UUID serviceId, String serviceKey) {}
