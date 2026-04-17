@@ -16,6 +16,8 @@ Modules
 
 ## Instrumentation Building Blocks
 
+> ⚠️ **Controller methods:** Do **not** place `@Flow` directly on `@Controller` / `@RestController` methods. The HTTP response status code and request metadata are not available to the AOP layer and the resulting telemetry will be silently incomplete. Place `@Flow` on the service method called by the controller instead. See [controller-flow-gap.md](controller-flow-gap.md) for the full rationale and the two options being considered to resolve this.
+
 - `@Flow` wraps a method in the `FlowAspect`, producing a `FlowEvent` that carries attributes, context, trace metadata, and runtime status. Nested `@Flow` methods form parent/child flows. Each root flow also records a batch so sinks can emit correlated events.
 - `@Step` emits nested step events inside the active flow and records them under `events[]`. If a `@Step` executes without an active flow it is auto-promoted to a flow; use `@OrphanAlert` to set the log level for that promotion.
 - Attribute + context pushers: `@PushAttribute`, `@PushContextValue`, and their `@Pull*` counterparts enrich or consume the flow payload. `@PullAttribute`, `@PullAllAttributes`, `@PullContextValue`, and `@PullAllContextValues` bind values back into sink handlers.

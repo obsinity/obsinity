@@ -1,4 +1,4 @@
-# Repository Guidelines
+# Repository Guidelines - Obsinity Time Series
 
 ## Project Structure & Module Organization
 - Maven multi‑module project (Java 17). Root `pom.xml` lists modules like `obsinity-core`, `obsinity-client-*`, `obsinity-controller-*`, and `obsinity-reference-service`.
